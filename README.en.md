@@ -9,7 +9,14 @@
 
 [中文](README.md) | English
 
-A cross-preset session migration plugin for the DeepSeek Harness (a Cordis bundle): a principled exit for the preset lock — it **moves** a session across tool presets with a fixed-schema handoff summary instead of bypassing the official lock.
+> **Ever wanted to switch presets mid-session and found the switch locked?** The lock is right (see below) — but it shouldn't be a dead end. This plugin is the exit: it **moves** a session across tool presets with a fixed-schema handoff summary instead of picking the official lock.
+
+```mermaid
+flowchart LR
+  A[Original session<br>history & conventions] -->|compression worker, pro<br>~2K tokens| B[Fixed 5-section summary<br>≤1K tokens]
+  B -->|after your preview & confirm| C[New preset session<br>summary as goal]
+  A -. untouched .-> D[click back = rollback]
+```
 
 ## Why this exists
 
