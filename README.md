@@ -13,6 +13,8 @@ dsh plugin --profile web add github:<owner>/dsh-plugin-bridge#main
 # 重启 dsh web 生效
 ```
 
+`dsh plugin add` 本质是 `pnpm add`：git 依赖靠本包的 `prepare` 脚本现场构建 `lib/`。**pnpm ≥10 默认拦截依赖的构建脚本**，首次安装若失败，按 dsh 的提示把输出的 key 加进 profile 目录 `pnpm-workspace.yaml` 的 `allowBuilds` 后重跑即可。安装后 dsh 依 package.json 的 `dsh.bundle.patch` 声明把本插件挂进层栈（本包已声明）。
+
 ## 组成
 
 - `src/compression.ts` — 压缩核心（纯函数）：`buildBridgeSource` 取材（compaction 底稿 + 用户消息全文 + 最近轮结论，字符硬预算）、`buildBridgeInstruction` 固定五段摘要 schema、`buildBridgeKickoff` 首轮交接指令。**已在 26 组真实实验里验证**（见下）。

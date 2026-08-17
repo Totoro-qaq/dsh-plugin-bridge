@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "prepare": "npm run build",
+    "prepack": "npm run build",
     "test": "npm run build && node --experimental-strip-types --test test/*.test.mjs",
     "eval": "node eval/run.mjs",
     "pack:check": "npm pack --dry-run"
@@ -26,6 +26,11 @@
     "agent-preset"
   ],
   "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "engines": {
     "node": ">=22"
   },

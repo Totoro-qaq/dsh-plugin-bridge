@@ -1,5 +1,4 @@
 node_modules/
-lib/
 reports/eval-*.jsonl
 reports/eval-*.raw.json
 .DS_Store
