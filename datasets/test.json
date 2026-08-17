@@ -5,7 +5,10 @@
   "templates": {
     "plant": "我们在做「{name}」项目。硬约定：1) 本地端口固定 {port}；2) 数据库用 {db}，明确禁止引入 {ban}；3) 核心逻辑写在 {path}；4) 提交信息必须用{lang}写。请逐条确认，并各补一句简短理由。（本轮只做文字确认，不要创建、修改或读取任何文件）",
     "probe": "请根据会话目标里的交接摘要回答（每问一句话，直接给答案，不要读任何文件）：1) 本地端口是多少？2) 数据库选型是什么、禁止引入什么？3) 核心逻辑文件路径？4) 提交信息用什么语言？",
-    "drift": "按交接约定执行下一步：写出这个项目的本地启动命令（含端口）和核心逻辑文件的第一行代码或注释。不要创建或读取任何文件，直接用文字给出。"
+    "drift": "按交接约定执行下一步：写出这个项目的本地启动命令（含端口）和核心逻辑文件的第一行代码或注释。不要创建或读取任何文件，直接用文字给出。",
+    "bare": "我们在做「{name}」项目。这是上个会话未完成的任务，请继续推进。",
+    "probeBare": "请回答关于这个项目的以下问题（每问一句话，直接给答案，不要读任何文件）：1) 本地端口是多少？2) 数据库选型是什么、禁止引入什么？3) 核心逻辑文件路径？4) 提交信息用什么语言？",
+    "driftBare": "请执行下一步：写出这个项目的本地启动命令（含端口）和核心逻辑文件的第一行代码或注释。不要创建或读取任何文件，直接用文字给出。"
   },
   "themes": [
     {
@@ -16,11 +19,36 @@
       "port": 7101,
       "lang": "中文",
       "facts": [
-        { "key": "port", "expect": ["7101"] },
-        { "key": "db", "expect": ["PostgreSQL"] },
-        { "key": "ban", "expect": ["MongoDB"] },
-        { "key": "path", "expect": ["src/shop/orders.ts"] },
-        { "key": "lang", "expect": ["中文"] }
+        {
+          "key": "port",
+          "expect": [
+            "7101"
+          ]
+        },
+        {
+          "key": "db",
+          "expect": [
+            "PostgreSQL"
+          ]
+        },
+        {
+          "key": "ban",
+          "expect": [
+            "MongoDB"
+          ]
+        },
+        {
+          "key": "path",
+          "expect": [
+            "src/shop/orders.ts"
+          ]
+        },
+        {
+          "key": "lang",
+          "expect": [
+            "中文"
+          ]
+        }
       ]
     },
     {
@@ -31,11 +59,36 @@
       "port": 7202,
       "lang": "English",
       "facts": [
-        { "key": "port", "expect": ["7202"] },
-        { "key": "db", "expect": ["DuckDB"] },
-        { "key": "ban", "expect": ["Kafka"] },
-        { "key": "path", "expect": ["pipeline/transform.py"] },
-        { "key": "lang", "expect": ["English"] }
+        {
+          "key": "port",
+          "expect": [
+            "7202"
+          ]
+        },
+        {
+          "key": "db",
+          "expect": [
+            "DuckDB"
+          ]
+        },
+        {
+          "key": "ban",
+          "expect": [
+            "Kafka"
+          ]
+        },
+        {
+          "key": "path",
+          "expect": [
+            "pipeline/transform.py"
+          ]
+        },
+        {
+          "key": "lang",
+          "expect": [
+            "English"
+          ]
+        }
       ]
     }
   ]

@@ -1,0 +1,303 @@
+[
+  {
+    "id": "T11-B",
+    "set": "T",
+    "arm": "bare",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "code",
+    "theme": "电商后端",
+    "factsTotal": 5,
+    "summaryHits": 0,
+    "kickoffHits": 0,
+    "probeHits": 5,
+    "driftHits": 2,
+    "sectionsHit": 0,
+    "summaryChars": 0,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 76,
+        "out": 313,
+        "cacheRead": 1152
+      },
+      "worker": null,
+      "target": {
+        "in": 69755,
+        "out": 29005,
+        "cacheRead": 2159488
+      }
+    },
+    "ms": 263691,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  },
+  {
+    "id": "T11-S",
+    "set": "T",
+    "arm": "summary",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "code",
+    "theme": "电商后端",
+    "factsTotal": 5,
+    "summaryHits": 5,
+    "kickoffHits": 0,
+    "probeHits": 5,
+    "driftHits": 2,
+    "sectionsHit": 5,
+    "summaryChars": 585,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 76,
+        "out": 232,
+        "cacheRead": 1152
+      },
+      "worker": {
+        "in": 230,
+        "out": 753,
+        "cacheRead": 1408
+      },
+      "target": {
+        "in": 34268,
+        "out": 19541,
+        "cacheRead": 440576
+      }
+    },
+    "ms": 281936,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  },
+  {
+    "id": "T12-S",
+    "set": "T",
+    "arm": "summary",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "code",
+    "theme": "数据管道",
+    "factsTotal": 5,
+    "summaryHits": 5,
+    "kickoffHits": 4,
+    "probeHits": 5,
+    "driftHits": 2,
+    "sectionsHit": 5,
+    "summaryChars": 619,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 75,
+        "out": 257,
+        "cacheRead": 1152
+      },
+      "worker": {
+        "in": 175,
+        "out": 695,
+        "cacheRead": 1408
+      },
+      "target": {
+        "in": 32120,
+        "out": 12165,
+        "cacheRead": 310528
+      }
+    },
+    "ms": 182431,
+    "error": null
+  },
+  {
+    "id": "T12-B",
+    "set": "T",
+    "arm": "bare",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "code",
+    "theme": "数据管道",
+    "factsTotal": 5,
+    "summaryHits": 0,
+    "kickoffHits": 2,
+    "probeHits": 4,
+    "driftHits": 2,
+    "sectionsHit": 0,
+    "summaryChars": 0,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 75,
+        "out": 356,
+        "cacheRead": 1152
+      },
+      "worker": null,
+      "target": {
+        "in": 27934,
+        "out": 19322,
+        "cacheRead": 236672
+      }
+    },
+    "ms": 370735,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  },
+  {
+    "id": "T13-S",
+    "set": "T",
+    "arm": "summary",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "minimal",
+    "theme": "电商后端",
+    "factsTotal": 5,
+    "summaryHits": 5,
+    "kickoffHits": 0,
+    "probeHits": 5,
+    "driftHits": 2,
+    "sectionsHit": 5,
+    "summaryChars": 601,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 76,
+        "out": 292,
+        "cacheRead": 1152
+      },
+      "worker": {
+        "in": 197,
+        "out": 749,
+        "cacheRead": 1408
+      },
+      "target": {
+        "in": 34865,
+        "out": 6590,
+        "cacheRead": 663808
+      }
+    },
+    "ms": 287988,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  },
+  {
+    "id": "T13-B",
+    "set": "T",
+    "arm": "bare",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "minimal",
+    "theme": "电商后端",
+    "factsTotal": 5,
+    "summaryHits": 0,
+    "kickoffHits": 0,
+    "probeHits": 1,
+    "driftHits": 0,
+    "sectionsHit": 0,
+    "summaryChars": 0,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 76,
+        "out": 194,
+        "cacheRead": 1152
+      },
+      "worker": null,
+      "target": {
+        "in": 27348,
+        "out": 7402,
+        "cacheRead": 544256
+      }
+    },
+    "ms": 283490,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  },
+  {
+    "id": "T14-S",
+    "set": "T",
+    "arm": "summary",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "minimal",
+    "theme": "数据管道",
+    "factsTotal": 5,
+    "summaryHits": 4,
+    "kickoffHits": 0,
+    "probeHits": 4,
+    "driftHits": 4,
+    "sectionsHit": 5,
+    "summaryChars": 695,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 75,
+        "out": 280,
+        "cacheRead": 1152
+      },
+      "worker": {
+        "in": 201,
+        "out": 743,
+        "cacheRead": 1408
+      },
+      "target": {
+        "in": 14748,
+        "out": 6059,
+        "cacheRead": 283008
+      }
+    },
+    "ms": 284004,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  },
+  {
+    "id": "T14-B",
+    "set": "T",
+    "arm": "bare",
+    "tier": "pro",
+    "from": "minimal",
+    "to": "minimal",
+    "theme": "数据管道",
+    "factsTotal": 5,
+    "summaryHits": 0,
+    "kickoffHits": 0,
+    "probeHits": 1,
+    "driftHits": 0,
+    "sectionsHit": 0,
+    "summaryChars": 0,
+    "truncated": false,
+    "retried": false,
+    "tokens": {
+      "plant": {
+        "in": 75,
+        "out": 247,
+        "cacheRead": 1152
+      },
+      "worker": null,
+      "target": {
+        "in": 23643,
+        "out": 6328,
+        "cacheRead": 486016
+      }
+    },
+    "ms": 262114,
+    "error": null,
+    "caps": [
+      "kickoff"
+    ]
+  }
+]

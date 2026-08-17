@@ -10,6 +10,10 @@
  *   BRIDGE_ONLY='^T0[13]$' node eval/run.mjs
  *   DSH_API=http://127.0.0.1:3080/api node eval/run.mjs 3
  *
+ * A/B 对照（摘要迁移 vs 裸重开）：
+ *   BRIDGE_ARM=ab BRIDGE_TIER=pro BRIDGE_TO='^(code|minimal)$' node eval/run.mjs
+ *   BRIDGE_ARM=bare 只跑对照臂；默认 summary。ab 模式每个配置出成对两条（id-S / id-B）。
+ *
  * 输出：reports/eval-<timestamp>.jsonl（逐 run）+ .raw.json（汇总）。
  */
 import { mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
@@ -34,6 +38,11 @@ const CAPS = { plant: 150_000, worker: 360_000, target: 240_000 };
 const MODELS = { flash: 'deepseek-v4-flash', pro: 'deepseek-v4-pro' };
 const PROVIDER = 'deepseek-official';
 const PRESETS = ['standard', 'code', 'minimal', 'cordis'];
+
+/* A/B 对照与矩阵筛选。arm：summary（默认，完整 bridge 流水线）/ bare（裸重开对照臂）/ ab（成对）。 */
+const ARM = process.env.BRIDGE_ARM ?? 'summary';
+const TIER_FILTER = process.env.BRIDGE_TIER ? new RegExp(process.env.BRIDGE_TIER) : null;
+const TO_FILTER = process.env.BRIDGE_TO ? new RegExp(process.env.BRIDGE_TO) : null;
 
 let rpcSeq = 0;
 async function rpc(method, payload = {}, timeoutMs = 30_000) {
@@ -115,7 +124,16 @@ async function buildRuns() {
   for (const t of valid.themes)
     for (const d of t.directions)
       runs.push({ set: 'V', tier: d.tier, from: d.from, to: d.to, theme: t, templates: valid.templates });
-  return runs.map((r, i) => ({ ...r, id: `${r.set}${String(i + 1).padStart(2, '0')}` }));
+  let base = runs.map((r, i) => ({ ...r, id: `${r.set}${String(i + 1).padStart(2, '0')}` }));
+  if (TIER_FILTER) base = base.filter((r) => TIER_FILTER.test(r.tier));
+  if (TO_FILTER) base = base.filter((r) => TO_FILTER.test(r.to));
+  if (ARM === 'ab') {
+    return base.flatMap((r) => [
+      { ...r, arm: 'summary', id: `${r.id}-S` },
+      { ...r, arm: 'bare', id: `${r.id}-B` },
+    ]);
+  }
+  return base.map((r) => ({ ...r, arm: ARM }));
 }
 
 const SECTIONS = ['## 目标', '## 当前状态', '## 关键决策', '## 关键文件', '## 下一步'];
@@ -128,7 +146,7 @@ const score = (text, facts) => facts.filter((f) => hit(text, f.expect)).length;
 async function runOnce(r, workspaceId) {
   const t = r.theme;
   const rec = {
-    id: r.id, set: r.set, tier: r.tier, from: r.from, to: r.to, theme: t.name,
+    id: r.id, set: r.set, arm: r.arm, tier: r.tier, from: r.from, to: r.to, theme: t.name,
     factsTotal: t.facts.length, summaryHits: 0, kickoffHits: 0, probeHits: 0, driftHits: 0,
     sectionsHit: 0, summaryChars: 0, truncated: false, retried: false,
     tokens: { plant: null, worker: null, target: null }, ms: 0, error: null,
@@ -140,6 +158,24 @@ async function runOnce(r, workspaceId) {
     cleanup.push(src.sessionId);
     if (await promptCap(src.sessionId, fill(r.templates.plant, t), CAPS.plant)) rec.caps = [...(rec.caps ?? []), 'plant'];
     rec.tokens.plant = await tokenUsage(src.sessionId);
+
+    if (r.arm === 'bare') {
+      // 对照臂：裸重开。新会话只带任务标题/目标（等价「换个模式重开此题」），
+      // 不带任何历史约定；探针/漂移用不提「交接摘要」的中性措辞。
+      const dst = await rpc('session.create', { workspaceId, agentPreset: r.to });
+      cleanup.push(dst.sessionId);
+      await rpc('goal.create', { sessionId: dst.sessionId, objective: fill(r.templates.bare, t) });
+      if (await promptCap(dst.sessionId, '请继续。', CAPS.target)) rec.caps = [...(rec.caps ?? []), 'kickoff'];
+      rec.kickoffHits = score(await lastAssistantText(dst.sessionId), t.facts);
+
+      if (await promptCap(dst.sessionId, r.templates.probeBare, CAPS.target)) rec.caps = [...(rec.caps ?? []), 'probe'];
+      rec.probeHits = score(await lastAssistantText(dst.sessionId), t.facts);
+
+      if (await promptCap(dst.sessionId, r.templates.driftBare, CAPS.target)) rec.caps = [...(rec.caps ?? []), 'drift'];
+      rec.driftHits = score(await lastAssistantText(dst.sessionId), t.facts);
+      rec.tokens.target = await tokenUsage(dst.sessionId);
+      return rec;
+    }
 
     const source = buildBridgeSource(await foldedMessages(src.sessionId));
     rec.truncated = source.truncated;
@@ -207,7 +243,7 @@ async function lane() {
     results.push(rec);
     await appendFile(JSONL, `${JSON.stringify(rec)}\n`);
     console.log(
-      `${rec.id} ${rec.tier} ${rec.from}→${rec.to} [${rec.theme}] ` +
+      `${rec.id} ${rec.arm} ${rec.tier} ${rec.from}→${rec.to} [${rec.theme}] ` +
       (rec.error ? `ERROR ${rec.error}` : `摘${rec.summaryHits} 复述${rec.kickoffHits} 探${rec.probeHits} 漂${rec.driftHits}/${rec.factsTotal} 构${rec.sectionsHit}/5`) +
       `${rec.caps?.length ? ` 限速:${rec.caps.join('/')}` : ''} ${(rec.ms / 1000).toFixed(0)}s${rec.retried ? ' (重试)' : ''}`,
     );
