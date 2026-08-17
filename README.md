@@ -7,148 +7,152 @@
 [![dsh 0.1.0-rc.6 tested](https://img.shields.io/badge/dsh-0.1.0--rc.6%20tested-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![presets](https://img.shields.io/badge/presets-standard%20%C2%B7%20code%20%C2%B7%20minimal%20%C2%B7%20cordis-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
-中文 | [English](README.en.md)
+English | [中文](README.zh.md)
 
-> **想在会话中途换个模式继续，却发现切换入口是锁的？** 锁得对（原因见下）——但锁完不该是死路。本插件就是那个出口：用**固定 schema 的交接摘要**把会话从一种工具模式「搬家」到另一种，而不是绕开官方的模式锁。
+> **Ever wanted to switch presets mid-session and found the switch locked?** The lock is right (see below) — but it shouldn't be a dead end. This plugin is the exit: it **moves** a session across tool presets with a fixed-schema handoff summary instead of picking the official lock.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-flow.zh.svg" width="880" alt="Bridge 迁移流程：原会话（模式锁定）→ 压缩工人 → 固定五段摘要 → 你预览确认 → 新 preset 会话；原会话原封不动，随时点回 = 回退">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-flow.en.svg" width="880" alt="Bridge flow: original session (preset locked) → compression worker → fixed 5-section summary → your preview → new preset session; the original stays untouched — click back to roll back">
 </p>
 
-## 为什么有这个项目
+## Why this exists
 
-### 规则本身是对的：锁是保护，不是缺陷
+### The rule is right: the lock protects you, it is not a defect
 
-preset 不是「语气档位」，它是一整套组装：系统提示词 + 工具集 + 插件。会话历史里的每一条工具调用（bash、读文件、改代码）都只在当时那套工具集下合法。中途换掉组装，新组合可能没有旧工具——历史里就留下了无法执行的「幽灵调用」。模型续跑时看到自己没有的工具的调用记录，轻则行为错乱，重则调用不存在的东西。
+A preset is not a "tone dial" — it is a whole assembly: system prompt + tool set + plugins. Every tool call in a session's history (bash, file reads, edits) is legal only under the assembly that produced it. Swap the assembly mid-session and the new one may lack the old tools — leaving "ghost calls" in the history that it cannot execute. A model that sees calls to tools it doesn't have will at best behave erratically, at worst try to invoke things that don't exist.
 
-官方在网关层硬锁（`agent-preset-locked`），并在源码里写明「这是产品规则，不是机制约束」——`recompose()` 技术上完全能换（先卸载再挂载），是想清楚之后选择禁止。因为换完不会报错，而是**静默劣化**：会话还能跑，质量悄悄变差，用户根本不知道为什么。硬锁比静默劣化诚实得多。
+The official gateway hard-locks mid-session preset switching (`agent-preset-locked`), and the source states plainly: "this is a product rule, not a mechanism constraint" — `recompose()` could technically swap (unmount, then mount), and they chose not to after thinking it through. Because a swap wouldn't error; it would **silently degrade**: the session keeps running, quality quietly drops, and you never learn why. A hard lock is far more honest than silent degradation.
 
-分层也因此清晰：**模型和思考强度可以会话内切**（换「脑子」不影响历史合法性，官方 `session.selectModel` 就是这么设计的），**模式不能切**（换「手脚」会破坏历史）。本插件完全按这个分层接，和官方一致。
+The layering follows naturally: **model and thinking effort can switch mid-session** (swapping the "brain" doesn't invalidate history — that's exactly what `session.selectModel` does), **presets cannot** (swapping the "hands" breaks history). This plugin respects that layering exactly, in line with upstream.
 
-### 但「死路式」呈现让它体感像缺陷
+### But a dead-end presentation makes it feel like a defect
 
-用户的不适不是来自锁本身，而是**发现得太晚、锁了之后没有出口**：静态徽章只告诉你「此路不通」，不告诉你接下来怎么办。规则不该动，该补的是出口。
+The frustration doesn't come from the lock — it comes from **discovering it too late, with no exit once locked**: a static badge tells you "this road is closed" without saying what to do next. The rule shouldn't move; the missing piece is an exit.
 
-### Bridge 就是那个出口：搬家，不绕锁
+### Bridge is that exit: move house, don't pick the lock
 
-压缩历史 → 新 preset 建新会话 → 固定 schema 摘要注入为新会话的 goal → 首轮交接指令。**原会话全程不动，回退 = 点回原会话**（branch 而非 rollback）。
+Compress the history → open a new session under the target preset → inject a fixed-schema summary as the new session's goal → send a handoff kickoff. **The original session is never touched; rolling back is just clicking back to it** (branch, not rollback).
 
-无损原理上不存在，「**有损 + 可预览 + 可验证 + 可回退**」= 实用稳定：
+Lossless migration is impossible in principle, so the design is "**lossy + previewable + verifiable + revertible**" = practically stable:
 
-- **可预览**：摘要全文在迁移前展示，可编辑，不确认不执行（零静默）
-- **可验证**：固定五段 schema（目标 / 当前状态 / 关键决策与约定 / 关键文件 / 下一步），新会话首轮先复述理解，事实在不在一问便知
-- **可回退**：原会话是不可变只读事实，随时点回去
+- **Previewable**: the full summary is shown and editable before anything happens — nothing runs without your confirmation (zero silence)
+- **Verifiable**: a fixed five-section schema (Goal / Current state / Key decisions & conventions / Key files / Next step); the new session restates its understanding in the first turn, so missing facts are immediately visible
+- **Revertible**: the original session is an immutable, read-only fact you can return to at any time
 
-## 安装
+## Installation
 
 ```bash
 dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
-# 重启 dsh web 生效
+# restart dsh web to take effect
 ```
 
-`dsh plugin add` 会把本包加入 profile 的 `dsh.profile.bundles` 层栈（本包已在 package.json 声明 `dsh.bundle.patch`）。`lib/` 随仓库预构建发布，git 直装**不需要** pnpm ≥10 的 `allowBuilds` 白名单。
+`dsh plugin add` puts this package on the profile's `dsh.profile.bundles` layer stack (this package declares `dsh.bundle.patch` in its package.json). `lib/` ships prebuilt in the repo, so git installs need **no** pnpm ≥10 `allowBuilds` entry.
 
-> ⚠️ **会有额外 token 消耗**：每次迁移 ≈ 压缩 ~2K tokens + 注入 ≤1K tokens（约等于多发一轮消息）。实测数据见下文「Token 消耗」一节。
+> ⚠️ **Extra token cost**: each migration costs ≈ ~2K tokens to compress + ≤1K tokens to inject (roughly one more message's worth). Measured data in "Token cost" below.
 
-不想要了随时可卸：
+Changed your mind? Uninstall any time:
 
 ```bash
-dsh plugin --profile web remove dsh-plugin-bridge   # 重启 dsh web 后生效
+dsh plugin --profile web remove dsh-plugin-bridge   # restart dsh web to take effect
 ```
 
-## 用法：没有 GUI 也能用
+## Usage: no custom GUI required
 
-本插件注册的是一个 **agent 技能**（`bridge`），不是 UI 组件——它把迁移流程和固定摘要 schema 教给 agent，由 agent 编排，人只在关键点确认。
+This plugin ships an **agent skill** (`bridge`), not a UI component — it teaches the agent the migration flow and the fixed summary schema. The agent orchestrates; you confirm at the checkpoints.
 
-**官方 WebUI（无定制 GUI）**：直接对 agent 说「把这个会话迁到 code 模式」（或按你的习惯表述）。agent 按技能流程执行：
+**Official WebUI**: just tell the agent in the current session, e.g. "migrate this session to code mode" (optionally "with the pro compression tier"). The agent will:
 
-1. 拉取并折叠当前会话历史（`session.history`），按字符硬预算取材（用户消息全文 + 最近轮结论 + 最近一次 compaction 底稿）
-2. 起一个**压缩工人**（临时 minimal 会话，默认 pro 档位）生成固定五段摘要，工人用完归档
-3. **把摘要全文给你预览**——你确认（或编辑）后才继续，这一步之前什么都不改
-4. 用目标 preset 建新会话，摘要注入为 goal，发首轮交接指令，切过去
+1. Pull and fold the current history (`session.history`), collecting material under a hard character budget (full user messages + recent assistant conclusions + the latest compaction draft)
+2. Spin up a **compression worker** (a throwaway minimal session, pro tier by default) that produces the fixed five-section summary, then archive the worker
+3. **Show you the full summary for review** — nothing changes until you confirm (or edit)
+4. Create a session under the target preset, attach the summary as its goal, send the kickoff, and switch over
 
-**TotoroPilot（GUI）**：同一条流水线由 BridgeModal 弹窗承载——目标模式下拉、压缩档位选择、摘要预览可编辑、成本预估行，确认后一键迁移。
+**TotoroPilot (GUI)**: the same pipeline lives in a BridgeModal — target-preset dropdown, compression tier, editable summary preview, cost estimate, one-click confirm.
 
-逐步操作手册（含确认点清单、回退、FAQ）：[docs/guide.zh.md](docs/guide.zh.md)。
+A full step-by-step guide with screenshots-level detail: [docs/guide.zh.md](docs/guide.zh.md) (中文).
 
-## Token 消耗（实测数据，2026-08-17）
+## Token cost (measured, 2026-08-17)
 
-**迁移一次（用户视角）**：压缩工人 ~1.6K 输入 / ~0.7K 输出，注入侧摘要 ≤1K tokens——**每次迁移约 2K tokens，相当于多发一轮消息**。这是唯一的额外消耗；原会话不产生任何新费用。
+**Per migration (user's view)**: the compression worker costs ~1.6K input / ~0.7K output, and the injected summary is ≤1K tokens — **about 2K tokens per migration, roughly one extra message**. That is the entire overhead; the original session accrues no further cost.
 
-**对照组（为什么值得花这 2K）**：裸重开让 agent 自己翻找找回约定，A/B 实测单 run 最高烧 **220 万**输入 tokens——差三个数量级，且照样漂移。
+**The counterfactual (why those 2K are worth it)**: a bare restart that lets the agent scavenge conventions back from disk burned up to **2.2M** input tokens in a single run in our A/B — three orders of magnitude more, and it still drifted.
 
-**自己跑评测（开发者视角）**：评测消耗的是你自己的 token，不进 CI。实测账单：
+**Running the evaluation (developer's view)**: the eval burns your own tokens and is not in CI. Measured bills:
 
-| 批次 | 规模 | 未缓存输入 | 缓存命中输入 | 输出 | 合计 |
+| Batch | Size | Uncached input | Cache-hit input | Output | Total |
 |---|---|---|---|---|---|
-| 全量 benchmark | 26 run | 68.6 万 | 1,288 万 | 41.5 万 | ≈ 14.0M |
-| A/B 对照 | 8 run | 26.6 万 | 514 万 | 11.2 万 | ≈ 5.5M |
+| Full benchmark | 26 runs | 686K | 12.9M | 415K | ≈ 14.0M |
+| A/B control | 8 runs | 266K | 5.1M | 112K | ≈ 5.5M |
 
-93% 的输入走 provider 缓存命中（埋点与压缩指令重复度高），实际计费远低于表面数字；缓存命中价通常约为未命中的 1/10，自行按 provider 单价折算。
+93% of input hit the provider prompt cache (the planting and compression instructions are highly repetitive), so the billed cost is far below the headline numbers; cache hits are typically ~1/10 the uncached price — convert with your provider's rates.
 
-## 组成
+## What's inside
 
-- `src/compression.ts` — 压缩核心（纯函数）：`buildBridgeSource` 取材、`buildBridgeInstruction` 固定五段摘要 schema、`buildBridgeKickoff` 首轮交接指令。已在 26 组真实实验里验证（见下）。
-- `src/index.ts` — Cordis bundle：注册 `bridge` skill + 配置命名空间（`modelTier` / `sourceCharBudget` / `summaryCharBudget`，可用 `DSH_BRIDGE_*` 环境变量覆盖）。
-- `skills/bridge/SKILL.md` — 给 agent 的迁移说明书（原则、RPC 流程、档位建议）。
-- `eval/` + `datasets/` — 评测 harness 与测试集/验证集。
-- `docs/plan.md` — 完整设计文档（Token 成本设计、回退设计）。
+- `src/compression.ts` — compression core (pure functions): `buildBridgeSource` (material collection), `buildBridgeInstruction` (fixed five-section schema), `buildBridgeKickoff` (first-turn handoff). Validated in 26 real runs (below).
+- `src/index.ts` — Cordis bundle: registers the `bridge` skill + a config namespace (`modelTier` / `sourceCharBudget` / `summaryCharBudget`, overridable via `DSH_BRIDGE_*` env vars).
+- `skills/bridge/SKILL.md` — the agent-facing migration manual (principles, RPC flow, tier guidance).
+- `eval/` + `datasets/` — evaluation harness and test/validation splits.
+- `docs/plan.md` — full design doc (token cost design, rollback design).
 
-## 准确率（2026-08，26 组真实 run，全文见 docs/benchmark.md）
+## Accuracy (2026-08, 26 real runs; full data in docs/benchmark.md)
 
-| 指标 | 测试集 T16 | 验证集 V6 |
+| Metric | Test split T16 | Validation split V6 |
 |---|---|---|
-| 摘要保真（工人摘要含多少事实） | 97.5% | 96.7% |
-| **探针可用性（迁移后事实可回忆）** | **87.5%** | **83.3%** |
-| 摘要结构合规（五段标题） | 100% | 100% |
+| Summary fidelity (facts in the worker summary) | 97.5% | 96.7% |
+| **Probe usability (facts recallable after migration)** | **87.5%** | **83.3%** |
+| Schema compliance (five-section headers) | 100% | 100% |
 
-按配置拆（测试集）：
+By configuration (test split):
 
-| 压缩档位 | 探针可用性 | 工人成本 |
+| Compression tier | Probe usability | Worker cost |
 |---|---|---|
-| **pro（默认）** | **95%**，迁 cordis 目标 100% | ~2K tokens/run |
-| flash | 80%，且 flash→minimal 三次两次全灭 | 几乎同价 |
+| **pro (default)** | **95%**; 100% into cordis targets | ~2K tokens/run |
+| flash | 80%; flash→minimal wiped out 2 of 3 runs | nearly identical |
 
-其他结论：**源 preset 对保真度零影响**（对照组 4/4 全 5/5）——迁移质量只取决于摘要质量与目标注入；执行偏移集中在「数字合理化」（端口被补全成常见值），路径基本不漂。失败模式已枚举并有缓解（见 benchmark §7），残差风险由「预览确认 + 原会话可回退」兜住。
+More findings: **the source preset has zero effect on fidelity** (control group 4/4 at 5/5) — migration quality depends only on summary quality and target injection. Execution drift concentrates in "number rationalization" (ports completed to common values); paths barely drift. Failure modes are enumerated with mitigations (benchmark §7), and residual risk is absorbed by preview-confirm + the revertible original session.
 
-## A/B 验证：摘要迁移 vs 裸重开（2026-08，8 条成对 run）
+## A/B: summary migration vs bare restart (2026-08, 8 paired runs)
 
-对照设计：同一埋点（5 个硬约定事实）、同一探针与漂移模板；**对照臂**新会话只带任务标题（等价「换个模式重开此题」），**实验臂**走完整 bridge 流水线。pro 档位，code / minimal 两种目标 × 2 题材 × 2 臂（`reports/ab-2026-08-17.raw.json`）。
+Design: same fact planting (5 hard conventions), same probes and drift task; the **control arm** opens a new session carrying only the task title (the "restart under another preset" idea), the **treatment arm** runs the full bridge pipeline. Pro tier, code / minimal targets × 2 themes × 2 arms (`reports/ab-2026-08-17.raw.json`).
 
-| 臂 | 探针可用性 | 执行携带约定 | 总输入 tokens |
+| Arm | Probe usability | Conventions carried into execution | Total input tokens |
 |---|---|---|---|
-| **bridge 摘要** | **19/20（95%）** | 10/20 | **1.8M** |
-| 裸重开 | 11/20（55%） | 4/20 | 3.6M |
+| **bridge summary** | **19/20 (95%)** | 10/20 | **1.8M** |
+| bare restart | 11/20 (55%) | 4/20 | 3.6M |
 
-关键发现：
+Key findings:
 
-- 裸重开进 **minimal**（无工具）：探针 1/5——真正的「失忆」，约定全丢；
-- 裸重开进 **code**（有工具）：探针 4-5/5，但机制是 agent 在首轮发起 **25+ 次工具调用的翻找循环**（单 run 烧 220 万输入 tokens、必触 240s 限速），从 host 会话日志里把约定翻回来（复现诊断：`node eval/inspect-bare.mjs`）。**更贵、更慢、仍然漂**（漂移 2/5），且依赖工具存在、磁盘日志与模型主动性——是偶然，不是方案；
-- 结论：摘要的价值不只是「记得」，而是**以约一半的 token 代价、在任何 preset 下稳定地记得**。README 第一章的「为什么有」由此从论述变成证据。
+- Bare restart into **minimal** (no tools): 1/5 probe — genuine amnesia; every convention is lost.
+- Bare restart into **code** (tools available): 4-5/5 probe, but the mechanism is a **scavenging loop of 25+ tool calls in the first turn** (one run burned 2.2M input tokens and hit the 240s turn cap) digging the conventions back out of host session logs (reproduce with `node eval/inspect-bare.mjs`). **Pricier, slower, and still drifting** (2/5) — and it depends on tools existing, on-disk logs, and model initiative. That's luck, not a plan.
+- Conclusion: the summary's value is not just "remembering" — it is **remembering reliably, under any preset, at about half the token cost**. The "why" in the first chapter is now evidence, not argument.
 
-复现：`BRIDGE_ARM=ab BRIDGE_TIER=pro BRIDGE_TO='^(code|minimal)$' BRIDGE_ONLY='^T1[1-4](-|$)' node eval/run.mjs 2`
+## Testing & verification
 
-## 测试与验证
+- **27 unit tests** (`npm test`): compression behavior, summary-schema contracts (header order, per-section limits, anti-fabrication rules, budget consistency), and load smoke tests (plugin loads under a real Cordis `Context`; pends correctly when its `inject` is missing).
+- **End-to-end on a real dsh install** (0.1.0-rc.6): `dsh plugin add` → reconcile appends the bundle to `dsh.profile.bundles` → `--dump-config` shows the bridge row → `pluginInventory/list` on a live host reports `fiberPhase: active`.
+- CI additionally checks: `lib/` is in sync with `src/`, datasets parse, `npm pack` contents are complete.
 
-- **27 条单元测试**（`npm test`）：压缩核心行为、摘要五段 schema 契约（标题顺序/条数上限/反编造规则/预算同源）、加载冒烟（真实 cordis Context 中 `ctx.plugin()` 完成注册，缺 inject 正确挂起）。
-- **真实 dsh 环境端到端**（dsh 0.1.0-rc.6 实测）：`dsh plugin add` 安装 → reconcile 自动加入 `dsh.profile.bundles` → `--dump-config` 层栈含 bridge 行 → 运行中 host 的 `pluginInventory/list` 显示 `fiberPhase: active`。
-- CI 额外校验：`lib/` 与 `src/` 同步、数据集可解析、`npm pack` 内容完整。
-
-## 自己跑评测（消耗你自己的 token，不进 CI）
+## Running the evaluation yourself (burns your own tokens; not in CI)
 
 ```bash
-# 前置：本地跑着 dsh web 且已配模型凭据
-npm run eval            # 全量 26 run（约 40-60 分钟、千万级输入 tokens）
-BRIDGE_ONLY='^T0[13]$' npm run eval   # 只跑子集
+# prerequisite: a local dsh web with model credentials configured
+npm run eval            # full 26 runs (~40-60 min, tens of millions of input tokens)
+BRIDGE_ONLY='^T0[13]$' npm run eval   # subset only
 DSH_API=http://127.0.0.1:3080/api npm run eval 3
 ```
 
-数据集在 `datasets/`（test / validation 两个 split，含题材、事实点期望、探针与漂移模板），欢迎 PR 新题材。
+A/B control (summary migration vs bare restart):
 
-## 工程注意（实测坑）
+```bash
+BRIDGE_ARM=ab BRIDGE_TIER=pro BRIDGE_TO='^(code|minimal)$' BRIDGE_ONLY='^T1[1-4](-|$)' node eval/run.mjs 2
+```
 
-- cordis preset 的会话在开放式提示下会进入长时间工具循环（单轮 >10 分钟），eval 里所有轮次都有超时即 `session.cancel` 的看门狗；杀客户端进程**不会**终止 host 侧轮次。
-- host 的 RPC 只有归档（`workspace.archiveSession`）没有删除；物理删除需停 host 后清理 `~/.dsh/sessions/`。
+Datasets live in `datasets/` (test / validation splits with themes, fact expectations, probe and drift templates) — PRs with new themes are welcome.
+
+## Engineering notes (learned the hard way)
+
+- A cordis-preset session under open-ended prompts can enter long tool loops (a single turn >10 min); every eval turn has a watchdog that cancels on timeout — and killing the client process does **not** stop the host-side turn.
+- The host RPC only archives (`workspace.archiveSession`), never deletes; physical deletion means stopping the host and cleaning `~/.dsh/sessions/`.
 
 ## License
 
