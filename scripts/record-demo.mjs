@@ -152,8 +152,8 @@ async function record(lang) {
     await page.waitForTimeout(1200);
     beat('modal');
 
-    // 目标模式 code + pro 档位 + 生成摘要
-    await page.locator('.bridge-modal select').selectOption('code');
+    // 目标模式（分段按钮组，新版无下拉）+ pro 档位 + 生成摘要
+    await page.locator('.bridge-modal div[role="group"]').first().locator('button', { hasText: 'PTC' }).click();
     await page.locator('.bridge-modal .seg button', { hasText: lang === 'zh' ? 'Pro' : 'Pro' }).click();
     await page.waitForTimeout(600);
     await page.locator('.bridge-modal .primary-btn').click();
