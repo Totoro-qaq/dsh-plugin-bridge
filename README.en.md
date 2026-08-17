@@ -43,6 +43,14 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
 
 `dsh plugin add` puts this package on the profile's `dsh.profile.bundles` layer stack (this package declares `dsh.bundle.patch` in its package.json). `lib/` ships prebuilt in the repo, so git installs need **no** pnpm ≥10 `allowBuilds` entry.
 
+> ⚠️ **Extra token cost**: each migration costs ≈ ~2K tokens to compress + ≤1K tokens to inject (roughly one more message's worth). Measured data in "Token cost" below.
+
+Changed your mind? Uninstall any time:
+
+```bash
+dsh plugin --profile web remove dsh-plugin-bridge   # restart dsh web to take effect
+```
+
 ## Usage: no custom GUI required
 
 This plugin ships an **agent skill** (`bridge`), not a UI component — it teaches the agent the migration flow and the fixed summary schema. The agent orchestrates; you confirm at the checkpoints.
@@ -57,6 +65,21 @@ This plugin ships an **agent skill** (`bridge`), not a UI component — it teach
 **TotoroPilot (GUI)**: the same pipeline lives in a BridgeModal — target-preset dropdown, compression tier, editable summary preview, cost estimate, one-click confirm.
 
 A full step-by-step guide with screenshots-level detail: [docs/guide.zh.md](docs/guide.zh.md) (中文).
+
+## Token cost (measured, 2026-08-17)
+
+**Per migration (user's view)**: the compression worker costs ~1.6K input / ~0.7K output, and the injected summary is ≤1K tokens — **about 2K tokens per migration, roughly one extra message**. That is the entire overhead; the original session accrues no further cost.
+
+**The counterfactual (why those 2K are worth it)**: a bare restart that lets the agent scavenge conventions back from disk burned up to **2.2M** input tokens in a single run in our A/B — three orders of magnitude more, and it still drifted.
+
+**Running the evaluation (developer's view)**: the eval burns your own tokens and is not in CI. Measured bills:
+
+| Batch | Size | Uncached input | Cache-hit input | Output | Total |
+|---|---|---|---|---|---|
+| Full benchmark | 26 runs | 686K | 12.9M | 415K | ≈ 14.0M |
+| A/B control | 8 runs | 266K | 5.1M | 112K | ≈ 5.5M |
+
+93% of input hit the provider prompt cache (the planting and compression instructions are highly repetitive), so the billed cost is far below the headline numbers; cache hits are typically ~1/10 the uncached price — convert with your provider's rates.
 
 ## What's inside
 

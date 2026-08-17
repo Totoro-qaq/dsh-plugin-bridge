@@ -43,6 +43,14 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
 
 `dsh plugin add` 会把本包加入 profile 的 `dsh.profile.bundles` 层栈（本包已在 package.json 声明 `dsh.bundle.patch`）。`lib/` 随仓库预构建发布，git 直装**不需要** pnpm ≥10 的 `allowBuilds` 白名单。
 
+> ⚠️ **会有额外 token 消耗**：每次迁移 ≈ 压缩 ~2K tokens + 注入 ≤1K tokens（约等于多发一轮消息）。实测数据见下文「Token 消耗」一节。
+
+不想要了随时可卸：
+
+```bash
+dsh plugin --profile web remove dsh-plugin-bridge   # 重启 dsh web 后生效
+```
+
 ## 用法：没有 GUI 也能用
 
 本插件注册的是一个 **agent 技能**（`bridge`），不是 UI 组件——它把迁移流程和固定摘要 schema 教给 agent，由 agent 编排，人只在关键点确认。
@@ -57,6 +65,21 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
 **TotoroPilot（GUI）**：同一条流水线由 BridgeModal 弹窗承载——目标模式下拉、压缩档位选择、摘要预览可编辑、成本预估行，确认后一键迁移。
 
 逐步操作手册（含确认点清单、回退、FAQ）：[docs/guide.zh.md](docs/guide.zh.md)。
+
+## Token 消耗（实测数据，2026-08-17）
+
+**迁移一次（用户视角）**：压缩工人 ~1.6K 输入 / ~0.7K 输出，注入侧摘要 ≤1K tokens——**每次迁移约 2K tokens，相当于多发一轮消息**。这是唯一的额外消耗；原会话不产生任何新费用。
+
+**对照组（为什么值得花这 2K）**：裸重开让 agent 自己翻找找回约定，A/B 实测单 run 最高烧 **220 万**输入 tokens——差三个数量级，且照样漂移。
+
+**自己跑评测（开发者视角）**：评测消耗的是你自己的 token，不进 CI。实测账单：
+
+| 批次 | 规模 | 未缓存输入 | 缓存命中输入 | 输出 | 合计 |
+|---|---|---|---|---|---|
+| 全量 benchmark | 26 run | 68.6 万 | 1,288 万 | 41.5 万 | ≈ 14.0M |
+| A/B 对照 | 8 run | 26.6 万 | 514 万 | 11.2 万 | ≈ 5.5M |
+
+93% 的输入走 provider 缓存命中（埋点与压缩指令重复度高），实际计费远低于表面数字；缓存命中价通常约为未命中的 1/10，自行按 provider 单价折算。
 
 ## 组成
 
