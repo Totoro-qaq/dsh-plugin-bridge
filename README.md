@@ -11,12 +11,9 @@
 
 > **想在会话中途换个模式继续，却发现切换入口是锁的？** 锁得对（原因见下）——但锁完不该是死路。本插件就是那个出口：用**固定 schema 的交接摘要**把会话从一种工具模式「搬家」到另一种，而不是绕开官方的模式锁。
 
-```mermaid
-flowchart LR
-  A[原会话<br>历史与约定] -->|压缩工人 pro<br>约 2K tokens| B[固定五段摘要<br>≤1K tokens]
-  B -->|你预览确认后| C[新 preset 会话<br>摘要挂为 goal]
-  A -. 原封不动 .-> D[随时点回 = 回退]
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-flow.zh.svg" width="880" alt="Bridge 迁移流程：原会话（模式锁定）→ 压缩工人 → 固定五段摘要 → 你预览确认 → 新 preset 会话；原会话原封不动，随时点回 = 回退">
+</p>
 
 ## 为什么有这个项目
 

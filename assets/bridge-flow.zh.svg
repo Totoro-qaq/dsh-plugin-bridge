@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="260" viewBox="0 0 880 260" font-family="system-ui,-apple-system,'Segoe UI',Roboto,'PingFang SC','Microsoft YaHei',sans-serif">
+  <style>
+    .card{fill:#f6f8fa;stroke:#d0d7de;stroke-width:1.5}
+    .glow{fill:#dbeafe;opacity:0}
+    .lab{font-size:14px;font-weight:600;fill:#1f2328}
+    .sub{font-size:11px;fill:#57606a}
+    .back{stroke:#8250df;stroke-width:1.5;stroke-dasharray:6 6;fill:none}
+    .backlab{font-size:11px;fill:#8250df}
+    .pkt{fill:#0969da}
+    .pkthalo{fill:#0969da;opacity:.25}
+    .check{font-size:18px;font-weight:700;fill:#1a7f37;opacity:0}
+    @media (prefers-color-scheme: dark){
+      .card{fill:#161b22;stroke:#30363d}
+      .glow{fill:#1c2a4a}
+      .lab{fill:#e6edf3}
+      .sub{fill:#8b949e}
+      .back{stroke:#d2a8ff}
+      .backlab{fill:#d2a8ff}
+      .pkt{fill:#58a6ff}
+      .pkthalo{fill:#58a6ff;opacity:.25}
+      .check{fill:#3fb950}
+    }
+  </style>
+
+  <!-- 回退虚线（底层） -->
+  <path class="back" d="M 796 196 C 700 240, 260 240, 84 196" marker-end="url(#arr)">
+    <animate attributeName="stroke-dashoffset" from="0" to="-48" dur="6s" repeatCount="indefinite"/>
+  </path>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#8250df"/>
+    </marker>
+  </defs>
+  <text class="backlab" x="440" y="252" text-anchor="middle">随时点回原会话 = 回退</text>
+
+  <!-- 五站卡片 -->
+  <g>
+    <rect class="glow" x="16" y="92" width="136" height="76" rx="10"/>
+    <rect class="card" x="16" y="92" width="136" height="76" rx="10"/>
+    <text class="lab" x="84" y="122" text-anchor="middle">原会话</text>
+    <text class="sub" x="84" y="142" text-anchor="middle">🔒 模式锁定</text>
+  </g>
+  <g>
+    <rect class="glow" x="198" y="92" width="136" height="76" rx="10">
+      <animate attributeName="opacity" dur="6s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.18;0.21;0.29;0.34;1"/>
+    </rect>
+    <rect class="card" x="198" y="92" width="136" height="76" rx="10"/>
+    <text class="lab" x="266" y="122" text-anchor="middle">压缩工人</text>
+    <text class="sub" x="266" y="142" text-anchor="middle">pro · ~2K tokens</text>
+  </g>
+  <g>
+    <rect class="glow" x="380" y="92" width="136" height="76" rx="10">
+      <animate attributeName="opacity" dur="6s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.45;0.48;0.52;0.57;1"/>
+    </rect>
+    <rect class="card" x="380" y="92" width="136" height="76" rx="10"/>
+    <text class="lab" x="448" y="122" text-anchor="middle">固定五段摘要</text>
+    <text class="sub" x="448" y="142" text-anchor="middle">≤1K tokens</text>
+  </g>
+  <g>
+    <rect class="glow" x="562" y="92" width="136" height="76" rx="10">
+      <animate attributeName="opacity" dur="6s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.68;0.71;0.75;0.80;1"/>
+    </rect>
+    <rect class="card" x="562" y="92" width="136" height="76" rx="10"/>
+    <text class="lab" x="630" y="122" text-anchor="middle">你预览确认</text>
+    <text class="check" x="630" y="152" text-anchor="middle">✓
+      <animate attributeName="opacity" dur="6s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.70;0.73;0.93;1"/>
+    </text>
+  </g>
+  <g>
+    <rect class="glow" x="728" y="92" width="136" height="76" rx="10">
+      <animate attributeName="opacity" dur="6s" repeatCount="indefinite" values="0;0;1;1;0" keyTimes="0;0.90;0.93;0.97;1"/>
+    </rect>
+    <rect class="card" x="728" y="92" width="136" height="76" rx="10"/>
+    <text class="lab" x="796" y="122" text-anchor="middle">新 preset 会话</text>
+    <text class="sub" x="796" y="142" text-anchor="middle">摘要挂为 goal</text>
+  </g>
+
+  <!-- 迁移包：连续滑动 + 驻留，循环边界淡入淡出（无跳帧） -->
+  <g>
+    <circle class="pkthalo" r="11"/>
+    <circle class="pkt" r="6"/>
+    <animateMotion dur="6s" repeatCount="indefinite" calcMode="linear"
+      path="M 84 130 H 796"
+      keyPoints="0;0;0.256;0.256;0.511;0.511;0.767;0.767;1;1;1"
+      keyTimes="0;0.05;0.18;0.32;0.45;0.55;0.68;0.78;0.92;0.97;1"/>
+    <animate attributeName="opacity" dur="6s" repeatCount="indefinite" values="0;1;1;0" keyTimes="0;0.04;0.96;1"/>
+  </g>
+</svg>

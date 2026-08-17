@@ -11,12 +11,9 @@
 
 > **Ever wanted to switch presets mid-session and found the switch locked?** The lock is right (see below) — but it shouldn't be a dead end. This plugin is the exit: it **moves** a session across tool presets with a fixed-schema handoff summary instead of picking the official lock.
 
-```mermaid
-flowchart LR
-  A[Original session<br>history & conventions] -->|compression worker, pro<br>~2K tokens| B[Fixed 5-section summary<br>≤1K tokens]
-  B -->|after your preview & confirm| C[New preset session<br>summary as goal]
-  A -. untouched .-> D[click back = rollback]
-```
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-flow.en.svg" width="880" alt="Bridge flow: original session (preset locked) → compression worker → fixed 5-section summary → your preview → new preset session; the original stays untouched — click back to roll back">
+</p>
 
 ## Why this exists
 
