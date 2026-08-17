@@ -33,11 +33,7 @@ preset 不是「语气档位」，它是一整套组装：系统提示词 + 工�
 
 压缩历史 → 新 preset 建新会话 → 固定 schema 摘要注入为新会话的 goal → 首轮交接指令。**原会话全程不动，回退 = 点回原会话**（branch 而非 rollback）。
 
-无损原理上不存在，「**有损 + 可预览 + 可验证 + 可回退**」= 实用稳定：
-
-- **可预览**：摘要全文在迁移前展示，可编辑，不确认不执行（零静默）
-- **可验证**：固定五段 schema（目标 / 当前状态 / 关键决策与约定 / 关键文件 / 下一步），新会话首轮先复述理解，事实在不在一问便知
-- **可回退**：原会话是不可变只读事实，随时点回去
+无损原理上不存在，所以目标定为实用稳定：有损，但可预览、可验证、可回退。摘要全文在迁移前展示，可编辑，你确认之前什么都不执行。摘要固定五段 schema（目标 / 当前状态 / 关键决策与约定 / 关键文件 / 下一步），新会话首轮先复述理解，事实在不在一问便知。原会话是不可变的只读事实，不满意随时点回去。
 
 ## 安装
 
@@ -67,17 +63,21 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启 dsh web 后生效
 3. **把摘要全文给你预览**——你确认（或编辑）后才继续，这一步之前什么都不改
 4. 用目标 preset 建新会话，摘要注入为 goal，发首轮交接指令，切过去
 
-**TotoroPilot（GUI）**：同一条流水线由 BridgeModal 弹窗承载——目标模式下拉、压缩档位选择、摘要预览可编辑、成本预估行，确认后一键迁移。
+**TotoroPilot（GUI）**：同一条流水线由 BridgeModal 弹窗承载——目标模式下拉、压缩档位选择、摘要预览可编辑、成本预估行，确认后一键迁移。下面是在 TotoroPilot 里的一次真实迁移实录（隔离演示工作区）：
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-demo.zh.gif" width="880" alt="实测：锁定会话打开迁移弹窗，pro 档位生成五段交接摘要，预览确认后新会话在 PTC 模式下接力">
+</p>
 
 逐步操作手册（含确认点清单、回退、FAQ）：[docs/guide.zh.md](docs/guide.zh.md)。
 
 ## Token 消耗（实测数据，2026-08-17）
 
-**迁移一次（用户视角）**：压缩工人 ~1.6K 输入 / ~0.7K 输出，注入侧摘要 ≤1K tokens——**每次迁移约 2K tokens，相当于多发一轮消息**。这是唯一的额外消耗；原会话不产生任何新费用。
+迁移一次只多了两笔账：压缩工人 ~1.6K 输入 / ~0.7K 输出，加上注入新会话的摘要 ≤1K tokens，合计约 2.4K tokens，相当于多发一轮消息；原会话不产生任何新费用。换个角度：迁移后接着干活的会话，累计消耗均值在 50 万 tokens 量级（实测 53 万），切换本身占比约 0.4%，会话越长越可以忽略。占比唯一显著的情形是刚聊一两轮就迁，而那种情况本来就不该迁——直接开新会话更省事。
 
-**对照组（为什么值得花这 2K）**：裸重开让 agent 自己翻找找回约定，A/B 实测单 run 最高烧 **220 万**输入 tokens——差三个数量级，且照样漂移。
+值不值，对照组说了算：裸重开让 agent 自己翻找找回约定，A/B 实测单 run 最高烧 220 万输入 tokens，差三个数量级，还照样漂移。
 
-**自己跑评测（开发者视角）**：评测消耗的是你自己的 token，不进 CI。实测账单：
+评测（开发者视角）烧的是你自己的 token，不进 CI。实测账单：
 
 | 批次 | 规模 | 未缓存输入 | 缓存命中输入 | 输出 | 合计 |
 |---|---|---|---|---|---|
@@ -109,7 +109,7 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启 dsh web 后生效
 | **pro（默认）** | **95%**，迁 cordis 目标 100% | ~2K tokens/run |
 | flash | 80%，且 flash→minimal 三次两次全灭 | 几乎同价 |
 
-其他结论：**源 preset 对保真度零影响**（对照组 4/4 全 5/5）——迁移质量只取决于摘要质量与目标注入；执行偏移集中在「数字合理化」（端口被补全成常见值），路径基本不漂。失败模式已枚举并有缓解（见 benchmark §7），残差风险由「预览确认 + 原会话可回退」兜住。
+其他结论：源 preset 对保真度零影响（对照组 4/4 全 5/5），迁移质量只取决于摘要质量与目标注入。执行偏移集中在「数字合理化」——端口被补全成常见值，路径基本不漂。失败模式已枚举并有缓解（见 benchmark §7），剩下的残差风险由「预览确认 + 原会话可回退」兜住。
 
 ## A/B 验证：摘要迁移 vs 裸重开（2026-08，8 条成对 run）
 
@@ -122,17 +122,17 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启 dsh web 后生效
 
 关键发现：
 
-- 裸重开进 **minimal**（无工具）：探针 1/5——真正的「失忆」，约定全丢；
-- 裸重开进 **code**（有工具）：探针 4-5/5，但机制是 agent 在首轮发起 **25+ 次工具调用的翻找循环**（单 run 烧 220 万输入 tokens、必触 240s 限速），从 host 会话日志里把约定翻回来（复现诊断：`node eval/inspect-bare.mjs`）。**更贵、更慢、仍然漂**（漂移 2/5），且依赖工具存在、磁盘日志与模型主动性——是偶然，不是方案；
-- 结论：摘要的价值不只是「记得」，而是**以约一半的 token 代价、在任何 preset 下稳定地记得**。README 第一章的「为什么有」由此从论述变成证据。
+- 裸重开进 minimal（无工具）时探针只剩 1/5，约定基本全丢，这是裸重开的真实水平。
+- 裸重开进 code（有工具）时探针反而有 4-5/5，但机制并不体面：agent 在首轮发起 25+ 次工具调用翻遍磁盘，从 host 会话日志里把约定找回来（复现诊断：`node eval/inspect-bare.mjs`）。单 run 因此烧了 220 万输入 tokens、必触 240s 限速，执行照样漂（2/5）。这条路依赖工具存在、磁盘日志和模型主动性，能成立是侥幸。
+- 结论：摘要的价值不只是「记得」，而是用约一半的 token 代价、在任何 preset 下都稳定地记得。第一章的「为什么有」到这里有了证据，不只是论述。
 
 复现：`BRIDGE_ARM=ab BRIDGE_TIER=pro BRIDGE_TO='^(code|minimal)$' BRIDGE_ONLY='^T1[1-4](-|$)' node eval/run.mjs 2`
 
 ## 测试与验证
 
-- **27 条单元测试**（`npm test`）：压缩核心行为、摘要五段 schema 契约（标题顺序/条数上限/反编造规则/预算同源）、加载冒烟（真实 cordis Context 中 `ctx.plugin()` 完成注册，缺 inject 正确挂起）。
-- **真实 dsh 环境端到端**（dsh 0.1.0-rc.6 实测）：`dsh plugin add` 安装 → reconcile 自动加入 `dsh.profile.bundles` → `--dump-config` 层栈含 bridge 行 → 运行中 host 的 `pluginInventory/list` 显示 `fiberPhase: active`。
-- CI 额外校验：`lib/` 与 `src/` 同步、数据集可解析、`npm pack` 内容完整。
+- `npm test` 跑 27 条单元测试：压缩核心行为、摘要五段 schema 契约（标题顺序、条数上限、反编造规则、预算同源）、加载冒烟（真实 cordis Context 中 `ctx.plugin()` 完成注册，缺 inject 正确挂起）。
+- 在真实 dsh 0.1.0-rc.6 上端到端验过安装链路：`dsh plugin add` 安装后 reconcile 自动把包加入 `dsh.profile.bundles`，`--dump-config` 层栈含 bridge 行，运行中 host 的 `pluginInventory/list` 显示 `fiberPhase: active`。
+- CI 额外校验 `lib/` 与 `src/` 同步、数据集可解析、`npm pack` 内容完整。
 
 ## 自己跑评测（消耗你自己的 token，不进 CI）
 

@@ -33,11 +33,7 @@ The frustration doesn't come from the lock — it comes from **discovering it to
 
 Compress the history → open a new session under the target preset → inject a fixed-schema summary as the new session's goal → send a handoff kickoff. **The original session is never touched; rolling back is just clicking back to it** (branch, not rollback).
 
-Lossless migration is impossible in principle, so the design is "**lossy + previewable + verifiable + revertible**" = practically stable:
-
-- **Previewable**: the full summary is shown and editable before anything happens — nothing runs without your confirmation (zero silence)
-- **Verifiable**: a fixed five-section schema (Goal / Current state / Key decisions & conventions / Key files / Next step); the new session restates its understanding in the first turn, so missing facts are immediately visible
-- **Revertible**: the original session is an immutable, read-only fact you can return to at any time
+Lossless migration is impossible in principle, so the design settles for practically stable: lossy, but previewable, verifiable, and revertible. The full summary is shown and editable before anything happens, and nothing runs without your confirmation. The summary follows a fixed five-section schema (Goal / Current state / Key decisions & conventions / Key files / Next step), and the new session restates its understanding in the first turn, so missing facts are immediately visible. The original session is an immutable, read-only fact you can return to at any time.
 
 ## Installation
 
@@ -67,17 +63,21 @@ This plugin ships an **agent skill** (`bridge`), not a UI component — it teach
 3. **Show you the full summary for review** — nothing changes until you confirm (or edit)
 4. Create a session under the target preset, attach the summary as its goal, send the kickoff, and switch over
 
-**TotoroPilot (GUI)**: the same pipeline lives in a BridgeModal — target-preset dropdown, compression tier, editable summary preview, cost estimate, one-click confirm.
+**TotoroPilot (GUI)**: the same pipeline lives in a BridgeModal — target-preset dropdown, compression tier, editable summary preview, cost estimate, one-click confirm. Here is a real migration recorded in TotoroPilot (isolated demo workspace):
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-demo.en.gif" width="880" alt="A real bridge: a locked session opens the Bridge modal, a pro-tier worker generates the five-section summary, and after preview the new session takes over in PTC mode">
+</p>
 
 A full step-by-step guide with screenshots-level detail: [docs/guide.zh.md](docs/guide.zh.md) (中文).
 
 ## Token cost (measured, 2026-08-17)
 
-**Per migration (user's view)**: the compression worker costs ~1.6K input / ~0.7K output, and the injected summary is ≤1K tokens — **about 2K tokens per migration, roughly one extra message**. That is the entire overhead; the original session accrues no further cost.
+A migration adds only two charges: the compression worker (~1.6K input / ~0.7K output) and the injected summary (≤1K tokens). About 2.4K tokens in total, roughly one extra message, and the original session accrues no further cost. For scale: sessions that continue working after a migration average ~530K tokens in our measurements, so the switch itself is about 0.4% of the total and shrinks as the session grows. The only case where the share matters is migrating after a turn or two, and that case shouldn't migrate at all — just open a new session.
 
-**The counterfactual (why those 2K are worth it)**: a bare restart that lets the agent scavenge conventions back from disk burned up to **2.2M** input tokens in a single run in our A/B — three orders of magnitude more, and it still drifted.
+Worth it? The control arm answers that: a bare restart that lets the agent scavenge conventions back from disk burned up to 2.2M input tokens in a single run, three orders of magnitude more, and it still drifted.
 
-**Running the evaluation (developer's view)**: the eval burns your own tokens and is not in CI. Measured bills:
+The evaluation (developer's view) burns your own tokens and is not in CI. Measured bills:
 
 | Batch | Size | Uncached input | Cache-hit input | Output | Total |
 |---|---|---|---|---|---|
@@ -122,14 +122,14 @@ Design: same fact planting (5 hard conventions), same probes and drift task; the
 
 Key findings:
 
-- Bare restart into **minimal** (no tools): 1/5 probe — genuine amnesia; every convention is lost.
-- Bare restart into **code** (tools available): 4-5/5 probe, but the mechanism is a **scavenging loop of 25+ tool calls in the first turn** (one run burned 2.2M input tokens and hit the 240s turn cap) digging the conventions back out of host session logs (reproduce with `node eval/inspect-bare.mjs`). **Pricier, slower, and still drifting** (2/5) — and it depends on tools existing, on-disk logs, and model initiative. That's luck, not a plan.
-- Conclusion: the summary's value is not just "remembering" — it is **remembering reliably, under any preset, at about half the token cost**. The "why" in the first chapter is now evidence, not argument.
+- Bare restart into minimal (no tools) scores 1/5 on the probe — genuine amnesia; that is the honest baseline of a bare restart.
+- Bare restart into code (tools available) reaches 4-5/5, but the mechanism is ugly: the agent fired 25+ tool calls in the first turn, digging the conventions back out of host session logs (reproduce with `node eval/inspect-bare.mjs`). One run burned 2.2M input tokens, hit the 240s turn cap, and still drifted on execution (2/5). It works only when tools exist, logs sit on disk, and the model feels like looking — that's luck, not a plan.
+- Conclusion: the summary's value is not just "remembering" — it is remembering reliably, under any preset, at about half the token cost. The "why" in the first chapter is now evidence, not argument.
 
 ## Testing & verification
 
-- **27 unit tests** (`npm test`): compression behavior, summary-schema contracts (header order, per-section limits, anti-fabrication rules, budget consistency), and load smoke tests (plugin loads under a real Cordis `Context`; pends correctly when its `inject` is missing).
-- **End-to-end on a real dsh install** (0.1.0-rc.6): `dsh plugin add` → reconcile appends the bundle to `dsh.profile.bundles` → `--dump-config` shows the bridge row → `pluginInventory/list` on a live host reports `fiberPhase: active`.
+- `npm test` runs 27 unit tests: compression behavior, summary-schema contracts (header order, per-section limits, anti-fabrication rules, budget consistency), and load smoke tests (plugin loads under a real Cordis `Context`; pends correctly when its `inject` is missing).
+- The install path was verified end-to-end on a real dsh 0.1.0-rc.6: after `dsh plugin add`, reconcile appends the bundle to `dsh.profile.bundles`, `--dump-config` shows the bridge row, and `pluginInventory/list` on a live host reports `fiberPhase: active`.
 - CI additionally checks: `lib/` is in sync with `src/`, datasets parse, `npm pack` contents are complete.
 
 ## Running the evaluation yourself (burns your own tokens; not in CI)
