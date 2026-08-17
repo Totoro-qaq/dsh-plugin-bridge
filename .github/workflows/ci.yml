@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: 校验数据集可解析
+        run: |
+          node -e "for (const f of ['test','validation']) { const d = require('./datasets/' + f + '.json'); if (!d.themes?.length || !d.templates?.plant) throw new Error(f + ' 数据集结构不完整'); } console.log('datasets ok');"
+      - name: npm 包内容检查
+        run: npm run pack:check

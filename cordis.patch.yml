@@ -1,0 +1,7 @@
+- insert:
+    - id: bridge
+      name: dsh-plugin-bridge
+      config:
+        modelTier: !!js process.env.DSH_BRIDGE_TIER ?? 'pro'
+        sourceCharBudget: !!js Number(process.env.DSH_BRIDGE_SOURCE_BUDGET ?? 60000)
+        summaryCharBudget: !!js Number(process.env.DSH_BRIDGE_SUMMARY_BUDGET ?? 2400)
