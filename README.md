@@ -5,6 +5,7 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
 [![dsh 0.1.0-rc.6 tested](https://img.shields.io/badge/dsh-0.1.0--rc.6%20tested-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![presets](https://img.shields.io/badge/presets-standard%20%C2%B7%20code%20%C2%B7%20minimal%20%C2%B7%20cordis-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
 中文 | [English](README.en.md)
 
