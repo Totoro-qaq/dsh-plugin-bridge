@@ -7,15 +7,22 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-matrix:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # engines 声明 >=22；22 与 24 的类型剥离行为不同，两个都要过。
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # npm test = build + typecheck(src+eval) + 单元测试（含对着假 host 的
+      # 迁移全链路与 CLI 端到端，不需要真的 dsh host，也不烧 token）
       - run: npm test
       - name: 构建产物与提交同步（git 安装不跑构建，lib/ 必须随源码提交）
         run: |
@@ -26,3 +33,11 @@ jobs:
           node -e "for (const f of ['test','validation']) { const d = require('./datasets/' + f + '.json'); if (!d.themes?.length || !d.templates?.plant) throw new Error(f + ' 数据集结构不完整'); } console.log('datasets ok');"
       - name: npm 包内容检查
         run: npm run pack:check
+
+  # 聚合闸：分支保护要求的检查名是 `build`，矩阵会把它拆成 build (22)/(24)，
+  # 因此用这个与矩阵同结果的汇聚 job 提供字面名为 build 的检查。
+  build:
+    runs-on: ubuntu-latest
+    needs: build-matrix
+    steps:
+      - run: echo "build-matrix green on node 22 & 24"

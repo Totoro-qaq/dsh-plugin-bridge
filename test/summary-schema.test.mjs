@@ -96,6 +96,17 @@ test('指令承诺的取材成分与 buildBridgeSource 的实际取材对齐', (
   }
 });
 
+test('数字防四舍五入规则存在（漂移里最主要的一类：端口被补全成 3000/8080）', () => {
+  assert.match(buildBridgeInstruction('zh'), /端口、版本号、数量上限[\s\S]*?不得改写成常见值/);
+  assert.match(buildBridgeInstruction('en'), /rounded to common values/i);
+});
+
+test('摘要预算可配置，且指令里的 token 上限跟着变', () => {
+  assert.match(buildBridgeInstruction('zh', { summaryCharBudget: 4800 }), /≤1800 tokens/);
+  assert.match(buildBridgeInstruction('en', { summaryCharBudget: 4800 }), /≤1800 tokens total/);
+  assert.equal(estimateSummaryTokens(0, { summaryCharBudget: 4800 }).output, 1800);
+});
+
 test('kickoff：指明 goal 是跨模式交接摘要，并要求复述理解（复述层是验证手段）', () => {
   const zh = buildBridgeKickoff('zh');
   assert.match(zh, /另一套工具模式/);

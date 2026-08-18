@@ -1,3 +1,6 @@
+# dsh-plugin-bridge 的 profile 层：把 /bridge 命令挂进 dsh.profile.bundles。
+#
+# 每个键都被 apply() 真正消费（0.1 里这些值是死的，配了不生效）。
 - insert:
     - id: bridge
       name: dsh-plugin-bridge
@@ -5,3 +8,11 @@
         modelTier: !!js process.env.DSH_BRIDGE_TIER ?? 'pro'
         sourceCharBudget: !!js Number(process.env.DSH_BRIDGE_SOURCE_BUDGET ?? 60000)
         summaryCharBudget: !!js Number(process.env.DSH_BRIDGE_SUMMARY_BUDGET ?? 2400)
+        # 上游 goal.create 的部署默认是 256 轮自主循环；交接只需要一轮。
+        goalRounds: !!js Number(process.env.DSH_BRIDGE_GOAL_ROUNDS ?? 1)
+        inject: !!js process.env.DSH_BRIDGE_INJECT ?? 'both'
+        lang: !!js process.env.DSH_BRIDGE_LANG ?? 'auto'
+        workerProvider: !!js process.env.DSH_BRIDGE_PROVIDER ?? ''
+        workerModel: !!js process.env.DSH_BRIDGE_MODEL ?? ''
+        # /bridge 是同步返回的，等压缩工人不能等太久。
+        previewTimeoutMs: !!js Number(process.env.DSH_BRIDGE_PREVIEW_TIMEOUT ?? 180000)

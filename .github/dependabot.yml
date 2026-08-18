@@ -1,0 +1,13 @@
+# 上游 dsh 还是 developer preview（README 明说会有破坏性变更），
+# 依赖不盯着就会悄悄落后：本仓库测试通过的版本是 0.1.0-rc.6 / rc.7。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

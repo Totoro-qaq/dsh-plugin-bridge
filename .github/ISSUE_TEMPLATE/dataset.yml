@@ -1,0 +1,23 @@
+name: 新增评测题材
+description: 给 datasets/ 提一个新题材（欢迎，但请先读 CONTRIBUTING）
+labels: [eval]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        题材的价值在于**不可猜**：埋点里的事实如果模型不看历史也能蒙对，
+        整个命中率的下限就被抬高了。提交前请先跑一遍猜测基线：
+        `BRIDGE_ARM=guess node eval/run.mjs`
+  - type: textarea
+    id: theme
+    attributes:
+      label: 题材 JSON
+      render: json
+    validations:
+      required: true
+  - type: input
+    id: guess
+    attributes:
+      label: 猜测基线得分（5 个事实里能蒙对几个）
+    validations:
+      required: true
