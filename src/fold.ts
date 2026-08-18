@@ -36,13 +36,30 @@ function isReasoningBlock(block: Record<string, unknown>): boolean {
 }
 
 function peelThinkTags(text: string): { text: string; thinking: string } {
+  // 线性扫描替代懒惰量词正则（CodeQL js/polynomial-redos）：
+  // /<think>([\s\S]*?)<\/think>/ 在大量未闭合 <think> 的输入上会回溯成多项式时间。
   const parts: string[] = [];
-  const visible = text.replace(/<think>([\s\S]*?)<\/think>/gi, (_, inner: string) => {
-    const trimmed = inner.trim();
+  const visibleParts: string[] = [];
+  const lower = text.toLowerCase();
+  let cursor = 0;
+  while (cursor <= text.length) {
+    const open = lower.indexOf('<think>', cursor);
+    if (open === -1) {
+      visibleParts.push(text.slice(cursor));
+      break;
+    }
+    visibleParts.push(text.slice(cursor, open));
+    const close = lower.indexOf('</think>', open + 7);
+    if (close === -1) {
+      // 未闭合的标签按原文保留（与原正则不匹配时的行为一致）
+      visibleParts.push(text.slice(open));
+      break;
+    }
+    const trimmed = text.slice(open + 7, close).trim();
     if (trimmed) parts.push(trimmed);
-    return '';
-  });
-  return { text: visible.trim(), thinking: parts.join('\n\n') };
+    cursor = close + 8;
+  }
+  return { text: visibleParts.join('').trim(), thinking: parts.join('\n\n') };
 }
 
 function splitContentBlocks(blocks: unknown): { text: string; thinking: string; imageCount: number } {
