@@ -1,20 +1,22 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DeepSeek Harness Cordis bundle for cross-preset session migration via fixed-schema handoff summaries",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
     "lib",
-    "skills",
+    "docs",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "README.zh.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.check.json",
     "prepack": "npm run build",
-    "test": "npm run build && node --experimental-strip-types --test test/*.test.mjs",
+    "test": "npm run build && npm run typecheck && node --experimental-strip-types --test test/*.test.mjs",
     "eval": "node eval/run.mjs",
     "pack:check": "npm pack --dry-run"
   },
@@ -23,7 +25,8 @@
     "deepseek-harness",
     "bridge",
     "context-migration",
-    "agent-preset"
+    "agent-preset",
+    "session-migration"
   ],
   "license": "MIT",
   "dsh": {
@@ -49,5 +52,48 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Totoro-qaq/dsh-plugin-bridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Totoro-qaq/dsh-plugin-bridge/issues"
+  },
+  "homepage": "https://github.com/Totoro-qaq/dsh-plugin-bridge#readme",
+  "bin": {
+    "dsh-bridge": "lib/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./compression": {
+      "types": "./lib/compression.d.ts",
+      "default": "./lib/compression.js"
+    },
+    "./fold": {
+      "types": "./lib/fold.d.ts",
+      "default": "./lib/fold.js"
+    },
+    "./migrate": {
+      "types": "./lib/migrate.d.ts",
+      "default": "./lib/migrate.js"
+    },
+    "./rpc": {
+      "types": "./lib/rpc.d.ts",
+      "default": "./lib/rpc.js"
+    },
+    "./types": {
+      "types": "./lib/types.d.ts",
+      "default": "./lib/types.js"
+    },
+    "./command": {
+      "types": "./lib/command.d.ts",
+      "default": "./lib/command.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
   }
 }

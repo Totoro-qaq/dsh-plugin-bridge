@@ -4,8 +4,11 @@ import {
   buildBridgeSource,
   buildBridgeInstruction,
   buildBridgeKickoff,
+  detectLang,
   estimateSummaryTokens,
+  summaryTokenBudget,
   SOURCE_CHAR_BUDGET,
+  SUMMARY_CHAR_BUDGET,
 } from '../src/compression.ts';
 
 const user = (t) => ({ role: 'user', content: t });
@@ -15,7 +18,10 @@ test('用户消息全文保留，条数正确', () => {
   const msgs = [user('第一条'), asst('回复一'), user('第二条'), asst('回复二')];
   const src = buildBridgeSource(msgs);
   assert.equal(src.userMessagesUsed, 2);
+  assert.equal(src.userMessagesTotal, 2);
   assert.ok(src.text.includes('第一条') && src.text.includes('第二条'));
+  assert.equal(src.truncated, false);
+  assert.deepEqual(src.dropped, []);
 });
 
 test('复用最近一次 compaction 摘要当底稿', () => {
@@ -42,14 +48,66 @@ test('预算截断：超限打 truncated 标记且不超预算', () => {
   const msgs = [user(big), user(big), user(big)];
   const src = buildBridgeSource(msgs);
   assert.equal(src.truncated, true);
-  assert.ok(src.text.length <= SOURCE_CHAR_BUDGET + 20);
+  assert.ok(src.text.length <= SOURCE_CHAR_BUDGET);
 });
 
 test('预算可被配置覆盖', () => {
   const msgs = [user('x'.repeat(5_000))];
   const src = buildBridgeSource(msgs, { sourceCharBudget: 2_000 });
   assert.equal(src.truncated, true);
-  assert.ok(src.text.length <= 2_020);
+  assert.ok(src.text.length <= 2_000);
+});
+
+/* --- 语义断言：超预算时保住的必须是"最新"，而不是"最老" ---
+ * 0.1 的实现按顺序装、装不下就 slice 后 break，于是活下来的是最老的用户消息，
+ * 而承载"刚完成什么/卡在哪"的最近助手结论段整段消失。 */
+test('超预算时保留最新的用户消息，丢弃最老的', () => {
+  const msgs = [];
+  for (let i = 1; i <= 400; i += 1) msgs.push(user(`第${i}条需求：${'细节'.repeat(40)}`));
+  msgs.push(user('最后一条：端口必须 7101'));
+  const src = buildBridgeSource(msgs, { sourceCharBudget: 8_000 });
+  assert.equal(src.truncated, true);
+  assert.ok(src.text.includes('7101'), '最新一条用户消息必须在取材里');
+  assert.ok(!src.text.includes('第1条需求'), '最老的用户消息应当被丢弃');
+  assert.ok(src.dropped.includes('users'));
+});
+
+test('超预算时最近助手结论段不会整段消失', () => {
+  const msgs = [];
+  for (let i = 1; i <= 400; i += 1) msgs.push(user(`第${i}条需求：${'细节'.repeat(40)}`));
+  msgs.push(asst('刚刚完成了订单模块的重构'));
+  const src = buildBridgeSource(msgs, { sourceCharBudget: 8_000 });
+  assert.ok(src.text.includes('刚刚完成了订单模块的重构'), '最近助手结论必须留在取材里');
+});
+
+test('超长 compaction 底稿不会把用户消息挤没', () => {
+  const msgs = [
+    { role: 'assistant', kind: 'compaction', content: '压'.repeat(61_000) },
+    user('端口固定 7101，禁止 MongoDB'),
+    user('下一步：把 orders.ts 拆成两个模块'),
+  ];
+  const src = buildBridgeSource(msgs);
+  assert.ok(src.text.includes('7101'), 'compaction 再长也不能吃掉用户意图');
+  assert.ok(src.text.includes('orders.ts'));
+  assert.ok(src.text.length <= SOURCE_CHAR_BUDGET);
+});
+
+test('userMessagesUsed 报告真实纳入条数，不是总条数', () => {
+  const msgs = [];
+  for (let i = 1; i <= 200; i += 1) msgs.push(user(`第${i}条：${'内容'.repeat(30)}`));
+  const src = buildBridgeSource(msgs, { sourceCharBudget: 4_000 });
+  assert.equal(src.userMessagesTotal, 200);
+  assert.ok(src.userMessagesUsed > 0);
+  assert.ok(src.userMessagesUsed < 200, `纳入 ${src.userMessagesUsed} 条应当少于总数`);
+  const numbered = src.text.split('\n').filter((l) => /^\d+\. /.test(l)).length;
+  assert.equal(src.userMessagesUsed, numbered, 'used 必须等于正文里真实出现的条目数');
+});
+
+test('空会话不炸，返回空取材', () => {
+  const src = buildBridgeSource([]);
+  assert.equal(src.text, '');
+  assert.equal(src.truncated, false);
+  assert.equal(src.userMessagesTotal, 0);
 });
 
 test('压缩指令含固定五段 schema（中/英）', () => {
@@ -61,6 +119,14 @@ test('压缩指令含固定五段 schema（中/英）', () => {
   }
 });
 
+test('摘要预算真的会进入指令文本', () => {
+  assert.equal(summaryTokenBudget(SUMMARY_CHAR_BUDGET), 900);
+  assert.ok(buildBridgeInstruction('zh').includes('≤900 tokens'));
+  const tight = buildBridgeInstruction('zh', { summaryCharBudget: 1_200 });
+  assert.ok(tight.includes('≤450 tokens'), tight.slice(0, 200));
+  assert.equal(estimateSummaryTokens(0, { summaryCharBudget: 1_200 }).output, 450);
+});
+
 test('kickoff 双语可用且非空', () => {
   assert.ok(buildBridgeKickoff('zh').length > 10);
   assert.ok(buildBridgeKickoff('en').length > 10);
@@ -70,5 +136,11 @@ test('成本预估随字符数单调', () => {
   const a = estimateSummaryTokens(1_000);
   const b = estimateSummaryTokens(50_000);
   assert.ok(b.input > a.input);
-  assert.ok(a.output === 900);
+  assert.equal(a.output, 900);
+});
+
+test('语言自动判定跟着取材走', () => {
+  assert.equal(detectLang('我们在做电商后端项目，端口 7101'), 'zh');
+  assert.equal(detectLang('We are building an e-commerce backend on port 7101'), 'en');
+  assert.equal(detectLang(''), 'en');
 });

@@ -4,11 +4,17 @@
  * 远高于 minimal 目标的 2/10。怀疑 code preset 的 agent 用工具从工作区/host 会话
  * 日志里翻出了事实。本脚本手动复现一条 bare→code run 并打印完整工具痕迹。
  *
+ * 结论已确认，修复方式是让每个 run 用一个空的临时工作区（见 run.mjs 的
+ * withWorkspace）。本脚本保留下来是为了复现「共用工作区时会发生什么」：
+ * 它**故意**沿用 workspace.list() 的第一个工作区。
+ *
  * 用法：node eval/inspect-bare.mjs   （前置同 run.mjs：host 在线 + 模型凭据）
  */
-import { foldSessionEvents } from './fold.ts';
+import { foldSessionEvents } from '../src/fold.ts';
 
-const API = (process.env.DSH_API ?? 'http://127.0.0.1:3080/api').replace(/\/$/, '');
+import { resolveApiBase } from '../src/rpc.ts';
+
+const API = resolveApiBase(process.env.DSH_API);
 const TZ = process.env.TZ_NAME ?? 'Asia/Shanghai';
 
 let rpcSeq = 0;
