@@ -1,0 +1,29 @@
+name: Bug report
+description: 迁移没跑起来、结果不对、或者装不上
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 你说了什么、agent 做了什么、你期望什么
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: dsh-bridge doctor 的输出
+      description: 在会话里让 agent 跑一次，或在终端里跑 `node <包路径>/lib/cli.js doctor --json`
+      render: shell
+  - type: input
+    id: dsh
+    attributes:
+      label: dsh 版本
+      placeholder: "0.1.0-rc.7"
+    validations:
+      required: true
+  - type: input
+    id: preset
+    attributes:
+      label: 源 preset → 目标 preset
+      placeholder: "standard → code"
