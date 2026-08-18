@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-matrix:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -33,3 +33,11 @@ jobs:
           node -e "for (const f of ['test','validation']) { const d = require('./datasets/' + f + '.json'); if (!d.themes?.length || !d.templates?.plant) throw new Error(f + ' 数据集结构不完整'); } console.log('datasets ok');"
       - name: npm 包内容检查
         run: npm run pack:check
+
+  # 聚合闸：分支保护要求的检查名是 `build`，矩阵会把它拆成 build (22)/(24)，
+  # 因此用这个与矩阵同结果的汇聚 job 提供字面名为 build 的检查。
+  build:
+    runs-on: ubuntu-latest
+    needs: build-matrix
+    steps:
+      - run: echo "build-matrix green on node 22 & 24"
