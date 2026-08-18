@@ -47,7 +47,7 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@deepseek-ai/dsh-skill": "0.1.0-rc.6",
-    "@types/node": "^22.0.0",
+    "@types/node": "^26.2.0",
     "typescript": "^5.9.0"
   },
   "publishConfig": {
