@@ -15,7 +15,7 @@ jobs:
         # engines 声明 >=22；22 与 24 的类型剥离行为不同，两个都要过。
         node: [22, 24]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
