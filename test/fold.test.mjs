@@ -123,3 +123,36 @@ test('工具名与入参的兜底解析', () => {
 test('空事件列表返回空数组', () => {
   assert.deepEqual(foldSessionEvents([]), []);
 });
+
+/* peelThinkTags 回归（CodeQL js/polynomial-redos 修复的护栏）：
+   这组行为必须与旧正则实现逐字节一致，且恶意输入不得拖慢折叠。 */
+
+test('think 标签：内容剥入 thinking，正文只留可见文本', () => {
+  const out = foldSessionEvents([asstMsg('<think>先想想</think>这是结论')]);
+  assert.equal(out.at(-1).content, '这是结论');
+  assert.equal(out.at(-1).thinking, '先想想');
+});
+
+test('think 标签：多对、大小写不敏感、空标签丢弃', () => {
+  const out = foldSessionEvents([asstMsg('<THINK>甲</THINK>可见<think>乙</think>')]);
+  assert.equal(out.at(-1).content, '可见');
+  assert.equal(out.at(-1).thinking, '甲\n\n乙');
+  const empty = foldSessionEvents([asstMsg('<think></think>只有正文')]);
+  assert.equal(empty.at(-1).content, '只有正文');
+  assert.ok(!empty.at(-1).thinking, '空标签不应产出 thinking 字段');
+});
+
+test('think 标签：未闭合按原文保留', () => {
+  const out = foldSessionEvents([asstMsg('前文<think>没有闭合的尾巴')]);
+  assert.equal(out.at(-1).content, '前文<think>没有闭合的尾巴');
+});
+
+test('think 标签：恶意输入线性时间（ReDoS 回归）', () => {
+  // 旧正则在此类输入上为多项式时间：2 万个未闭合标签会卡数百毫秒以上
+  const evil = '<think>' + '<think>a'.repeat(20_000);
+  const t0 = performance.now();
+  const out = foldSessionEvents([asstMsg(evil)]);
+  const ms = performance.now() - t0;
+  assert.ok(ms < 200, `折叠耗时 ${ms.toFixed(0)}ms，疑似回溯爆炸`);
+  assert.ok(out.at(-1).content.includes('<think>'), '未闭合内容应原样保留');
+});
