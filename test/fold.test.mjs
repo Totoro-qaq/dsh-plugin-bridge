@@ -108,9 +108,13 @@ test('compaction 兜底：只有文本标签也能认出来', () => {
 });
 
 test('图片消息即使没有文本也保留', () => {
-  const out = foldSessionEvents([ev('user/message', { content: [{ type: 'image' }] })]);
+  const attachment = {
+    attachmentId: 'img-1', mediaType: 'image/png', bytes: 128, width: 20, height: 10, name: 'shot.png',
+  };
+  const out = foldSessionEvents([ev('user/message', { content: [{ type: 'image', attachment }] })]);
   assert.equal(out.length, 1);
   assert.equal(out[0].imageCount, 1);
+  assert.deepEqual(out[0].imageAttachments, [attachment]);
 });
 
 test('工具名与入参的兜底解析', () => {

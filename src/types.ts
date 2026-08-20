@@ -25,6 +25,16 @@ export interface ToolNode {
   output?: string;
 }
 
+/** rc.8 持久化图片附件的最小引用；字节仍由 host 保存，不进入折叠结果。 */
+export interface ImageAttachmentRef {
+  attachmentId: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+  bytes: number;
+  width: number;
+  height: number;
+  name?: string;
+}
+
 /** 折叠后的一条会话消息。 */
 export interface ChatMessage {
   /** 稳定 id，形如 `e-<seq>`。 */
@@ -40,6 +50,8 @@ export interface ChatMessage {
   thinkingStartedAt?: number;
   /** 该消息携带的图片数量。 */
   imageCount?: number;
+  /** 能从 rc.8 history 恢复出的持久化图片引用；旧 host / 非法块可能只有 imageCount。 */
+  imageAttachments?: ImageAttachmentRef[];
   /** 该消息已合并的最新事件 seq。 */
   latestEventSeq?: number;
   /** 本地化时刻，仅用于展示。 */

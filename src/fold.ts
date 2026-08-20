@@ -8,7 +8,7 @@
  * 只保留迁移需要的部分：用户消息、助手结论、工具痕迹、compaction 检查点。
  * 实时渲染相关的增量合并（mergeLive / liveStep / ledger）属于 GUI，不在此处。
  */
-import type { ChatMessage, SessionEvent, ToolNode } from './types.ts';
+import type { ChatMessage, ImageAttachmentRef, SessionEvent, ToolNode } from './types.ts';
 
 /** 上游 compaction 检查点的消息 provenance 标记（后端无关）。 */
 const COMPACT_CHECKPOINT_PLUGIN = 'compact';
@@ -62,16 +62,43 @@ function peelThinkTags(text: string): { text: string; thinking: string } {
   return { text: visibleParts.join('').trim(), thinking: parts.join('\n\n') };
 }
 
-function splitContentBlocks(blocks: unknown): { text: string; thinking: string; imageCount: number } {
-  if (!Array.isArray(blocks)) return { text: '', thinking: '', imageCount: 0 };
+const IMAGE_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+function imageAttachmentFromBlock(block: Record<string, unknown>): ImageAttachmentRef | undefined {
+  const attachment = asRecord(block.attachment);
+  if (!attachment) return undefined;
+  const { attachmentId, mediaType, bytes, width, height, name } = attachment;
+  if (typeof attachmentId !== 'string' || !attachmentId) return undefined;
+  if (typeof mediaType !== 'string' || !IMAGE_MEDIA_TYPES.has(mediaType)) return undefined;
+  if (typeof bytes !== 'number' || typeof width !== 'number' || typeof height !== 'number') return undefined;
+  return {
+    attachmentId,
+    mediaType: mediaType as ImageAttachmentRef['mediaType'],
+    bytes,
+    width,
+    height,
+    ...(typeof name === 'string' && name ? { name } : {}),
+  };
+}
+
+function splitContentBlocks(blocks: unknown): {
+  text: string;
+  thinking: string;
+  imageCount: number;
+  imageAttachments: ImageAttachmentRef[];
+} {
+  if (!Array.isArray(blocks)) return { text: '', thinking: '', imageCount: 0, imageAttachments: [] };
   let text = '';
   let thinking = '';
   let imageCount = 0;
+  const imageAttachments: ImageAttachmentRef[] = [];
   for (const item of blocks) {
     const block = asRecord(item);
     if (!block) continue;
     if (block.type === 'image') {
       imageCount += 1;
+      const attachment = imageAttachmentFromBlock(block);
+      if (attachment) imageAttachments.push(attachment);
       continue;
     }
     const body = blockBody(block);
@@ -80,15 +107,11 @@ function splitContentBlocks(blocks: unknown): { text: string; thinking: string; 
     else if (block.type === 'text' || block.type == null) text += body;
   }
   const peeled = peelThinkTags(text);
-  return { text: peeled.text, thinking: thinking || peeled.thinking, imageCount };
+  return { text: peeled.text, thinking: thinking || peeled.thinking, imageCount, imageAttachments };
 }
 
 function textFromBlocks(blocks: unknown): string {
   return splitContentBlocks(blocks).text;
-}
-
-function imageCountFromBlocks(blocks: unknown): number {
-  return splitContentBlocks(blocks).imageCount;
 }
 
 function formatTime(ms: number | undefined): string {
@@ -284,8 +307,8 @@ export function foldSessionEvents(events: SessionEvent[]): ChatMessage[] {
 
     if (event.type === 'user/message') {
       flush(event.time);
-      const text = textFromBlocks(data?.content);
-      const imageCount = imageCountFromBlocks(data?.content);
+      const split = splitContentBlocks(data?.content);
+      const { text, imageCount, imageAttachments } = split;
       if (isCompactCheckpoint(data, text)) {
         out.push({
           id: `e-${event.seq ?? 0}`,
@@ -303,6 +326,7 @@ export function foldSessionEvents(events: SessionEvent[]): ChatMessage[] {
         role: 'user',
         content: text,
         imageCount,
+        ...(imageAttachments.length ? { imageAttachments } : {}),
         timestamp: formatTime(event.time),
       });
       continue;

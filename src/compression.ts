@@ -3,7 +3,7 @@
  * 纯函数，无 RPC 依赖，便于测试。设计原则见 docs/plan.md：
  * 迁状态不迁痕迹；用户意图优先；工具只留名字与路径；总字符有硬预算。
  */
-import type { ChatMessage } from './types.ts';
+import type { ChatMessage, ImageAttachmentRef } from './types.ts';
 
 /** 摘要正文的硬预算（字符）。默认 2400 字符 ≈ 900 tokens。 */
 export const SUMMARY_CHAR_BUDGET = 2400;
@@ -15,6 +15,8 @@ const SUMMARY_CHARS_PER_TOKEN = SUMMARY_CHAR_BUDGET / 900;
 const ASSISTANT_SNIPPET = 900;
 /** 保留完整细节的最近 assistant 消息条数。 */
 const RECENT_ASSISTANT_MESSAGES = 6;
+/** 逐字视觉证据独立于摘要预算；只按完整块收录，绝不从中间截断。 */
+export const VISUAL_EVIDENCE_CHAR_BUDGET = 60_000;
 
 /**
  * 各分区的预算配额。
@@ -48,6 +50,32 @@ export interface BridgeSource {
    * 调用方（GUI 预览弹窗、CLI）应当把它显示出来：静默丢弃是上一版最大的问题。
    */
   dropped: string[];
+  /** 图片与同轮助手文本的逐字证据；不会交给摘要模型改写。 */
+  visualEvidence: VisualEvidence;
+}
+
+export interface VisualEvidenceItem {
+  /** 该图片消息在全部用户消息里的 1-based 序号。 */
+  userMessage: number;
+  imageCount: number;
+  /** 原用户文字，逐字保留；图片-only 消息为空。 */
+  userText: string;
+  /** 下一条用户消息出现前的助手正文，逐字保留；为空表示尚未解析。 */
+  assistantText: string;
+  /** rc.8 能恢复出的持久化图片引用；旧 host 可能为空。 */
+  attachments: ImageAttachmentRef[];
+}
+
+export interface VisualEvidence {
+  imageMessages: number;
+  images: number;
+  represented: number;
+  unresolved: number;
+  /** 完整纳入最终交接的图片消息证据。 */
+  included: VisualEvidenceItem[];
+  /** 因证据预算未纳入的完整块数；从不截断块内文本。 */
+  omitted: number;
+  truncated: boolean;
 }
 
 function toolLine(node: { title: string; detail?: string }): string {
@@ -60,6 +88,114 @@ function toolLine(node: { title: string; detail?: string }): string {
 export interface BridgeSourceOptions {
   /** 覆盖取材总字符预算（默认 SOURCE_CHAR_BUDGET）。 */
   sourceCharBudget?: number;
+  /** 逐字视觉证据字符预算；完整块原子收录，默认 60K。 */
+  visualEvidenceCharBudget?: number;
+}
+
+/**
+ * 把“含图用户消息”与它到下一条用户消息之间的助手正文配对。
+ *
+ * Bridge 不声称这些正文一定是图片描述，只称为“关联助手响应”；这样即使助手
+ * 只是追问，也不会被误标成已经识图。文本由程序直接复制，不经过摘要模型。
+ */
+export function collectVisualEvidence(
+  messages: ChatMessage[],
+  charBudget = VISUAL_EVIDENCE_CHAR_BUDGET,
+): VisualEvidence {
+  const candidates: VisualEvidenceItem[] = [];
+  let userMessage = 0;
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index] as ChatMessage;
+    if (message.role !== 'user') continue;
+    userMessage += 1;
+    const imageCount = message.imageCount ?? 0;
+    if (imageCount <= 0) continue;
+    const assistant: string[] = [];
+    for (let next = index + 1; next < messages.length; next += 1) {
+      const following = messages[next] as ChatMessage;
+      if (following.role === 'user') break;
+      if (following.role === 'assistant' && following.kind !== 'compaction' && following.content.trim()) {
+        assistant.push(following.content.trim());
+      }
+    }
+    candidates.push({
+      userMessage,
+      imageCount,
+      userText: message.content.trim(),
+      assistantText: assistant.join('\n\n'),
+      attachments: [...(message.imageAttachments ?? [])],
+    });
+  }
+
+  const budget = Math.max(0, charBudget);
+  const included: VisualEvidenceItem[] = [];
+  let used = 0;
+  // 最新证据优先，但最终仍按时间顺序呈现；整块装不下就省略，不切正文。
+  for (let index = candidates.length - 1; index >= 0; index -= 1) {
+    const item = candidates[index] as VisualEvidenceItem;
+    const cost = item.userText.length + item.assistantText.length + 240;
+    if (used + cost > budget) continue;
+    included.unshift(item);
+    used += cost;
+  }
+  const omitted = candidates.length - included.length;
+  const represented = included.filter((item) => item.assistantText.length > 0).length;
+  return {
+    imageMessages: candidates.length,
+    images: candidates.reduce((sum, item) => sum + item.imageCount, 0),
+    represented,
+    // 未关联正文与预算整块省略都需要人工核验；每条图片消息只计一次。
+    unresolved: candidates.length - represented,
+    included,
+    omitted,
+    truncated: omitted > 0,
+  };
+}
+
+/** 把逐字视觉证据作为独立附录拼到模型摘要后；正文不会被二次改写。 */
+export function appendVisualEvidence(
+  summary: string,
+  evidence: VisualEvidence,
+  lang: 'zh' | 'en',
+): string {
+  if (evidence.imageMessages === 0) return summary.trim();
+  const blocks: string[] = [summary.trim()];
+  const represented = evidence.included.filter((item) => item.assistantText);
+  if (represented.length) {
+    blocks.push(lang === 'en'
+      ? '## Visual evidence — verbatim, not summarized\nThe associated assistant responses below are copied exactly from the source session. They may be questions or partial analyses; do not claim they prove more than their text says.'
+      : '## 视觉证据——原文搬运，未经二次摘要\n以下关联助手响应由程序从源会话逐字复制；它可能是追问或不完整分析，不得声称超出原文的结论。');
+    for (const item of represented) {
+      const title = lang === 'en'
+        ? `### Source user message ${item.userMessage} · ${item.imageCount} image(s)`
+        : `### 源用户消息 ${item.userMessage} · ${item.imageCount} 张图片`;
+      const pieces = [title];
+      if (item.userText) {
+        pieces.push(lang === 'en' ? '**User context (verbatim)**' : '**用户文字（原文）**', item.userText);
+      }
+      pieces.push(
+        lang === 'en' ? '**Associated assistant response (verbatim)**' : '**关联助手响应（原文）**',
+        item.assistantText,
+      );
+      blocks.push(pieces.join('\n\n'));
+    }
+  }
+  const unresolved = evidence.included.filter((item) => !item.assistantText);
+  if (unresolved.length || evidence.omitted) {
+    const lines = [lang === 'en' ? '## Unresolved images' : '## 未解析图片'];
+    for (const item of unresolved) {
+      lines.push(lang === 'en'
+        ? `- Source user message ${item.userMessage} contains ${item.imageCount} image(s) with no associated assistant text. Do not infer their contents; reattach or inspect the original session.`
+        : `- 源用户消息 ${item.userMessage} 含 ${item.imageCount} 张图片，但没有关联助手正文。不得猜测内容；请重新附图或回源会话检查。`);
+    }
+    if (evidence.omitted) {
+      lines.push(lang === 'en'
+        ? `- ${evidence.omitted} older visual-evidence block(s) exceeded the dedicated budget and were omitted whole, never partially truncated. Inspect the original session before relying on them.`
+        : `- 另有 ${evidence.omitted} 个较早视觉证据块超出独立预算，已整块省略而非截断。依赖这些图片前必须回源会话核验。`);
+    }
+    blocks.push(lines.join('\n'));
+  }
+  return blocks.filter(Boolean).join('\n\n');
 }
 
 /** 一个可按预算裁剪的取材分区。 */
@@ -122,12 +258,13 @@ function renderSection(section: Section, budget: number): RenderedSection | null
 /** 从折叠消息构建压缩输入。messages 按时间正序。 */
 export function buildBridgeSource(messages: ChatMessage[], options: BridgeSourceOptions = {}): BridgeSource {
   const budget = Math.max(0, options.sourceCharBudget ?? SOURCE_CHAR_BUDGET);
+  const visualEvidence = collectVisualEvidence(messages, options.visualEvidenceCharBudget);
 
   // 1) 最近一次 compaction 摘要当底稿（官方已付过压缩成本）。
   const compaction = [...messages].reverse().find((m) => m.kind === 'compaction' && m.content.trim());
 
   // 2) 用户消息全文（意图锚点，体量小）。
-  const users = messages.filter((m) => m.role === 'user' && m.content.trim());
+  const users = messages.filter((m) => m.role === 'user' && (m.content.trim() || (m.imageCount ?? 0) > 0));
 
   // 3) 最近若干条 assistant 结论 + 工具痕迹（只留名字与路径）。
   const assistants = messages.filter(
@@ -148,7 +285,12 @@ export function buildBridgeSource(messages: ChatMessage[], options: BridgeSource
     sections.push({
       name: 'users',
       header: SECTION_HEADERS.users,
-      items: users.map((m, i) => `${i + 1}. ${m.content.trim()}`),
+      items: users.map((m, i) => {
+        const marker = (m.imageCount ?? 0) > 0
+          ? `[image attachments: ${m.imageCount}; visual content is not available to the summary worker]`
+          : '';
+        return `${i + 1}. ${[marker, m.content.trim()].filter(Boolean).join(' ')}`;
+      }),
       keep: 'newest',
       note: (dropped) => `（较早的 ${dropped} 条用户消息因预算省略，保留的是最近的）`,
     });
@@ -179,6 +321,7 @@ export function buildBridgeSource(messages: ChatMessage[], options: BridgeSource
       reusedCompaction: false,
       truncated: false,
       dropped: [],
+      visualEvidence,
     };
   }
 
@@ -236,8 +379,9 @@ export function buildBridgeSource(messages: ChatMessage[], options: BridgeSource
     userMessagesUsed: usersUsed,
     userMessagesTotal: users.length,
     reusedCompaction: Boolean(compaction) && !dropped.includes('compaction'),
-    truncated: dropped.length > 0,
-    dropped,
+    truncated: dropped.length > 0 || visualEvidence.truncated,
+    dropped: visualEvidence.truncated ? [...dropped, 'visual-evidence'] : dropped,
+    visualEvidence,
   };
 }
 

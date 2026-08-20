@@ -47,6 +47,8 @@ const ROUTES: Record<string, [keyof ApiProxyLike, string]> = {
   'session.prompt': ['sessions', 'prompt'],
   'session.cancel': ['sessions', 'cancel'],
   'session.rename': ['sessions', 'rename'],
+  // rc.8 optional surface: rc.6/rc.7 没有图片时仍保持完整兼容。
+  'session.attachment': ['sessions', 'attachment'],
   'workspace.list': ['workspace', 'list'],
   'workspace.archiveSession': ['workspace', 'archiveSession'],
   'agentPreset.list': ['agentPresets', 'list'],
@@ -54,8 +56,8 @@ const ROUTES: Record<string, [keyof ApiProxyLike, string]> = {
   'goal.pause': ['goals', 'pause'],
 };
 
-/** 本适配器支持的方法名（测试与自检用）。 */
-export const SUPPORTED_METHODS: readonly string[] = Object.keys(ROUTES);
+/** 主迁移链路必需的方法名（测试与 doctor 用）；不含 rc.8 可选图片读取。 */
+export const SUPPORTED_METHODS: readonly string[] = Object.keys(ROUTES).filter((method) => method !== 'session.attachment');
 
 /** 一个方法在当前 host 上是否可达。 */
 export interface MethodProbe {
