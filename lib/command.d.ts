@@ -14,6 +14,7 @@
  * model.」——所以在官方 WebUI 的输入框里打 `/bridge code` 就能用。
  */
 import { type InjectMode, type Lang, type ModelTier } from './migrate.ts';
+import type { MethodProbe } from './api-rpc.ts';
 import { type Rpc } from './rpc.ts';
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
 export interface BridgeInvocation {
@@ -26,6 +27,12 @@ export interface BridgeInvocation {
         };
     };
     rawInput?: string;
+    /**
+     * rc.8 起注册表会传这个字段（随命令提交的图片块）。`/bridge` 没有声明
+     * `input.images`，所以带图片的调用会在进入这里之前就被注册表挡下来；
+     * 声明出来只是为了让类型如实反映上游传了什么。
+     */
+    attachments?: readonly unknown[];
     signal?: AbortSignal;
 }
 export type BridgeResult = {
@@ -50,6 +57,8 @@ export interface BridgeCommandConfig {
 export interface BridgeCommandDeps {
     /** 按本次调用的取消信号建一个 Rpc。 */
     rpcFor: (signal?: AbortSignal) => Rpc;
+    /** 自检：这套 host 的网关面还是不是插件预期的形状。 */
+    probe?: () => MethodProbe[];
     config: BridgeCommandConfig;
     /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
     writeSummary?: (sessionId: string, summary: string) => string | undefined;
@@ -59,6 +68,7 @@ export interface BridgeCommandDeps {
 interface ParsedInput {
     preset?: string;
     go: boolean;
+    doctor: boolean;
     tier?: ModelTier;
     lang?: Lang;
     inject?: InjectMode;

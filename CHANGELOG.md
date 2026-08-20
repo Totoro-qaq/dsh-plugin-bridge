@@ -2,6 +2,36 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.2.1 — 2026-08-20
+
+对齐 dsh 0.1.0-rc.8，并给上游接口变动加一道护栏。
+
+### 兼容性
+
+- 对着 rc.8 逐条核对了本插件用到的每一个上游面：`ctx.commands.register` 的注册契约、
+  `ctx.apiProxy` 的服务键与成员、十二个 RPC 方法的签名、goal 服务、compaction 检查点
+  标记、preset 组装、`dsh plugin add` 的装载机制。**没有一处发生变化**，rc.6 / rc.7 /
+  rc.8 上行为一致。
+- rc.8 给命令注册表加了图片附件：`CommandInvocation` 多了 `attachments` 字段，
+  `CommandInputDescriptor` 多了可选的 `images`。这是增量改动。`/bridge` 不声明
+  `input.images`，所以带图片的调用会被注册表在进入处理器之前挡下并给出明确错误——
+  这正是我们想要的行为，不需要改代码。类型里把 `attachments` 显式声明了出来。
+
+### 新增
+
+- **`/bridge --doctor`**：报出这套 host 实际暴露了十二个网关方法里的哪几个、
+  当前模式、可迁入模式、生效配置。上游哪天挪了东西，它会点名说缺了什么，
+  而不是让用户遇到一个含糊的失败。
+- **`test/upstream-contract.test.mjs`**：把依赖的上游面钉成测试——方法名集合是冻结的，
+  命令定义形状按上游 `normalizeDefinition` 的要求断言，并验证处理器容忍上游后加的字段
+  （rc.8 的 `attachments` 就是这么加进来的）。dsh 是 developer preview，
+  这道护栏让 CI 先发现问题，而不是用户先发现。
+
+### 移除
+
+- `@deepseek-ai/dsh-skill` 依赖（peer + dev）。0.2.0 删掉技能之后就没有任何代码
+  import 它了，留着只会在安装时产生无意义的 peer 噪音。
+
 ## 0.2.0 — 2026-08-18
 
 这一版的主题是：**让它成为一个正常的 dsh 插件**——`dsh plugin add` 装上、重启，

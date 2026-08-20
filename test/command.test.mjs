@@ -9,7 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createFakeHost } from './fake-host.mjs';
-import { createApiProxyRpc, SUPPORTED_METHODS } from '../src/api-rpc.ts';
+import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
 import { createBridgeCommand, parseBridgeInput } from '../src/command.ts';
 
 const CONFIG = {
@@ -27,6 +27,7 @@ function setup(hostOptions = {}, overrides = {}) {
   const files = new Map();
   const command = createBridgeCommand({
     rpcFor: (signal) => createApiProxyRpc(host.apiProxy, signal),
+    probe: () => probeApiProxy(host.apiProxy),
     config: { ...CONFIG, ...overrides },
     writeSummary: (sessionId, summary) => {
       const path = `/tmp/fake-${sessionId}.md`;
@@ -38,8 +39,9 @@ function setup(hostOptions = {}, overrides = {}) {
       return files.get(path);
     },
   });
+  // attachments 是 rc.8 起注册表必传的字段，这里跟着传，免得测试比真实调用更宽松。
   const invoke = (rawInput, sessionId = host.sourceSessionId) =>
-    command.handler({ agent: { session: { id: sessionId } }, rawInput, signal: undefined });
+    command.handler({ agent: { session: { id: sessionId } }, rawInput, attachments: [], signal: undefined });
   return { host, command, invoke, files };
 }
 
@@ -49,6 +51,7 @@ test('命令定义形状符合上游 CommandDefinition', () => {
   assert.ok(command.description.length > 10);
   assert.equal(typeof command.handler, 'function');
   assert.ok(command.input.hint.includes('preset'));
+  assert.ok(command.input.hint.includes('--doctor'), '自检入口要出现在提示里');
 });
 
 test('/bridge 不带参数：列出可迁入的模式与当前模式', async () => {
@@ -171,7 +174,8 @@ test('--tier 覆盖部署默认档位', async () => {
 });
 
 test('参数解析', () => {
-  assert.deepEqual(parseBridgeInput('code'), { preset: 'code', go: false, help: false });
+  assert.deepEqual(parseBridgeInput('code'), { preset: 'code', go: false, help: false, doctor: false });
+  assert.equal(parseBridgeInput('--doctor').doctor, true);
   assert.equal(parseBridgeInput('code --go').go, true);
   assert.equal(parseBridgeInput('code --tier=flash').tier, 'flash');
   assert.equal(parseBridgeInput('  code   --goal-rounds 3 ').goalRounds, 3);

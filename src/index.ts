@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 
-import { createApiProxyRpc, type ApiProxyLike } from './api-rpc.ts'
+import { createApiProxyRpc, probeApiProxy, type ApiProxyLike } from './api-rpc.ts'
 import { createBridgeCommand } from './command.ts'
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } from './compression.ts'
 
@@ -98,8 +98,10 @@ export function commandConfigOf(config: Config = {}) {
 }
 
 export function apply(ctx: Context, config: Config = {}): void {
+  const apiProxyOf = (): ApiProxyLike => (ctx as unknown as { apiProxy: ApiProxyLike }).apiProxy
   const command = createBridgeCommand({
-    rpcFor: (signal) => createApiProxyRpc((ctx as unknown as { apiProxy: ApiProxyLike }).apiProxy, signal),
+    rpcFor: (signal) => createApiProxyRpc(apiProxyOf(), signal),
+    probe: () => probeApiProxy(apiProxyOf()),
     config: commandConfigOf(config),
     writeSummary: writeSummaryFile,
     readSummary: (path) => readFileSync(path, 'utf8'),
