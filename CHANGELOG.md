@@ -27,6 +27,14 @@
   （rc.8 的 `attachments` 就是这么加进来的）。dsh 是 developer preview，
   这道护栏让 CI 先发现问题，而不是用户先发现。
 
+### 文档
+
+- README（中英）新增一节「那 rc.8 的 `@` 引用会话呢？」。rc.8 的 web bundle 默认挂上了
+  `dsh-session-reference` 与 `@` 输入触发，读者会问这个问题：`@` 是把另一个会话历史的
+  有界只读快照**加**到当前会话上，bridge 是把会话压缩成固定 schema **搬**到目标 preset
+  的新会话去。而且被引用的历史是旧 preset 下产生的（含工具调用），正是跨 preset 交接
+  最想丢掉的部分。
+
 ### 移除
 
 - `@deepseek-ai/dsh-skill` 依赖（peer + dev）。0.2.0 删掉技能之后就没有任何代码

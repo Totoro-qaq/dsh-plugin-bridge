@@ -159,6 +159,16 @@ The result splits cleanly by whether the target preset has tools, and averaging 
 
 ⚠️ **This A/B has two known weaknesses, both fixed for future runs but not re-measured yet.** The 2026-08-17 runs shared one workspace, which is exactly how the control arm could scavenge from disk; every run now gets an empty temp workspace. And with n = 4 pairs the comparison is directional, not conclusive. See [docs/benchmark.md](docs/benchmark.md) §10.
 
+### What about `@`-referencing the old session? (new in rc.8)
+
+rc.8's web bundle mounts [`dsh-session-reference`](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/context/session-reference) and the `@` input trigger, so you can now pull another session into the current one as a mention. It is a genuinely useful feature, and it answers a different question than this plugin does.
+
+`@` **adds**: it attaches a bounded, read-only snapshot of another session's history to the session you are already in. Bridge **moves**: it compresses a session into a fixed five-section schema and hands that to a new session under a different preset, leaving the original alone.
+
+The difference bites in exactly the case this plugin exists for. The history you would reference was produced under the *old* preset — tool calls included — which is precisely what a cross-preset handoff wants to drop ("move state, not traces"), and it arrives as raw transcript rather than as goal / state / decisions / files / next step.
+
+Rule of thumb: pulling one fact out of an old session → `@`. Continuing the work under a different preset → `/bridge`.
+
 ## Testing & verification
 
 - `npm test` runs **95 tests**: compression behaviour (including *semantic* budget assertions — "when material is clipped, is the newest still there?"), the session-event folder, summary-schema contracts, **the `/bridge` command end-to-end**, the in-process `ctx.apiProxy` adapter, the full migration pipeline against a fake dsh host, and the CLI end-to-end (real process, real HTTP gateway, real wire envelope). None of it needs a live host or spends a token.

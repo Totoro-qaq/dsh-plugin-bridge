@@ -161,6 +161,17 @@ dsh-bridge migrate --to code --summary-file <path>
 
 ⚠️ **这组 A/B 有两个已知弱点，都已修复但尚未重测。** 2026-08-17 那批 run 共用一个工作区——这正是对照臂能从磁盘上翻出事实的原因；现在每个 run 都用一个空的临时工作区。另外 n = 4 对只够给方向，不够给结论。见 [docs/benchmark.md](docs/benchmark.md) §10。
 
+### 那 rc.8 的 `@` 引用会话呢？
+
+rc.8 的 web bundle 挂上了 [`dsh-session-reference`](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/context/session-reference) 和 `@` 输入触发，你现在可以在一个会话里 `@` 引用另一个会话。这是个好功能，但它回答的是另一个问题。
+
+`@` 是**加**：把另一个会话历史的一份有界只读快照，挂到你**当前所在**的这个会话上。
+Bridge 是**搬**：把会话压缩成固定的五段 schema，交给目标 preset 下的**新会话**，原会话不动。
+
+这个区别恰好在本插件存在的那个场景上最要命。你要引用的那段历史是在**旧 preset** 下产生的——连同工具调用——而这正是跨 preset 交接最想丢掉的东西（「迁状态不迁痕迹」）；而且它到达的形态是原始转录，不是「目标 / 当前状态 / 关键决策 / 关键文件 / 下一步」。
+
+经验法则：想从旧会话里捞一个事实 → `@`；想换个模式把活继续干下去 → `/bridge`。
+
 ## 测试与验证
 
 - `npm test` 跑 **95 条测试**：压缩取材行为（含**语义**断言——「取材被裁时，最新的那条还在吗」）、会话事件折叠器、摘要五段 schema 契约、**`/bridge` 命令端到端**、进程内 `ctx.apiProxy` 适配器、对着假 dsh host 的完整迁移流水线、以及 CLI 端到端（真进程、真 HTTP 网关、真线协议信封）。全部不需要真的 host，也不烧一个 token。
