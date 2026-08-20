@@ -55,6 +55,27 @@ Bridge optimizes for **high-fidelity, bounded-cost migration**:
 
 The release-acceptance run used one summary request per fixture. Confirm always reached first useful work in two target requests; `--continue` always did so in one. Token totals varied sharply with preset, output length, and cache state, so Bridge does not claim a universal percentage saving.
 
+Observed across the fixed 12-cell release acceptance:
+
+| Token measure | Nominal | Processed |
+|---|---:|---:|
+| Confirm extra vs `--continue`, pooled summary + first useful work | **+12.82%** | +52.56% |
+| Confirm extra vs `--continue`, paired median | **+8.1%** | +65.6% |
+| Summary worker share of the clean acceptance suite | **20.74%** | 16.71% |
+
+Nominal is the primary comparison. Processed weights cache-read tokens equally and is not a bill; the worker row is a composition share, not causal overhead versus a no-Bridge baseline.
+
+<details>
+<summary><strong>Token definitions, ranges, and raw totals</strong></summary>
+
+`Nominal = uncached input + output`; `processed` also includes cache-read/cache-write tokens and is a sensitivity measure, not a bill. “Summary + first useful work” excludes the pre-existing source conversation and official compaction cost.
+
+Across the six paired fixtures, confirm's nominal extra had a median of +8.1% and a range of -47.9% to +206.7%; target-only nominal extra had a median of +11.0% and a range of -74.7% to +1059.1%. The wide spread is why request count is the stable product claim—not a fixed token-saving percentage.
+
+The six fixed summary workers used 19,551 nominal / 26,463 processed tokens. The 12 target sessions used 74,716 / 131,932. Counting each shared summary once, the clean acceptance components totalled 94,267 / 158,395 tokens. See the [full report](reports/v0.2.3-e2e-report.md) and [raw JSON](reports/v0.2.3-e2e-2026-08-20T13-19-13-924Z.raw.json).
+
+</details>
+
 In short: the safe default deliberately spends a separate confirmation turn; `--continue` combines confirmation and useful work into one target turn without enabling a background goal round.
 
 ## Accuracy
@@ -72,6 +93,9 @@ The default compression tier is `pro`. The latest rc.8 release acceptance covere
 
 This is a small, repair-driven release gate—not a statistical accuracy guarantee. It includes three 21-message sources with real compaction reuse plus three short sources, across minimal, standard, and code targets. Full methodology, raw token deltas, variability, and archive evidence are in the [v0.2.3 baseline + fix report](reports/v0.2.3-e2e-report.md).
 
+<details>
+<summary><strong>Earlier compression-tier benchmark</strong></summary>
+
 The earlier August 2026 benchmark remains useful for comparing compression tiers:
 
 | Measure | Result |
@@ -85,6 +109,8 @@ The earlier August 2026 benchmark remains useful for comparing compression tiers
 `pro` and `flash` cost nearly the same here; the reason for defaulting to `pro` is lower failure variance, not a statistically proven mean advantage. Numbers and ports remain the main drift risk, which is why preview and restatement are part of the product path.
 
 See [the earlier benchmark, A/B control, and known weaknesses](docs/benchmark.md).
+
+</details>
 
 ## How it works
 
