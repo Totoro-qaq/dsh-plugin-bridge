@@ -20,7 +20,7 @@
 ## 快速开始
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.3
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.4
 # 重启一次 dsh web
 ```
 
@@ -53,13 +53,26 @@ Bridge 的目标是：**高准确率、成本有界的迁移**。
 - pause 失败时 fail closed：取消自动启动，不发送 kickoff。
 - 只安装、不迁移时，正常会话增加 **0 prompt token**。`/bridge` 是 host slash command，不是模型工具或 skill。
 
-压缩实测约 **1.6K 输入 + 0.7K 输出 tokens**。交接摘要给目标请求增加最多 **~900 输入 tokens**；目标请求还包含该 preset 正常的系统提示，因此完整成本随 preset 变化。一次 minimal preset 的真实复述轮测得约 1.5K 输入 / 98 输出，这只是示例，不是所有模式的固定账单。
+release acceptance 中每个 fixture 只生成一次摘要。默认确认模式固定用 2 次目标请求抵达首次有效工作；`--continue` 固定用 1 次。实际 token 会随 preset、输出长度和缓存状态剧烈波动，所以本项目不宣称一个通用的固定节省百分比。
 
 一句话：安全默认值会明确多花一个“只复述”的确认轮；`--continue` 把确认和有效工作合并为一个目标轮，同时不开放后台 goal 轮次。
 
 ## 准确率
 
-默认压缩档位为 `pro`。2026 年 8 月 benchmark：
+默认压缩档位为 `pro`。最新 rc.8 release acceptance 覆盖 6 份冻结 fixture 和 12 个目标会话：
+
+| 指标 | 结果 |
+|---|---:|
+| 摘要事实 | **30/30** |
+| 目标复述事实 | **60/60** |
+| 首次有效工作事实 | **60/60** |
+| 关键事实 | **90/90** |
+| 旧值复活 | **0** |
+| confirm / continue 请求数严格合规 | **6/6 · 6/6** |
+
+这是小样本、修复驱动的发布 gate，不是统计意义的准确率保证。它包含 3 个真实复用 compaction 的 21 消息源会话与 3 个短会话，目标覆盖 minimal、standard、code。完整方法、逐请求 token、离散度与归档证据见 [v0.2.3 基线 + 修复报告](reports/v0.2.3-e2e-report.md)。
+
+更早的 2026 年 8 月 benchmark 仍用于比较压缩档位：
 
 | 指标 | 结果 |
 |---|---:|
@@ -71,7 +84,7 @@ Bridge 的目标是：**高准确率、成本有界的迁移**。
 
 `pro` 与 `flash` 在这里几乎同价；默认 `pro` 是因为失败方差更小，不是因为小样本已经证明均值显著更好。数字与端口仍是主要漂移风险，所以“预览 + 复述”属于产品主链路。
 
-完整方法、token 账单、A/B 对照与已知弱点见 [benchmark](docs/benchmark.md)。
+更早实验的完整方法、A/B 对照与已知弱点见 [benchmark](docs/benchmark.md)。
 
 ## 工作原理
 
@@ -112,8 +125,8 @@ Bridge 尊重这个边界：建立干净的目标会话，只携带一份有界�
 
 - 官方 WebUI 安装后目前需要重启一次，也不允许插件自动跳转到新建会话；Bridge 会打印准确标题与 session ID。
 - 预览通常需要 20–60 秒，受 `previewTimeoutMs` 上限保护。
-- 长会话裁剪与 compaction 复用已有单测，但已发布的准确率 benchmark 使用的是短、单消息会话。
-- 准确率数据早于 prompt+goal 双注入，不应理解为保证值。
+- release acceptance 已覆盖真实 compaction 复用，但每个 cell 仅 1 次，不应理解为总体保证值。
+- 更早的档位对比数据早于 prompt+goal 双注入，继续作为带边界的历史证据。
 
 完整操作、回退清单、配置表、CLI 路径与 FAQ 见 [中文使用指南](docs/guide.zh.md)。
 
@@ -135,7 +148,7 @@ dsh-bridge migrate --to code --summary-file <路径> --continue
 ## 开发验证
 
 ```bash
-npm test          # build + typecheck + 111 tests
+npm test          # build + typecheck + 112 tests
 npm run pack:check
 ```
 
