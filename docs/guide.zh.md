@@ -7,7 +7,7 @@
 前置：已安装 dsh（`dsh --version` 能输出版本，本插件在 0.1.0-rc.6 / rc.7 / rc.8 上核对过接口），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.2
 ```
 
 发生了什么（不用手动干预）：
@@ -37,7 +37,8 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 ```
 /bridge                    这个会话能迁到哪些模式？
 /bridge code               生成交接摘要给你过目——什么都不改
-/bridge code --go          确认，建新会话并交接
+/bridge code --go          建新会话、复述交接，然后等我确认
+/bridge code --go --continue  复述后自动继续下一步
 ```
 
 `/bridge` 是一条普通的 dsh slash 命令（和 `/compact`、`/goal`、`/plan` 同一套机制）。host 把它路由给命令注册表，**全程不经过模型**，输出由 UI 渲染、不进对话历史。所以：
@@ -69,7 +70,7 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 
 ### 3.3 执行
 
-`/bridge code --go` 会用目标 preset 建新会话、把摘要挂为会话目标（goal）**并放进首轮提示**、发交接指令，然后告诉你新会话建好了。新会话首轮会先**复述它对当前状态的理解**——这是自带的验证手段：复述里丢没丢东西，一眼可见。
+`/bridge code --go` 会用目标 preset 建新会话、把摘要挂为会话目标（goal）**并立即暂停该目标**、同时把摘要放进首轮提示。新会话只会先**复述它对当前状态的理解**，然后等你确认——复述里丢没丢东西，一眼可见。确认没问题后在目标会话继续说话即可；只有明确想让它立刻开工时，才用 `/bridge code --go --continue`。
 
 ### 3.4 不满意怎么办（回退）
 
@@ -108,7 +109,7 @@ dsh-bridge migrate --to code --summary-file <path>
 
 上游 `goal.create` 的部署默认 `maxGoalRounds` 是 **256**，而 `dsh-goal-round-driver` 会在 agent 空闲、目标处于 active 且还有额度时，自动把目标渲染成 `<goal_round>` 提示排一轮进去——一轮跑完还有额度就继续。也就是说：把交接摘要挂成 goal 而不限这个数，等于给新会话开了一个最多 256 轮的自主循环。
 
-交接只需要一轮：新会话复述理解、继续做下一步，然后把方向盘交回给你。想让它继续自己跑，把 `goalRounds` 调大，或在新会话里手动 resume 目标。
+普通交接只需要一轮理解校验，所以 Bridge 在创建 goal 后立刻 pause，再发送一条只要求复述的首轮提示。想让它立即继续，用 `--continue`；想让它之后自主跑多轮，再调大 `goalRounds` 或在新会话里手动 resume 目标。
 
 ### 关于 `inject`：为什么默认 `both`
 
@@ -122,7 +123,7 @@ dsh-bridge migrate --to code --summary-file <path>
 A：确认重启过 `dsh web`（插件在启动时挂载），并且用的是 `web` profile。命令注册依赖 `commands` 服务、执行依赖 `apiProxy` 服务，两者在官方 web profile 里都在；缺其一插件会挂起等待而不是半挂，日志里能看到。
 
 **Q：升级了 dsh 之后还能用吗？**
-A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十二个网关方法里的哪几个、当前模式是什么、生效配置是什么。全绿就是好的。缺方法它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 都逐条核对过，本插件用到的面在这三个版本上完全一致。
+A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十三个网关方法里的哪几个、当前模式是什么、生效配置是什么。全绿就是好的。缺方法它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 都逐条核对过，本插件用到的面在这三个版本上完全一致。
 
 **Q：迁移后新会话「记得」多少？**
 A：26 组实验的探针可用性（事实可回忆率）：pro 档位 95%。丢的通常是「数字合理化」一类（端口被补全成常见值）——所以预览那一步请重点扫数字。

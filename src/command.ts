@@ -85,6 +85,7 @@ interface ParsedInput {
   preset?: string;
   go: boolean;
   doctor: boolean;
+  autoContinue: boolean;
   tier?: ModelTier;
   lang?: Lang;
   inject?: InjectMode;
@@ -94,10 +95,10 @@ interface ParsedInput {
   error?: string;
 }
 
-/** `<preset> [--go] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
+/** `<preset> [--go] [--continue] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
 export function parseBridgeInput(rawInput: string): ParsedInput {
   const tokens = rawInput.trim().split(/\s+/).filter(Boolean);
-  const out: ParsedInput = { go: false, help: false, doctor: false };
+  const out: ParsedInput = { go: false, help: false, doctor: false, autoContinue: false };
   for (let i = 0; i < tokens.length; i += 1) {
     const token = tokens[i] as string;
     if (!token.startsWith('--')) {
@@ -119,6 +120,7 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
       case 'go': out.go = true; break;
       case 'help': out.help = true; break;
       case 'doctor': out.doctor = true; break;
+      case 'continue': out.autoContinue = true; break;
       case 'tier': {
         const value = take();
         if (value !== 'flash' && value !== 'current' && value !== 'pro') {
@@ -163,12 +165,13 @@ function usage(presets: PresetRow[], current: string | undefined): string {
   return [
     '用法：',
     '  /bridge <模式>          生成交接摘要给你过目（不改动任何会话）',
-    '  /bridge <模式> --go     确认后执行迁移',
+    '  /bridge <模式> --go     确认后迁移；新会话复述理解后暂停',
+    '  /bridge <模式> --go --continue  复述后自动继续下一步',
     '',
     `可迁入：${targets.length ? targets.join(' · ') : '（这套部署没有其他 preset）'}`,
     ...(current ? [`当前：${current}`] : []),
     '',
-    '可选：--tier flash|current|pro · --lang zh|en|auto · --goal-rounds N · --file <改过的摘要文件>',
+    '可选：--continue · --tier flash|current|pro · --lang zh|en|auto · --goal-rounds N · --file <改过的摘要文件>',
     '排查：/bridge --doctor',
   ].join('\n');
 }
@@ -186,7 +189,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   return {
     name: 'bridge',
     description: '把这个会话迁移到另一个工具模式（preset），原会话保持不动',
-    input: { hint: '<preset> [--go] | --doctor' },
+    input: { hint: '<preset> [--go] [--continue] | --doctor' },
     handler: async (invocation: BridgeInvocation): Promise<BridgeResult> => {
       const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
       if (!sessionId) return { kind: 'error', text: '取不到当前会话身份，无法迁移。' };
@@ -260,18 +263,26 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         }
         try {
           const row = await findSession(rpc, sessionId).catch(() => undefined);
+          const targetTitle = migratedTitle(titleOf(row), target);
           const result = await executeMigration(rpc, {
             sessionId,
             to: target,
             summary,
             goalRounds: parsed.goalRounds ?? config.goalRounds,
             inject: parsed.inject ?? config.inject,
-            title: migratedTitle(titleOf(row), target),
+            title: targetTitle,
+            autoContinue: parsed.autoContinue,
             ...(parsed.lang && parsed.lang !== 'auto' ? { lang: parsed.lang } : {}),
           });
           pending.delete(sessionId);
           const lines = [
             `已在 ${result.agentPreset} 模式下建好新会话，摘要来自${source}。`,
+            `目标会话：${targetTitle} · ${result.sessionId}`,
+            result.kickoffSent
+              ? (parsed.autoContinue
+                  ? '新会话会在复述理解后自动继续下一步。'
+                  : '新会话只会复述理解，然后暂停等待你确认。')
+              : '新会话没有自动启动；请按下面的警告检查后手动继续。',
             '原会话原封不动，随时点回来；新会话不满意就归档。',
           ];
           for (const warning of result.warnings) lines.push(`⚠ ${warning}`);

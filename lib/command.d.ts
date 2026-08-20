@@ -69,6 +69,7 @@ interface ParsedInput {
     preset?: string;
     go: boolean;
     doctor: boolean;
+    autoContinue: boolean;
     tier?: ModelTier;
     lang?: Lang;
     inject?: InjectMode;
@@ -77,7 +78,7 @@ interface ParsedInput {
     help: boolean;
     error?: string;
 }
-/** `<preset> [--go] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
+/** `<preset> [--go] [--continue] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
 export declare function parseBridgeInput(rawInput: string): ParsedInput;
 /** 建一个 `/bridge` 命令定义。返回值形状对齐上游 `CommandDefinition`。 */
 export declare function createBridgeCommand(deps: BridgeCommandDeps): {

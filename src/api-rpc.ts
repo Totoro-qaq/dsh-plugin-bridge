@@ -51,6 +51,7 @@ const ROUTES: Record<string, [keyof ApiProxyLike, string]> = {
   'workspace.archiveSession': ['workspace', 'archiveSession'],
   'agentPreset.list': ['agentPresets', 'list'],
   'goal.create': ['goals', 'create'],
+  'goal.pause': ['goals', 'pause'],
 };
 
 /** 本适配器支持的方法名（测试与自检用）。 */

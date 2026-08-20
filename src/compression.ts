@@ -295,10 +295,15 @@ Rules: drop details tied to the old preset's tools; keep decision rationale; eve
 }
 
 /** 注入新会话首轮的交接指令（goal 之后的第一条 prompt）。 */
-export function buildBridgeKickoff(lang: 'zh' | 'en'): string {
-  return lang === 'en'
-    ? 'The session goal above is a handoff summary from a previous session that ran under a different tool preset. Reply in one short paragraph restating your understanding of the current state, then continue with the next step.'
-    : '上面的会话目标是上个会话（另一套工具模式）留下的交接摘要。请先用一段话复述你对当前状态的理解，然后继续执行下一步。';
+export function buildBridgeKickoff(lang: 'zh' | 'en', autoContinue = false): string {
+  if (lang === 'en') {
+    return autoContinue
+      ? 'The session goal above is a handoff summary from a previous session that ran under a different tool preset. Reply in one short paragraph restating your understanding of the current state, then continue with the next step.'
+      : 'The session goal above is a handoff summary from a previous session that ran under a different tool preset. Reply in one short paragraph restating your understanding of the current state, then stop and wait for the user to confirm before taking any further action.';
+  }
+  return autoContinue
+    ? '上面的会话目标是上个会话（另一套工具模式）留下的交接摘要。请先用一段话复述你对当前状态的理解，然后继续执行下一步。'
+    : '上面的会话目标是上个会话（另一套工具模式）留下的交接摘要。请只用一段话复述你对当前状态的理解，然后停止，等待用户确认后再采取任何进一步行动。';
 }
 
 /** 成本预估（粗）：按取材字符数估输入 tokens，中英混合按 ~2 字符/token。 */

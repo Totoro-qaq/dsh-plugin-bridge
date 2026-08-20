@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "DeepSeek Harness Cordis bundle for cross-preset session migration via fixed-schema handoff summaries",
   "type": "module",
   "main": "lib/index.js",

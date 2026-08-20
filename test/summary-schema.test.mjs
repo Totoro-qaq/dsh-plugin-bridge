@@ -111,7 +111,11 @@ test('kickoff：指明 goal 是跨模式交接摘要，并要求复述理解（�
   const zh = buildBridgeKickoff('zh');
   assert.match(zh, /另一套工具模式/);
   assert.match(zh, /复述/);
+  assert.match(zh, /等待用户确认/);
   const en = buildBridgeKickoff('en');
   assert.match(en, /different tool preset/i);
   assert.match(en, /restating your understanding/i);
+  assert.match(en, /wait for the user to confirm/i);
+  assert.match(buildBridgeKickoff('zh', true), /继续执行下一步/);
+  assert.match(buildBridgeKickoff('en', true), /continue with the next step/i);
 });

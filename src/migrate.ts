@@ -332,6 +332,8 @@ export interface MigrateOptions {
   inject?: InjectMode;
   /** 是否发首轮交接指令。 */
   kickoff?: boolean;
+  /** 是否在复述后自动继续。默认 false：goal 会先暂停，等用户确认。 */
+  autoContinue?: boolean;
   /** 给新会话起个能看出来源的标题。 */
   title?: string;
   onProgress?: (message: string) => void;
@@ -341,6 +343,8 @@ export interface MigrateResult {
   sessionId: string;
   agentPreset: string;
   goalCreated: boolean;
+  goalPaused: boolean;
+  kickoffSent: boolean;
   titled: boolean;
   warnings: string[];
 }
@@ -381,37 +385,54 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   }
 
   let goalCreated = false;
+  let goalPaused = false;
+  let safeToKickoff = true;
+  let kickoffSent = false;
   if (inject === 'goal' || inject === 'both') {
     try {
-      await rpc('goal.create', {
+      const createdGoal = await rpc<{ ref: { id: string; revision: number } }>('goal.create', {
         sessionId: created.sessionId,
         objective: summary,
         maxGoalRounds: options.goalRounds ?? 1,
       });
       goalCreated = true;
+      if (!options.autoContinue) {
+        try {
+          await rpc('goal.pause', { sessionId: created.sessionId, ref: createdGoal.ref });
+          goalPaused = true;
+        } catch (error) {
+          // 安全优先：pause 失败时不再发 kickoff，并尽力取消/解除自动续跑授权。
+          safeToKickoff = false;
+          await rpc('session.cancel', { sessionId: created.sessionId }).catch(() => undefined);
+          warnings.push(`暂停交接目标失败，已取消自动启动；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
     } catch (error) {
       // 没挂 goal 服务的部署也应该能迁移：摘要还会走首轮提示。
       warnings.push(`挂载会话目标失败，摘要改由首轮提示携带：${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  if (options.kickoff !== false) {
+  if (options.kickoff !== false && safeToKickoff) {
     const carriesSummary = inject === 'prompt' || inject === 'both' || !goalCreated;
     const text = carriesSummary
-      ? `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang)}`
-      : buildBridgeKickoff(lang);
+      ? `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`
+      : buildBridgeKickoff(lang, options.autoContinue);
     progress('发送首轮交接指令…');
     await rpc('session.prompt', {
       sessionId: created.sessionId,
       mode: 'queue',
       content: [{ type: 'text', text }],
     });
+    kickoffSent = true;
   }
 
   return {
     sessionId: created.sessionId,
     agentPreset: created.agentPreset ?? options.to,
     goalCreated,
+    goalPaused,
+    kickoffSent,
     titled,
     warnings,
   };

@@ -83,10 +83,24 @@ test('/bridge code --go：用预览的摘要建目标会话，goal 只给一轮'
   const result = await invoke('code --go');
   assert.equal(result.kind, 'success', result.text);
   assert.match(result.text, /已在 code 模式下建好新会话/);
+  assert.match(result.text, /目标会话：.+ · s-/);
+  assert.match(result.text, /暂停等待你确认/);
   assert.match(result.text, /原会话原封不动/);
   assert.equal(host.state.goals.length, 1);
   assert.equal(host.state.goals[0].maxGoalRounds, 1);
+  assert.equal(host.state.pausedGoals.length, 1);
   assert.ok(host.state.goals[0].objective.includes('7101'));
+});
+
+test('/bridge code --go --continue：显式请求才自动继续', async () => {
+  const { host, invoke } = setup();
+  await invoke('code');
+  const result = await invoke('code --go --continue');
+  assert.equal(result.kind, 'success', result.text);
+  assert.match(result.text, /自动继续下一步/);
+  assert.equal(host.state.pausedGoals.length, 0);
+  const targetPrompt = host.state.calls.filter((c) => c.method === 'session.prompt').at(-1);
+  assert.ok(targetPrompt.payload.content[0].text.includes('继续执行下一步'));
 });
 
 test('没预览就 --go 会被拦住', async () => {
@@ -174,9 +188,10 @@ test('--tier 覆盖部署默认档位', async () => {
 });
 
 test('参数解析', () => {
-  assert.deepEqual(parseBridgeInput('code'), { preset: 'code', go: false, help: false, doctor: false });
+  assert.deepEqual(parseBridgeInput('code'), { preset: 'code', go: false, help: false, doctor: false, autoContinue: false });
   assert.equal(parseBridgeInput('--doctor').doctor, true);
   assert.equal(parseBridgeInput('code --go').go, true);
+  assert.equal(parseBridgeInput('code --go --continue').autoContinue, true);
   assert.equal(parseBridgeInput('code --tier=flash').tier, 'flash');
   assert.equal(parseBridgeInput('  code   --goal-rounds 3 ').goalRounds, 3);
   assert.match(parseBridgeInput('code --nope').error, /不认识的参数/);
@@ -188,6 +203,7 @@ test('apiProxy 适配器：映射齐全，未映射的方法报清楚', async ()
   const { host } = setup();
   const rpc = createApiProxyRpc(host.apiProxy);
   assert.ok(SUPPORTED_METHODS.includes('goal.create'));
+  assert.ok(SUPPORTED_METHODS.includes('goal.pause'));
   const listed = await rpc('agentPreset.list', {});
   assert.ok(listed.presets.length > 0);
   await assert.rejects(() => rpc('session.export', {}), /没有映射/);

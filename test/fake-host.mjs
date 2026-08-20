@@ -16,6 +16,7 @@ export function createFakeHost(options = {}) {
     // 第一次轮询前就已经不 running：模拟「host 还没排上队」。
     startAfterPolls = 0,
     failGoal = false,
+    failPause = false,
     presets = [
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'code', trust: 'system' },
@@ -41,6 +42,7 @@ export function createFakeHost(options = {}) {
   const calls = [];
   const archived = [];
   const goals = [];
+  const pausedGoals = [];
   const renames = [];
   const selected = [];
 
@@ -154,7 +156,12 @@ export function createFakeHost(options = {}) {
       case 'goal.create': {
         if (failGoal) fail('internal', '这个部署没挂 goal 服务');
         goals.push({ ...payload });
-        return { goal: { id: 'g-1', revision: 1 } };
+        return { ref: { id: 'g-1', revision: 1 } };
+      }
+      case 'goal.pause': {
+        if (failPause) fail('internal', '暂停目标失败');
+        pausedGoals.push({ ...payload });
+        return { ref: { id: payload.ref.id, revision: payload.ref.revision + 1 } };
       }
       case 'workspace.list':
         return { items: [{ workspaceId: 'ws-1', path: '/work/shop', sessionIds: [source.sessionId] }], archivedSessionIds: archived };
@@ -192,7 +199,7 @@ export function createFakeHost(options = {}) {
       list: unary('workspace.list'),
       archiveSession: unary('workspace.archiveSession'),
     },
-    goals: { create: unary('goal.create') },
+    goals: { create: unary('goal.create'), pause: unary('goal.pause') },
     agentPresets: { list: unary('agentPreset.list') },
   };
 
@@ -200,7 +207,7 @@ export function createFakeHost(options = {}) {
     handle,
     apiProxy,
     sourceSessionId: source.sessionId,
-    state: { sessions, calls, archived, goals, renames, selected },
+    state: { sessions, calls, archived, goals, pausedGoals, renames, selected },
     /** 把假 host 包成 migrate.ts 需要的 Rpc。 */
     rpc: (method, payload) => handle(method, payload),
   };
