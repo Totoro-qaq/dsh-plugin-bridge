@@ -135,7 +135,7 @@ export interface MigrateOptions {
     inject?: InjectMode;
     /** 是否发首轮交接指令。 */
     kickoff?: boolean;
-    /** 是否在复述后自动继续。默认 false：goal 会先暂停，等用户确认。 */
+    /** 是否在同一轮复述后继续工作。goal 始终先暂停，避免 round driver 另起一轮。 */
     autoContinue?: boolean;
     /** 给新会话起个能看出来源的标题。 */
     title?: string;

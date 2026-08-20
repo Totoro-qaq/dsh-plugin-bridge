@@ -166,7 +166,7 @@ function usage(presets: PresetRow[], current: string | undefined): string {
     '用法：',
     '  /bridge <模式>          生成交接摘要给你过目（不改动任何会话）',
     '  /bridge <模式> --go     确认后迁移；新会话复述理解后暂停',
-    '  /bridge <模式> --go --continue  复述后自动继续下一步',
+    '  /bridge <模式> --go --continue  同一轮复述并继续下一步',
     '',
     `可迁入：${targets.length ? targets.join(' · ') : '（这套部署没有其他 preset）'}`,
     ...(current ? [`当前：${current}`] : []),
@@ -280,7 +280,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             `目标会话：${targetTitle} · ${result.sessionId}`,
             result.kickoffSent
               ? (parsed.autoContinue
-                  ? '新会话会在复述理解后自动继续下一步。'
+                  ? '交接目标已暂停；新会话会在同一轮复述理解并继续下一步，不触发额外 goal 轮次。'
                   : '新会话只会复述理解，然后暂停等待你确认。')
               : '新会话没有自动启动；请按下面的警告检查后手动继续。',
             '原会话原封不动，随时点回来；新会话不满意就归档。',

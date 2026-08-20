@@ -47,7 +47,7 @@ export interface Config {
    * 会话开了最多 256 轮自主循环。交接只需要一轮，之后交回用户。
    */
   goalRounds?: number
-  /** 摘要注入方式：goal 只挂目标 / prompt 只走首轮提示 / both 两者都做（默认，任何组装下都成立）。 */
+  /** 摘要注入方式：prompt 不挂目标；goal / both 会挂目标。只要发 kickoff，摘要始终随 prompt 注入以防失忆。 */
   inject?: 'goal' | 'prompt' | 'both'
   /** 摘要语言，auto 表示跟着会话内容走。 */
   lang?: 'zh' | 'en' | 'auto'
