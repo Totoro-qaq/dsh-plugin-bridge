@@ -1,0 +1,23 @@
+{
+  "fixtureId": "compacted-standard",
+  "sourceSessionId": "session-663b603c-e061-491d-ba13-794572b89f0e",
+  "workerSessionId": "session-27ea3c44-7b30-4072-be06-3b36902d6748",
+  "summary": "## 目标\n用户在做 Nori merge，当前任务是执行“最终约定生效后”的迁移下一步：仅文字输出，简短复述并逐行原样输出五行执行契约，不得使用工具。\n\n## 当前状态\n最终替换值已生效并覆盖旧方案，旧方案全部作废、不得恢复。助手刚回复“最终约定已生效”。用户已明确“现在不要执行下一步”，因此尚未输出五行执行契约；下一步仅文字输出、不使用任何工具。\n\n## 关键决策与约定\n- 数据库：ClickHouse（固定、不可变）\n- 明确禁止：Hadoop（已生效，替代旧方案）\n- 唯一核心路径：pipelines/nori_88/merge.py（已生效，替代旧方案）\n- 提交前缀：NORI88:（已生效，替代旧方案）\n- 当前生效端口（原样保留）：\nPORT=53609\n\n## 关键文件\n- pipelines/nori_88/merge.py（唯一核心路径）\n\n## 下一步\n按用户要求，仅文字输出、不使用任何工具：简短复述最终约定后，逐行原样输出以下五行执行契约：\nPORT=53609\nDB=ClickHouse\nBAN=Hadoop\nPATH=pipelines/nori_88/merge.py\nPREFIX=NORI88:",
+  "usage": {
+    "uncachedInput": 1803,
+    "cacheRead": 1280,
+    "cacheWrite": 0,
+    "output": 1148,
+    "nominal": 2951,
+    "processed": 4231
+  },
+  "currentHits": [
+    "53609",
+    "ClickHouse",
+    "Hadoop",
+    "pipelines/nori_88/merge.py",
+    "NORI88:"
+  ],
+  "obsoleteLeaks": [],
+  "pass": true
+}

@@ -1,0 +1,23 @@
+{
+  "fixtureId": "compacted-code",
+  "sourceSessionId": "session-2383bde4-9dce-4a8b-9f0d-aa5bd556f4bc",
+  "workerSessionId": "session-765dd2c6-1408-48a9-862e-906f40c8333e",
+  "summary": "## 目标\n用户在构建 Vesper window；完成定义为：迁移到最终确认约定后，以纯文字方式逐行输出五行执行契约（不使用任何工具）。\n\n## 当前状态\n基础约定（本地端口、数据库）已确认且不可更改。最终替换值已生效并覆盖旧方案：禁止 InfluxDB、唯一核心路径 crates/vesper_52/src/window.rs、提交前缀 V52:。助手已回复“最终约定已生效”；用户要求当时不执行下一步，因此迁移文字输出尚未执行。锚点 04–20 已记录，仅为验证 compaction 的中性进度标记，不新增、不覆盖任何技术约定。\n\n## 关键决策与约定\n- 本地端口固定且不可改变：\n55837\n（用户明确“已定下且不会改变”）。\n- 数据库固定为 TimescaleDB（用户明确不可改变）。\n- 最终替换值已生效并覆盖旧方案：明确禁止 InfluxDB；唯一核心路径 crates/vesper_52/src/window.rs；提交前缀 V52:（用户最终确认，旧方案不得恢复）。\n- 迁移后的下一步只做文字输出，不使用任何工具（用户明确指令）。\n- 锚点 04–20 为中性进度记录，不新增、不覆盖任何技术约定（用户多次强调）。\n\n## 关键文件\n- crates/vesper_52/src/window.rs（当前生效的唯一核心路径）\n\n## 下一步\n执行纯文字迁移输出（不使用工具）：简短复述最终约定后，逐行原样输出以下五行执行契约：\nPORT=55837\nDB=TimescaleDB\nBAN=InfluxDB\nPATH=crates/vesper_52/src/window.rs\nPREFIX=V52:",
+  "usage": {
+    "uncachedInput": 1712,
+    "cacheRead": 1280,
+    "cacheWrite": 0,
+    "output": 2072,
+    "nominal": 3784,
+    "processed": 5064
+  },
+  "currentHits": [
+    "55837",
+    "TimescaleDB",
+    "InfluxDB",
+    "crates/vesper_52/src/window.rs",
+    "V52:"
+  ],
+  "obsoleteLeaks": [],
+  "pass": true
+}

@@ -1,0 +1,23 @@
+{
+  "fixtureId": "compacted-minimal",
+  "sourceSessionId": "session-45d1fde5-d184-4b7b-a341-e412c0753ee5",
+  "workerSessionId": "session-0c6bcc0f-57cb-4746-a173-f4df0717f9d7",
+  "summary": "## 目标\n用户在做 Atlas state；最终替换值已生效，完成定义是按新约定完成迁移，并以纯文字输出执行契约（简短复述 + 五行契约）。\n\n## 当前状态\n用户已下达最终替换值并声明旧早期方案全部作废、不得恢复；助手已回复“最终约定已生效”。锚点 04–20 仅为中性压缩验证记录，不新增、不覆盖任何技术约定。尚未执行迁移后的下一步，用户明确要求“现在不要执行下一步”。当前等待用户进一步指示。\n\n## 关键决策与约定\n1. 本地端口固定为 51743（用户确认，不可改变）。\n2. 数据库固定为 libSQL（用户确认，不可改变）。\n3. 最终约定已覆盖旧方案：禁止 S3；唯一核心路径为 services/atlas_73/state.ts；提交前缀为 ATLAS73:（用户明确旧值全部作废、不得恢复）。\n4. 迁移后的下一步只做文字输出，不使用任何工具（用户硬约束）。\n5. 以下五行执行契约必须逐行原样输出：\nPORT=51743\nDB=libSQL\nBAN=S3\nPATH=services/atlas_73/state.ts\nPREFIX=ATLAS73:\n\n## 关键文件\n- services/atlas_73/state.ts（当前唯一核心路径，迁移目标文件）\n\n## 下一步\n等待用户指示后，先用简短语言复述最终约定，再逐行原样输出上述五行执行契约；期间不调用任何工具。",
+  "usage": {
+    "uncachedInput": 1736,
+    "cacheRead": 1280,
+    "cacheWrite": 0,
+    "output": 2182,
+    "nominal": 3918,
+    "processed": 5198
+  },
+  "currentHits": [
+    "51743",
+    "libSQL",
+    "S3",
+    "services/atlas_73/state.ts",
+    "ATLAS73:"
+  ],
+  "obsoleteLeaks": [],
+  "pass": true
+}

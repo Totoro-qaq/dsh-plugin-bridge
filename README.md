@@ -20,7 +20,7 @@ Move a produced DeepSeek Harness session to another tool preset through a previe
 ## Quick start
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.3
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.4
 # restart dsh web once
 ```
 
@@ -53,13 +53,26 @@ Bridge optimizes for **high-fidelity, bounded-cost migration**:
 - If pausing fails, Bridge fails closed: it cancels automatic startup and sends no kickoff.
 - Installing the plugin adds **zero prompt tokens** to normal sessions. `/bridge` is a host slash command, not a model tool or skill.
 
-Measured compression cost is about **1.6K input + 0.7K output tokens**. The handoff summary contributes at most **~900 input tokens** to the target request; that request also includes the target preset's normal system prompt, so its full cost varies by preset. A live minimal-preset restatement measured ~1.5K input / 98 output—use that as an example, not a universal bill.
+The release-acceptance run used one summary request per fixture. Confirm always reached first useful work in two target requests; `--continue` always did so in one. Token totals varied sharply with preset, output length, and cache state, so Bridge does not claim a universal percentage saving.
 
 In short: the safe default deliberately spends a separate confirmation turn; `--continue` combines confirmation and useful work into one target turn without enabling a background goal round.
 
 ## Accuracy
 
-The default compression tier is `pro`. In the August 2026 benchmark:
+The default compression tier is `pro`. The latest rc.8 release acceptance covered 6 frozen fixtures and 12 target sessions:
+
+| Measure | Result |
+|---|---:|
+| Summary facts | **30/30** |
+| Target restatement facts | **60/60** |
+| First useful work facts | **60/60** |
+| Critical facts | **90/90** |
+| Obsolete-value resurrection | **0** |
+| Exact confirm / continue request count | **6/6 · 6/6** |
+
+This is a small, repair-driven release gate—not a statistical accuracy guarantee. It includes three 21-message sources with real compaction reuse plus three short sources, across minimal, standard, and code targets. Full methodology, raw token deltas, variability, and archive evidence are in the [v0.2.3 baseline + fix report](reports/v0.2.3-e2e-report.md).
+
+The earlier August 2026 benchmark remains useful for comparing compression tiers:
 
 | Measure | Result |
 |---|---:|
@@ -71,7 +84,7 @@ The default compression tier is `pro`. In the August 2026 benchmark:
 
 `pro` and `flash` cost nearly the same here; the reason for defaulting to `pro` is lower failure variance, not a statistically proven mean advantage. Numbers and ports remain the main drift risk, which is why preview and restatement are part of the product path.
 
-See [the benchmark, raw-cost accounting, A/B control, and known weaknesses](docs/benchmark.md).
+See [the earlier benchmark, A/B control, and known weaknesses](docs/benchmark.md).
 
 ## How it works
 
@@ -112,8 +125,8 @@ Verified against DeepSeek Harness **0.1.0-rc.6, rc.7, and rc.8**, Node.js 22 and
 
 - The official WebUI currently needs one restart after install and cannot let a plugin navigate to the session it creates. Bridge prints the exact title and session ID.
 - Preview normally takes 20–60 seconds and is bounded by `previewTimeoutMs`.
-- Long-session clipping and compaction reuse are unit-tested, but the published accuracy benchmark used short, single-message sessions.
-- Accuracy figures predate prompt+goal dual injection and should not be read as a guarantee.
+- Release acceptance now covers real compaction reuse, but only one run per cell; it should not be read as a population guarantee.
+- The older tier-comparison benchmark predates prompt+goal dual injection and remains labeled as historical evidence.
 
 For the full walkthrough, rollback checklist, configuration table, CLI path, and FAQ, read the [Chinese usage guide](docs/guide.zh.md).
 
@@ -135,7 +148,7 @@ The default injection mode is `both`: the summary is stored as a resumable goal 
 ## Development
 
 ```bash
-npm test          # build + typecheck + 111 tests
+npm test          # build + typecheck + 112 tests
 npm run pack:check
 ```
 

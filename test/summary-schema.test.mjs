@@ -62,6 +62,13 @@ test('去原模式工具细节的规则存在（迁状态不迁痕迹）', () =>
   assert.match(buildBridgeInstruction('en'), /drop details tied to the old preset's tools/i);
 });
 
+test('已作废具体值不得进入摘要或迁移复述', () => {
+  assert.match(buildBridgeInstruction('zh'), /必须彻底省略该旧具体值/);
+  assert.match(buildBridgeInstruction('en'), /OMIT that obsolete concrete value entirely/);
+  assert.match(buildBridgeKickoff('zh', true), /不要引用或复述.*具体旧值/);
+  assert.match(buildBridgeKickoff('en', true), /never quote or restate concrete values marked obsolete/);
+});
+
 test('决策段要求附理由（决策理由是探针命中率的关键载体）', () => {
   assert.match(buildBridgeInstruction('zh'), /附决策理由/);
   assert.match(buildBridgeInstruction('en'), /include the reasoning/i);

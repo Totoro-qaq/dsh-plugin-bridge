@@ -1,0 +1,108 @@
+{
+  "stamp": "2026-08-20T13-19-13-924Z",
+  "api": "http://127.0.0.1:3180/api",
+  "sessions": [
+    "session-f5126bab-e74b-491f-8160-1ad7d99c00d7",
+    "session-691d5a12-16cd-4503-9dee-72fb2b4a9dd8",
+    "session-f6d05380-b23e-44be-b3b8-5e91169da268",
+    "session-4c278ee3-504c-40d8-ac44-a99e2fa9e8c7",
+    "session-77f1da92-eff3-4142-ae3a-5cacef68bff8",
+    "session-60c1eb09-8776-43bb-9f39-89bb1118cb41",
+    "session-05642429-8625-4cfa-8ef6-4dda52133caf",
+    "session-eec8139a-1003-4786-8f9a-fdeb5cf56245",
+    "session-04d54ee1-d416-4cbf-9b01-9e1950d18e2a"
+  ],
+  "workspaces": [
+    {
+      "workspaceId": "f27efa1f-7a51-4ddc-ae8a-c0e8655bb3a6",
+      "path": "/var/folders/pg/9vsbq3sd3wn48k9jhk96q8bm0000gn/T/dsh-bridge-v023-carrier-compacted-standard-43kezG"
+    },
+    {
+      "workspaceId": "71d8e33e-c874-4eb8-910b-6435ec80afe5",
+      "path": "/var/folders/pg/9vsbq3sd3wn48k9jhk96q8bm0000gn/T/dsh-bridge-v023-carrier-compacted-minimal-K9maAV"
+    },
+    {
+      "workspaceId": "024a78ed-c259-4b2c-9257-524b754a36cb",
+      "path": "/var/folders/pg/9vsbq3sd3wn48k9jhk96q8bm0000gn/T/dsh-bridge-v023-carrier-compacted-code-Sr6LEv"
+    }
+  ],
+  "archiveAttempts": [
+    {
+      "sessionId": "session-f5126bab-e74b-491f-8160-1ad7d99c00d7",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-691d5a12-16cd-4503-9dee-72fb2b4a9dd8",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-f6d05380-b23e-44be-b3b8-5e91169da268",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-4c278ee3-504c-40d8-ac44-a99e2fa9e8c7",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-77f1da92-eff3-4142-ae3a-5cacef68bff8",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-60c1eb09-8776-43bb-9f39-89bb1118cb41",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-05642429-8625-4cfa-8ef6-4dda52133caf",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-eec8139a-1003-4786-8f9a-fdeb5cf56245",
+      "phase": "final-sweep",
+      "ok": true
+    },
+    {
+      "sessionId": "session-04d54ee1-d416-4cbf-9b01-9e1950d18e2a",
+      "phase": "final-sweep",
+      "ok": true
+    }
+  ],
+  "measuredUsage": {
+    "uncachedInput": 200145,
+    "cacheRead": 198144,
+    "cacheWrite": 0,
+    "output": 37543,
+    "nominal": 237688,
+    "processed": 435832
+  },
+  "state": "finished",
+  "report": "reports/v0.2.3-e2e-2026-08-20T13-19-13-924Z.raw.json",
+  "pass": true,
+  "archive": {
+    "trackedSessions": 9,
+    "successfulArchiveCalls": 9,
+    "failedArchiveCalls": [],
+    "archiveVerification": "workspace-storage",
+    "archivedTracked": [
+      "session-f5126bab-e74b-491f-8160-1ad7d99c00d7",
+      "session-691d5a12-16cd-4503-9dee-72fb2b4a9dd8",
+      "session-f6d05380-b23e-44be-b3b8-5e91169da268",
+      "session-4c278ee3-504c-40d8-ac44-a99e2fa9e8c7",
+      "session-77f1da92-eff3-4142-ae3a-5cacef68bff8",
+      "session-60c1eb09-8776-43bb-9f39-89bb1118cb41",
+      "session-05642429-8625-4cfa-8ef6-4dda52133caf",
+      "session-eec8139a-1003-4786-8f9a-fdeb5cf56245",
+      "session-04d54ee1-d416-4cbf-9b01-9e1950d18e2a"
+    ],
+    "missingFromArchive": [],
+    "workspaceErrors": [],
+    "remainingWorkspaces": [],
+    "pass": true
+  }
+}
