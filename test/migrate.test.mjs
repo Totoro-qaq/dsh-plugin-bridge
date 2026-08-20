@@ -107,7 +107,7 @@ test('migrate：默认注入方式让摘要一定进上下文', async () => {
   assert.ok(kickoff.payload.content[0].text.includes('等待用户确认'), '默认只做理解校验，不继续执行');
 });
 
-test('migrate：显式 autoContinue 才保持目标 armed 并继续下一步', async () => {
+test('migrate：autoContinue 在同一轮继续，但 goal 仍暂停以免追加轮次', async () => {
   const host = createFakeHost();
   const result = await executeMigration(host.rpc, {
     sessionId: host.sourceSessionId,
@@ -116,9 +116,9 @@ test('migrate：显式 autoContinue 才保持目标 armed 并继续下一步', a
     lang: 'zh',
     autoContinue: true,
   });
-  assert.equal(result.goalPaused, false);
+  assert.equal(result.goalPaused, true);
   assert.equal(result.kickoffSent, true);
-  assert.equal(host.state.pausedGoals.length, 0);
+  assert.equal(host.state.pausedGoals.length, 1);
   const kickoff = host.state.calls.find(
     (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
   );
@@ -153,7 +153,7 @@ test('migrate：没挂 goal 服务时降级而不是失败', async () => {
   assert.ok(kickoff.payload.content[0].text.includes('7101'), '降级后摘要仍须进上下文');
 });
 
-test('migrate：--inject goal 时首轮提示只引用目标', async () => {
+test('migrate：--inject goal 仍把摘要放进 kickoff，不能让首轮失忆', async () => {
   const host = createFakeHost();
   const result = await executeMigration(host.rpc, {
     sessionId: host.sourceSessionId, to: 'code', summary: '## 目标\n端口 7101', lang: 'zh', inject: 'goal',
@@ -161,7 +161,7 @@ test('migrate：--inject goal 时首轮提示只引用目标', async () => {
   const kickoff = host.state.calls.find(
     (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
   );
-  assert.ok(!kickoff.payload.content[0].text.includes('7101'));
+  assert.ok(kickoff.payload.content[0].text.includes('7101'));
 });
 
 test('migrate：空摘要被拒绝', async () => {

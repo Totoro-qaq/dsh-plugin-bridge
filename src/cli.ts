@@ -67,7 +67,7 @@ migrate / run：
   --summary-file <path>        摘要正文（migrate 必填；run 忽略）
   --goal-rounds <n>            目标自主轮次上限（默认 1；上游部署默认是 256）
   --inject <goal|prompt|both>  摘要注入方式（默认 both）
-  --continue                   复述后自动继续；默认复述后暂停等待确认
+  --continue                   同一轮复述并继续；默认复述后等待确认
   --no-kickoff                 不发首轮交接指令
   --title <text>               新会话标题（默认「<原标题> → <preset>」）
 `;
@@ -312,7 +312,9 @@ async function main(argv: string[]): Promise<number> {
       out(result, () => {
         const lines = [`已在 ${result.agentPreset} 模式下建好新会话：${result.sessionId}`];
         if (result.kickoffSent) {
-          lines.push(result.goalPaused ? '交接目标已暂停；新会话复述后等待你确认。' : '交接目标未暂停。');
+          lines.push(bool(args, 'continue')
+            ? '交接目标已暂停；新会话会在同一轮复述并继续，不触发额外 goal 轮次。'
+            : '交接目标已暂停；新会话复述后等待你确认。');
         } else {
           lines.push('新会话没有自动启动；请检查警告后手动继续。');
         }

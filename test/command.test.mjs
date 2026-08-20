@@ -92,13 +92,14 @@ test('/bridge code --go：用预览的摘要建目标会话，goal 只给一轮'
   assert.ok(host.state.goals[0].objective.includes('7101'));
 });
 
-test('/bridge code --go --continue：显式请求才自动继续', async () => {
+test('/bridge code --go --continue：同一轮继续，goal 仍暂停', async () => {
   const { host, invoke } = setup();
   await invoke('code');
   const result = await invoke('code --go --continue');
   assert.equal(result.kind, 'success', result.text);
-  assert.match(result.text, /自动继续下一步/);
-  assert.equal(host.state.pausedGoals.length, 0);
+  assert.match(result.text, /同一轮复述理解并继续下一步/);
+  assert.match(result.text, /不触发额外 goal 轮次/);
+  assert.equal(host.state.pausedGoals.length, 1);
   const targetPrompt = host.state.calls.filter((c) => c.method === 'session.prompt').at(-1);
   assert.ok(targetPrompt.payload.content[0].text.includes('继续执行下一步'));
 });

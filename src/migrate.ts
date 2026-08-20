@@ -332,7 +332,7 @@ export interface MigrateOptions {
   inject?: InjectMode;
   /** 是否发首轮交接指令。 */
   kickoff?: boolean;
-  /** 是否在复述后自动继续。默认 false：goal 会先暂停，等用户确认。 */
+  /** 是否在同一轮复述后继续工作。goal 始终先暂停，避免 round driver 另起一轮。 */
   autoContinue?: boolean;
   /** 给新会话起个能看出来源的标题。 */
   title?: string;
@@ -396,16 +396,14 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
         maxGoalRounds: options.goalRounds ?? 1,
       });
       goalCreated = true;
-      if (!options.autoContinue) {
-        try {
-          await rpc('goal.pause', { sessionId: created.sessionId, ref: createdGoal.ref });
-          goalPaused = true;
-        } catch (error) {
-          // 安全优先：pause 失败时不再发 kickoff，并尽力取消/解除自动续跑授权。
-          safeToKickoff = false;
-          await rpc('session.cancel', { sessionId: created.sessionId }).catch(() => undefined);
-          warnings.push(`暂停交接目标失败，已取消自动启动；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`);
-        }
+      try {
+        await rpc('goal.pause', { sessionId: created.sessionId, ref: createdGoal.ref });
+        goalPaused = true;
+      } catch (error) {
+        // 安全优先：pause 失败时不再发 kickoff，并尽力取消/解除自动续跑授权。
+        safeToKickoff = false;
+        await rpc('session.cancel', { sessionId: created.sessionId }).catch(() => undefined);
+        warnings.push(`暂停交接目标失败，已取消自动启动；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`);
       }
     } catch (error) {
       // 没挂 goal 服务的部署也应该能迁移：摘要还会走首轮提示。
@@ -414,10 +412,9 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   }
 
   if (options.kickoff !== false && safeToKickoff) {
-    const carriesSummary = inject === 'prompt' || inject === 'both' || !goalCreated;
-    const text = carriesSummary
-      ? `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`
-      : buildBridgeKickoff(lang, options.autoContinue);
+    // goal mutation 本身不注入模型上下文，而 Bridge 会在 kickoff 前暂停 goal。
+    // 只要要发 kickoff，就必须带摘要；不能用一次看不见摘要的目标请求换取表面省 token。
+    const text = `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`;
     progress('发送首轮交接指令…');
     await rpc('session.prompt', {
       sessionId: created.sessionId,

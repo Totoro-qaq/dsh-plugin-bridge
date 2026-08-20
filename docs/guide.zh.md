@@ -7,7 +7,7 @@
 前置：已安装 dsh（`dsh --version` 能输出版本，本插件在 0.1.0-rc.6 / rc.7 / rc.8 上核对过接口），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.2
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.3
 ```
 
 发生了什么（不用手动干预）：
@@ -38,7 +38,7 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 /bridge                    这个会话能迁到哪些模式？
 /bridge code               生成交接摘要给你过目——什么都不改
 /bridge code --go          建新会话、复述交接，然后等我确认
-/bridge code --go --continue  复述后自动继续下一步
+/bridge code --go --continue  同一轮复述并继续下一步
 ```
 
 `/bridge` 是一条普通的 dsh slash 命令（和 `/compact`、`/goal`、`/plan` 同一套机制）。host 把它路由给命令注册表，**全程不经过模型**，输出由 UI 渲染、不进对话历史。所以：
@@ -70,7 +70,9 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 
 ### 3.3 执行
 
-`/bridge code --go` 会用目标 preset 建新会话、把摘要挂为会话目标（goal）**并立即暂停该目标**、同时把摘要放进首轮提示。新会话只会先**复述它对当前状态的理解**，然后等你确认——复述里丢没丢东西，一眼可见。确认没问题后在目标会话继续说话即可；只有明确想让它立刻开工时，才用 `/bridge code --go --continue`。
+`/bridge code --go` 会用目标 preset 建新会话、把摘要挂为会话目标（goal）**并立即暂停该目标**、同时把摘要放进首轮提示。新会话只会先**复述它对当前状态的理解**，然后等你确认——复述里丢没丢东西，一眼可见。确认没问题后在目标会话继续说话即可。
+
+只有明确想让它立刻开工时，才用 `/bridge code --go --continue`。它会在**同一次目标模型请求**里先复述再开始下一步；goal 仍然保持暂停，所以 round driver 不会在空闲后追加第二轮。
 
 ### 3.4 不满意怎么办（回退）
 
@@ -109,13 +111,13 @@ dsh-bridge migrate --to code --summary-file <path>
 
 上游 `goal.create` 的部署默认 `maxGoalRounds` 是 **256**，而 `dsh-goal-round-driver` 会在 agent 空闲、目标处于 active 且还有额度时，自动把目标渲染成 `<goal_round>` 提示排一轮进去——一轮跑完还有额度就继续。也就是说：把交接摘要挂成 goal 而不限这个数，等于给新会话开了一个最多 256 轮的自主循环。
 
-普通交接只需要一轮理解校验，所以 Bridge 在创建 goal 后立刻 pause，再发送一条只要求复述的首轮提示。想让它立即继续，用 `--continue`；想让它之后自主跑多轮，再调大 `goalRounds` 或在新会话里手动 resume 目标。
+普通交接只需要一轮理解校验，所以 Bridge 在创建 goal 后立刻 pause，再发送首轮提示。`--continue` 只让这条提示在复述后同轮继续，并不会解锁 goal。想让它之后自主跑多轮，需要先调大 `goalRounds`，再在新会话里手动 resume 目标。
 
 ### 关于 `inject`：为什么默认 `both`
 
-上游 `dsh-goal` 的文档写得很直接：**「Goal mutations do not inject model context」**——挂目标这个动作本身不会把目标放进模型上下文。摘要能被看见，靠的是轮次驱动器把它渲染成提示，或者模型自己调 `get_goal`。不同部署的组装不一样，所以默认 `both`：挂 goal（持久、可 resume）的同时，首轮提示里也带上摘要全文（任何组装下都成立）。代价是摘要在前两轮里出现两次，约 900 tokens。
+上游 `dsh-goal` 的文档写得很直接：**「Goal mutations do not inject model context」**——挂目标这个动作本身不会把目标放进模型上下文。摘要能被看见，靠的是轮次驱动器把它渲染成提示，或者模型自己调 `get_goal`。Bridge 又会先 pause goal，所以凡是要发 kickoff，就一定把摘要全文放进首轮提示；高级配置即使写 `--inject goal` 也不会让首轮在看不见摘要的情况下运行。
 
-想省这点，用 `--inject goal`；部署里没挂 goal 服务，执行时会自动降级成 `prompt` 并给一条警告，而不是失败。
+默认 `both` 同时保留 goal（持久、可手动 resume）与 prompt（任何 preset 都能看见）。暂停的 goal 不触发模型请求，因此不会重复烧摘要 token；只有日后手动 resume 时，它才会进入 goal round。部署里没挂 goal 服务时会自动降级成 prompt 并给一条警告，而不是失败。
 
 ## 6. 常见问题
 
@@ -134,8 +136,8 @@ A：官方在网关层硬锁，且锁得对：历史里的工具调用只在原�
 **Q：这和「开个新会话把标题复制过去」有什么区别？**
 A：那是裸重开。A/B 实测（4 条成对 run）：迁进**无工具**的 preset，裸重开探针只剩 1/5（真失忆）；迁进**有工具**的 preset，裸重开看似能答，实际是 agent 首轮发起 25+ 次工具调用、烧掉百万级 tokens 从 host 日志里翻回来的，且执行照样漂。摘要的价值是**在任何 preset 下用一份固定的、可预算的代价记得**。数据与这组对照的已知弱点见 README「A/B 验证」与 benchmark §10。
 
-**Q：压缩花多少钱？**
-A：约 2K tokens/次。token 大头永远是 agentic 会话本身，不是压缩。
+**Q：迁移花多少钱？**
+A：压缩工人实测约 1.6K 输入 + 0.7K 输出；目标请求还会带 ≤900 tokens 的摘要，以及该 preset 本来就有的系统提示。默认模式额外花一个只复述的确认轮；`--continue` 把复述和工作合并在同一目标轮。token 大头通常仍是后续 agentic 工作，不是压缩。
 
 **Q：会不会往我每次请求的提示词里塞东西？**
 A：不会。这个插件不注册技能、也不注册工具，对模型的提示词零贡献；不迁移就是零开销。
