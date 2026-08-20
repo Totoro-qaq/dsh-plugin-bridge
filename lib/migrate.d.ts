@@ -148,6 +148,8 @@ export interface MigrateResult {
     goalPaused: boolean;
     kickoffSent: boolean;
     titled: boolean;
+    /** 自动策略实际把多少张尚未解析的原图注入了 kickoff。 */
+    imagesSent: number;
     warnings: string[];
 }
 /**

@@ -17,6 +17,8 @@ export function createFakeHost(options = {}) {
     startAfterPolls = 0,
     failGoal = false,
     failPause = false,
+    sourceImage = undefined,
+    targetSupportsImages = false,
     presets = [
       { id: 'standard', trust: 'system', isDefault: true },
       { id: 'code', trust: 'system' },
@@ -45,6 +47,7 @@ export function createFakeHost(options = {}) {
   const pausedGoals = [];
   const renames = [];
   const selected = [];
+  const attachments = new Map();
 
   const newSession = (agentPreset, extra = {}) => {
     const sessionId = `s-${(nextId += 1)}`;
@@ -90,10 +93,36 @@ export function createFakeHost(options = {}) {
     }
   }
 
-  function fail(code, message) {
+  if (sourceImage) {
+    const ref = {
+      attachmentId: 'img-source-1',
+      mediaType: 'image/png',
+      bytes: 8,
+      width: 16,
+      height: 16,
+      name: 'source.png',
+    };
+    attachments.set(ref.attachmentId, { attachment: ref, data: 'iVBORw0KGgo=' });
+    push(source, 'user/message', {
+      content: [
+        { type: 'image', attachment: ref },
+        ...(sourceImage.userText ? [{ type: 'text', text: sourceImage.userText }] : []),
+      ],
+    });
+    if (typeof sourceImage.assistantText === 'string') {
+      push(source, 'assistant/message', {
+        turn: 3,
+        step: 1,
+        message: { content: [{ type: 'text', text: sourceImage.assistantText }] },
+      });
+    }
+  }
+
+  function fail(code, message, details = {}) {
     const error = new Error(message);
     error.code = code;
-    error.rpc = { code, message };
+    error.details = details;
+    error.rpc = { code, message, details };
     throw error;
   }
 
@@ -132,12 +161,23 @@ export function createFakeHost(options = {}) {
       }
       case 'session.prompt': {
         const session = sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');
+        if (session !== source && payload.content.some((part) => part.type === 'image') && !targetSupportsImages) {
+          fail('attachment-error', '当前模型不支持图片', { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' });
+        }
         session.blank = false;
         push(session, 'user/message', { content: payload.content });
         session.pendingPolls = replyAfterPolls;
         session.startPolls = startAfterPolls;
         session.reply = session === source ? '好的' : workerReply;
         return { accepted: true };
+      }
+      case 'session.attachment': {
+        sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');
+        return attachments.get(payload.attachmentId) ?? fail(
+          'attachment-error',
+          '图片不属于源会话',
+          { reason: 'ATTACHMENT_NOT_REFERENCED' },
+        );
       }
       case 'session.cancel': {
         const session = sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');
@@ -180,7 +220,7 @@ export function createFakeHost(options = {}) {
     } catch (error) {
       return {
         rpcId: request.rpcId,
-        result: { ok: false, error: { code: error.code ?? 'internal', message: error.message, details: {} } },
+        result: { ok: false, error: { code: error.code ?? 'internal', message: error.message, details: error.details ?? {} } },
       };
     }
   };
@@ -194,6 +234,7 @@ export function createFakeHost(options = {}) {
       prompt: unary('session.prompt'),
       cancel: unary('session.cancel'),
       rename: unary('session.rename'),
+      attachment: unary('session.attachment'),
     },
     workspace: {
       list: unary('workspace.list'),
@@ -207,7 +248,7 @@ export function createFakeHost(options = {}) {
     handle,
     apiProxy,
     sourceSessionId: source.sessionId,
-    state: { sessions, calls, archived, goals, pausedGoals, renames, selected },
+    state: { sessions, calls, archived, goals, pausedGoals, renames, selected, attachments },
     /** 把假 host 包成 migrate.ts 需要的 Rpc。 */
     rpc: (method, payload) => handle(method, payload),
   };

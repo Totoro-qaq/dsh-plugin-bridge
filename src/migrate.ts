@@ -10,12 +10,14 @@ import {
   buildBridgeInstruction,
   buildBridgeKickoff,
   buildBridgeSource,
+  appendVisualEvidence,
+  collectVisualEvidence,
   detectLang,
   type BridgeSource,
 } from './compression.ts';
 import { foldSessionEvents } from './fold.ts';
 import { RpcError, sleep, type Rpc } from './rpc.ts';
-import type { ChatMessage, SessionEvent } from './types.ts';
+import type { ChatMessage, ImageAttachmentRef, SessionEvent } from './types.ts';
 
 export type ModelTier = 'flash' | 'current' | 'pro';
 export type InjectMode = 'goal' | 'prompt' | 'both';
@@ -295,10 +297,11 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
       await rpc('session.cancel', { sessionId: worker.sessionId }).catch(() => undefined);
       await sleep(2500);
     }
-    const summary = await lastAssistantText(rpc, worker.sessionId);
-    if (!summary) {
+    const workerSummary = await lastAssistantText(rpc, worker.sessionId);
+    if (!workerSummary) {
       throw new RpcError('bridge.preview', 'worker-empty', '压缩工人没有产出摘要（可能是模型不可用或被取消）。');
     }
+    const summary = appendVisualEvidence(workerSummary, source.visualEvidence, lang);
     return {
       summary,
       source,
@@ -346,7 +349,65 @@ export interface MigrateResult {
   goalPaused: boolean;
   kickoffSent: boolean;
   titled: boolean;
+  /** 自动策略实际把多少张尚未解析的原图注入了 kickoff。 */
+  imagesSent: number;
   warnings: string[];
+}
+
+interface PromptImage {
+  type: 'image';
+  mediaType: ImageAttachmentRef['mediaType'];
+  data: string;
+  name?: string;
+}
+
+/** 找出没有关联助手正文的图片引用；已有逐字视觉证据时默认不重复烧视觉 token。 */
+function unresolvedImageRefs(messages: ChatMessage[]): { refs: ImageAttachmentRef[]; missing: number } {
+  const evidence = collectVisualEvidence(messages, Number.MAX_SAFE_INTEGER);
+  const refs: ImageAttachmentRef[] = [];
+  const seen = new Set<string>();
+  let missing = 0;
+  for (const item of evidence.included) {
+    if (item.assistantText) continue;
+    missing += Math.max(0, item.imageCount - item.attachments.length);
+    for (const ref of item.attachments) {
+      if (seen.has(ref.attachmentId)) continue;
+      seen.add(ref.attachmentId);
+      refs.push(ref);
+    }
+  }
+  return { refs, missing };
+}
+
+async function readPromptImages(rpc: Rpc, sourceSessionId: string, refs: ImageAttachmentRef[]): Promise<PromptImage[]> {
+  return Promise.all(refs.map(async (ref) => {
+    const stored = await rpc<{ attachment?: ImageAttachmentRef; data?: string }>('session.attachment', {
+      sessionId: sourceSessionId,
+      attachmentId: ref.attachmentId,
+    });
+    if (!stored.data || typeof stored.data !== 'string') {
+      throw new RpcError('session.attachment', 'empty-image', `附件 ${ref.attachmentId} 没有返回图片字节。`);
+    }
+    const attachment = stored.attachment ?? ref;
+    return {
+      type: 'image',
+      mediaType: attachment.mediaType,
+      data: stored.data,
+      ...(attachment.name ? { name: attachment.name } : {}),
+    };
+  }));
+}
+
+function imageFallbackAllowed(error: unknown): boolean {
+  if (!(error instanceof RpcError)) return false;
+  if (error.method === 'session.attachment') return true;
+  if (error.method !== 'session.prompt' || error.code !== 'attachment-error') return false;
+  const reason = error.details && typeof error.details === 'object' && 'reason' in error.details
+    ? String((error.details as { reason?: unknown }).reason)
+    : '';
+  return reason === 'MODEL_DOES_NOT_SUPPORT_IMAGES'
+    || reason.startsWith('IMAGE_')
+    || reason.startsWith('ATTACHMENT_');
 }
 
 /**
@@ -388,6 +449,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   let goalPaused = false;
   let safeToKickoff = true;
   let kickoffSent = false;
+  let imagesSent = 0;
   if (inject === 'goal' || inject === 'both') {
     try {
       const createdGoal = await rpc<{ ref: { id: string; revision: number } }>('goal.create', {
@@ -414,13 +476,42 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   if (options.kickoff !== false && safeToKickoff) {
     // goal mutation 本身不注入模型上下文，而 Bridge 会在 kickoff 前暂停 goal。
     // 只要要发 kickoff，就必须带摘要；不能用一次看不见摘要的目标请求换取表面省 token。
-    const text = `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`;
+    const baseText = `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`;
     progress('发送首轮交接指令…');
-    await rpc('session.prompt', {
-      sessionId: created.sessionId,
-      mode: 'queue',
-      content: [{ type: 'text', text }],
-    });
+    let unresolved: { refs: ImageAttachmentRef[]; missing: number } = { refs: [], missing: 0 };
+    try {
+      unresolved = unresolvedImageRefs(await foldedHistory(rpc, options.sessionId));
+    } catch (error) {
+      warnings.push(`读取图片状态失败，已按纯文本交接：${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (unresolved.missing > 0) {
+      warnings.push(`有 ${unresolved.missing} 张未解析图片缺少可复用的 rc.8 附件引用；目标会话必须回源会话核验。`);
+    }
+
+    if (unresolved.refs.length) {
+      try {
+        const images = await readPromptImages(rpc, options.sessionId, unresolved.refs);
+        const transferNote = lang === 'en'
+          ? 'Bridge transfer note: the unresolved source images listed above are attached to this kickoff. Inspect them directly; do not infer details that are not visible.'
+          : 'Bridge 搬运说明：上文列出的未解析源图片已附在本次 kickoff 中。请直接检查原图，不得推断看不清的细节。';
+        await rpc('session.prompt', {
+          sessionId: created.sessionId,
+          mode: 'queue',
+          content: [...images, { type: 'text', text: `${baseText}\n\n${transferNote}` }],
+        });
+        imagesSent = images.length;
+      } catch (error) {
+        if (!imageFallbackAllowed(error)) throw error;
+        warnings.push(`目标模型或 host 不能接收原图，已使用逐字视觉证据/未解析提示降级：${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    if (imagesSent === 0) {
+      await rpc('session.prompt', {
+        sessionId: created.sessionId,
+        mode: 'queue',
+        content: [{ type: 'text', text: baseText }],
+      });
+    }
     kickoffSent = true;
   }
 
@@ -431,6 +522,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
     goalPaused,
     kickoffSent,
     titled,
+    imagesSent,
     warnings,
   };
 }

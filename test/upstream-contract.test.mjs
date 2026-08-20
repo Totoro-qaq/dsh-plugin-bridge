@@ -58,6 +58,12 @@ test('依赖的 RPC 方法集是冻结的：多一个少一个都要显式改这
   assert.deepEqual([...SUPPORTED_METHODS].sort(), [...REQUIRED_METHODS].sort());
 });
 
+test('rc.8 图片读取是可选 RPC，不降低 rc.6/rc.7 主链路兼容性', async () => {
+  const host = createFakeHost();
+  delete host.apiProxy.sessions.attachment;
+  assert.equal(probeApiProxy(host.apiProxy).some((row) => row.method === 'session.attachment'), false);
+});
+
 test('命令定义形状符合上游 CommandDefinition（name/description/input.hint/handler）', () => {
   // packages/interaction/commands/src/index.ts · normalizeDefinition()
   const command = commandOn(createFakeHost());

@@ -285,6 +285,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               : '新会话没有自动启动；请按下面的警告检查后手动继续。',
             '原会话原封不动，随时点回来；新会话不满意就归档。',
           ];
+          if (result.imagesSent) lines.push(`图片：${result.imagesSent} 张尚未解析的 rc.8 原图已随 kickoff 搬到视觉目标。`);
           for (const warning of result.warnings) lines.push(`⚠ ${warning}`);
           return { kind: 'success', text: lines.join('\n') };
         } catch (error) {
@@ -318,6 +319,10 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           + `${s.reusedCompaction ? ' · 复用了 compaction 底稿' : ''}`
           + ` · 压缩模型 ${preview.worker.model || '（会话默认）'} · 用时 ${Math.round((now() - startedAt) / 1000)}s`,
         ];
+        if (s.visualEvidence.images) {
+          lines.push(`图片 ${s.visualEvidence.images} 张 / ${s.visualEvidence.imageMessages} 条消息`
+            + ` · 有关联原文 ${s.visualEvidence.represented} 条 · 未解析 ${s.visualEvidence.unresolved} 条`);
+        }
         if (s.truncated) lines.push(`⚠ 取材因预算被裁剪（${s.dropped.join(' / ')}），摘要是基于被裁过的历史写的`);
         if (preview.capped) lines.push('⚠ 压缩工人超时被取消，摘要按已产出文本计');
         lines.push('');

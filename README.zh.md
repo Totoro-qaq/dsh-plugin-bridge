@@ -20,7 +20,7 @@
 ## 快速开始
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.4
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.5
 # 重启一次 dsh web
 ```
 
@@ -52,6 +52,7 @@ Bridge 的目标是：**高准确率、成本有界的迁移**。
 - 两种确认模式都会在 kickoff 前暂停已存储的 goal（如有），goal driver 不会静默追加模型轮次。
 - pause 失败时 fail closed：取消自动启动，不发送 kickoff。
 - 只安装、不迁移时，正常会话增加 **0 prompt token**。`/bridge` 是 host slash command，不是模型工具或 skill。
+- 已有识图结果会在压缩摘要之外逐字搬运；只有尚未解析且目标能接图时才可能产生视觉 token。
 
 release acceptance 中每个 fixture 只生成一次摘要。默认确认模式固定用 2 次目标请求抵达首次有效工作；`--continue` 固定用 1 次。实际 token 会随 preset、输出长度和缓存状态剧烈波动，所以本项目不宣称一个通用的固定节省百分比。
 
@@ -117,11 +118,29 @@ release acceptance 中每个 fixture 只生成一次摘要。默认确认模式�
 ```text
 折叠历史 → 生成五段摘要 → 预览/编辑 → 创建目标会话
          → 暂停存储目标 → 注入摘要 → 复述（可选同轮继续）
+图片历史 → 原样搬运关联助手正文；未解析原图走 rc.8 能力降级
 ```
 
 五段分别是：目标、当前状态、关键决策与约定、关键文件、下一步。旧 preset 的工具痕迹会被主动丢弃：迁的是状态，不是与新工具集不兼容的调用历史。
 
 原会话不会被改写。迁移不满意时，点回原会话并归档新会话即可。
+
+<details>
+<summary><strong>rc.8 图片：什么时候搬原图，什么时候搬原文</strong></summary>
+
+Bridge 使用自动、准确率优先的图片策略：
+
+- 只有图片、没有文字的用户消息不再从取材中静默消失。
+- 图片同轮已有助手正文时，Bridge 将它逐字追加到 `视觉证据`，摘要 worker 无权改写。预览刻意称它为“关联助手响应”，而不是保证每个像素都已被理解。
+- 图片后没有助手正文时标记为 `未解析`。在 rc.8 上，Bridge 读取源会话的持久附件，并尝试把原图放进目标 kickoff。
+- 视觉目标会收到原图与交接；默认纯文本 DeepSeek 会在 host 准入阶段拒绝图片，此时消息与模型请求尚未创建，Bridge 再自动发送带未解析警告的纯文本交接。
+- 已有逐字证据时默认不重复发送原图，避免无必要的视觉 token 与缓存成本。如果原响应不足以支撑下一步，应从源会话重新附图核验。
+
+普通五段摘要仍受 `summaryCharBudget` 约束，默认 2,400 字符。逐字视觉证据使用独立的 60,000 字符预算，并以完整块为单位纳入：超限时会明确省略较早整块，但绝不会从一段图片结论中间截断。复制已有文字不增加模型轮次；原图成功进入视觉目标时，图片成本由所选视觉模型提供方计算。
+
+rc.6/rc.7 继续走文本兼容路径。原图读取只是 rc.8 的可选网关能力，不会被加入 `/bridge --doctor` 的必需方法集合。
+
+</details>
 
 <details>
 <summary><strong>为什么不在原会话直接切 preset？</strong></summary>
@@ -150,6 +169,7 @@ Bridge 尊重这个边界：建立干净的目标会话，只携带一份有界�
 已核对 DeepSeek Harness **0.1.0-rc.6、rc.7、rc.8**，CI 覆盖 Node.js 22/24。升级 Harness 后可先运行 `/bridge --doctor`；缺少哪个网关方法会被直接点名。
 
 - 官方 WebUI 安装后目前需要重启一次，也不允许插件自动跳转到新建会话；Bridge 会打印准确标题与 session ID。
+- 默认 DeepSeek 文本模型仍不能读图。Bridge 只保留已有视觉证据，并在 rc.8 附件不可复用时明确降级；不会暗中运行本地小视觉模型。
 - 预览通常需要 20–60 秒，受 `previewTimeoutMs` 上限保护。
 - release acceptance 已覆盖真实 compaction 复用，但每个 cell 仅 1 次，不应理解为总体保证值。
 - 更早的档位对比数据早于 prompt+goal 双注入，继续作为带边界的历史证据。
@@ -174,7 +194,7 @@ dsh-bridge migrate --to code --summary-file <路径> --continue
 ## 开发验证
 
 ```bash
-npm test          # build + typecheck + 112 tests
+npm test          # build + typecheck + 120 tests
 npm run pack:check
 ```
 

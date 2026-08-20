@@ -9,6 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createFakeHost } from './fake-host.mjs';
+import { createApiProxyRpc } from '../src/api-rpc.ts';
 import {
   executeMigration,
   findWorkspaceId,
@@ -49,6 +50,15 @@ test('preview：压缩指令与取材一起发给工人', async () => {
   const text = workerPrompt.payload.content[0].text;
   assert.ok(text.includes('## 关键决策与约定'), '固定五段 schema 必须在指令里');
   assert.ok(text.includes('7101'), '取材必须跟在指令后面');
+});
+
+test('preview：已有识图回答作为逐字视觉证据追加到摘要', async () => {
+  const exact = 'OCR 原文：ERR_IMG_55837；右侧按钮为 Retry。';
+  const host = createFakeHost({ sourceImage: { userText: '请看截图', assistantText: exact } });
+  const result = await previewMigration(host.rpc, { sessionId: host.sourceSessionId, ...fast });
+  assert.ok(result.summary.includes(exact));
+  assert.match(result.summary, /视觉证据——原文搬运/);
+  assert.equal(result.source.visualEvidence.represented, 1);
 });
 
 test('preview：工人出错也不留下垃圾会话', async () => {
@@ -105,6 +115,39 @@ test('migrate：默认注入方式让摘要一定进上下文', async () => {
   assert.ok(kickoff.payload.content[0].text.includes('7101'), '首轮提示必须带上摘要全文');
   assert.ok(kickoff.payload.content[0].text.includes('复述'), '并要求新会话复述理解');
   assert.ok(kickoff.payload.content[0].text.includes('等待用户确认'), '默认只做理解校验，不继续执行');
+});
+
+test('migrate：未解析原图在视觉目标上自动随 kickoff 搬运', async () => {
+  const host = createFakeHost({ sourceImage: {}, targetSupportsImages: true });
+  const result = await executeMigration(host.rpc, {
+    sessionId: host.sourceSessionId,
+    to: 'code',
+    summary: '## 目标\n检查未解析截图\n\n## 未解析图片\n- 不得猜测',
+    lang: 'zh',
+  });
+  assert.equal(result.imagesSent, 1);
+  const kickoff = host.state.calls.find(
+    (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
+  );
+  assert.equal(kickoff.payload.content[0].type, 'image');
+  assert.match(kickoff.payload.content.at(-1).text, /已附在本次 kickoff/);
+});
+
+test('migrate：文本目标拒绝图片时无 token 请求地降级到文本 kickoff', async () => {
+  const host = createFakeHost({ sourceImage: {}, targetSupportsImages: false });
+  const result = await executeMigration(createApiProxyRpc(host.apiProxy), {
+    sessionId: host.sourceSessionId,
+    to: 'code',
+    summary: '## 目标\n检查未解析截图\n\n## 未解析图片\n- 不得猜测',
+    lang: 'zh',
+  });
+  assert.equal(result.imagesSent, 0);
+  assert.match(result.warnings.join('\n'), /不能接收原图/);
+  const targetPrompts = host.state.calls.filter(
+    (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
+  );
+  assert.equal(targetPrompts.length, 2, '第一次图片准入失败，第二次才提交纯文本；两次都没有重复模型回答');
+  assert.equal(targetPrompts.at(-1).payload.content[0].type, 'text');
 });
 
 test('migrate：autoContinue 在同一轮继续，但 goal 仍暂停以免追加轮次', async () => {

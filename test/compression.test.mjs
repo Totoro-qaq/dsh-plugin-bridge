@@ -4,6 +4,8 @@ import {
   buildBridgeSource,
   buildBridgeInstruction,
   buildBridgeKickoff,
+  appendVisualEvidence,
+  collectVisualEvidence,
   detectLang,
   estimateSummaryTokens,
   summaryTokenBudget,
@@ -108,6 +110,47 @@ test('空会话不炸，返回空取材', () => {
   assert.equal(src.text, '');
   assert.equal(src.truncated, false);
   assert.equal(src.userMessagesTotal, 0);
+});
+
+test('图片-only 用户消息不会再从压缩输入静默消失', () => {
+  const src = buildBridgeSource([{ role: 'user', content: '', imageCount: 2 }]);
+  assert.equal(src.userMessagesTotal, 1);
+  assert.equal(src.visualEvidence.images, 2);
+  assert.equal(src.visualEvidence.unresolved, 1);
+  assert.match(src.text, /image attachments: 2/);
+});
+
+test('视觉证据逐字追加，不交给摘要模型改写', () => {
+  const exact = 'OCR: ERR_43179\n按钮位于右下角；小字看不清。';
+  const evidence = collectVisualEvidence([
+    { role: 'user', content: '请看报错', imageCount: 1 },
+    { role: 'assistant', content: exact },
+    { role: 'user', content: '继续' },
+  ]);
+  const handoff = appendVisualEvidence('## 目标\n修复问题', evidence, 'zh');
+  assert.ok(handoff.includes(exact));
+  assert.match(handoff, /原文搬运，未经二次摘要/);
+  assert.equal(evidence.represented, 1);
+  assert.equal(evidence.unresolved, 0);
+});
+
+test('未识别图片明确标记 unresolved，禁止猜测', () => {
+  const evidence = collectVisualEvidence([{ role: 'user', content: '', imageCount: 1 }]);
+  const handoff = appendVisualEvidence('## Goal\nFix it', evidence, 'en');
+  assert.match(handoff, /## Unresolved images/);
+  assert.match(handoff, /Do not infer/);
+});
+
+test('视觉证据预算按完整块省略，不从正文中间截断', () => {
+  const exact = '视觉原文'.repeat(200);
+  const evidence = collectVisualEvidence([
+    { role: 'user', content: '看图', imageCount: 1 },
+    { role: 'assistant', content: exact },
+  ], 100);
+  assert.equal(evidence.included.length, 0);
+  assert.equal(evidence.omitted, 1);
+  assert.equal(evidence.truncated, true);
+  assert.ok(!appendVisualEvidence('摘要', evidence, 'zh').includes(exact.slice(0, 20)));
 });
 
 test('压缩指令含固定五段 schema（中/英）', () => {

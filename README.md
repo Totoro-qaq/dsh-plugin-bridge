@@ -20,7 +20,7 @@ Move a produced DeepSeek Harness session to another tool preset through a previe
 ## Quick start
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.4
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.5
 # restart dsh web once
 ```
 
@@ -52,6 +52,7 @@ Bridge optimizes for **high-fidelity, bounded-cost migration**:
 - In both confirmation modes, any stored goal is paused before kickoff. The goal driver cannot silently queue another model round.
 - If pausing fails, Bridge fails closed: it cancels automatic startup and sends no kickoff.
 - Installing the plugin adds **zero prompt tokens** to normal sessions. `/bridge` is a host slash command, not a model tool or skill.
+- Existing image analysis is copied verbatim outside the compressed summary. Only unresolved images may use vision tokens, and only when the target accepts images.
 
 The release-acceptance run used one summary request per fixture. Confirm always reached first useful work in two target requests; `--continue` always did so in one. Token totals varied sharply with preset, output length, and cache state, so Bridge does not claim a universal percentage saving.
 
@@ -117,11 +118,29 @@ See [the earlier benchmark, A/B control, and known weaknesses](docs/benchmark.md
 ```text
 fold history → generate five-part summary → preview/edit → create target session
              → pause stored goal → inject summary → restate (and optionally continue)
+image history → copy associated assistant text verbatim; unresolved raw images use rc.8 capability fallback
 ```
 
 The five sections are Goal, Current state, Key decisions & conventions, Key files, and Next step. Tool traces from the old preset are intentionally dropped: Bridge moves state, not incompatible tool history.
 
 The original session is never rewritten. If the migration is unsatisfactory, return to it and archive the new session.
+
+<details>
+<summary><strong>Images in rc.8: raw transfer vs verbatim evidence</strong></summary>
+
+Bridge uses an automatic, accuracy-first image policy:
+
+- An image-only user message never disappears from source material.
+- If the source turn has associated assistant text, Bridge appends that text **verbatim** under `Visual evidence`; the summary worker cannot rewrite it. The preview deliberately calls it an associated response—not proof that every pixel was understood.
+- If no assistant text follows the image, Bridge marks it `Unresolved`. On rc.8 it reads the durable source attachment and tries to include the raw image in the target kickoff.
+- An image-capable target receives the raw image plus the handoff. A text-only DeepSeek target rejects the image during host admission, before a message or model request is created; Bridge then sends the text handoff with an explicit unresolved warning.
+- Raw images are not resent when verbatim evidence already exists, avoiding unnecessary visual-token and cache cost. Reattach the source image when the preserved response is insufficient for the next step.
+
+The normal five-part summary remains bounded by `summaryCharBudget` (2,400 characters by default). Verbatim visual evidence has a separate 60,000-character budget and is admitted as whole blocks: Bridge may omit an older block with a visible warning, but never cuts an image-derived response in the middle. Copying existing text adds no model round; a successfully attached raw image is priced by the selected vision provider.
+
+rc.6/rc.7 remain compatible through the text path. Raw attachment recovery is an optional rc.8 gateway capability and does not become a required `/bridge --doctor` method.
+
+</details>
 
 <details>
 <summary><strong>Why not switch the preset in place?</strong></summary>
@@ -150,6 +169,7 @@ Bridge respects that boundary by opening a clean target session and carrying onl
 Verified against DeepSeek Harness **0.1.0-rc.6, rc.7, and rc.8**, Node.js 22 and 24. Run `/bridge --doctor` after a Harness upgrade; it names missing gateway methods instead of failing vaguely.
 
 - The official WebUI currently needs one restart after install and cannot let a plugin navigate to the session it creates. Bridge prints the exact title and session ID.
+- Default DeepSeek text models still cannot inspect images. Bridge preserves prior visual evidence and fails visibly when no reusable rc.8 attachment is available; it does not run a hidden local vision model.
 - Preview normally takes 20–60 seconds and is bounded by `previewTimeoutMs`.
 - Release acceptance now covers real compaction reuse, but only one run per cell; it should not be read as a population guarantee.
 - The older tier-comparison benchmark predates prompt+goal dual injection and remains labeled as historical evidence.
@@ -174,7 +194,7 @@ The default injection mode is `both`: the summary is stored as a resumable goal 
 ## Development
 
 ```bash
-npm test          # build + typecheck + 112 tests
+npm test          # build + typecheck + 120 tests
 npm run pack:check
 ```
 
