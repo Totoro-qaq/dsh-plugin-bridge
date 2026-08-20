@@ -55,6 +55,27 @@ Bridge 的目标是：**高准确率、成本有界的迁移**。
 
 release acceptance 中每个 fixture 只生成一次摘要。默认确认模式固定用 2 次目标请求抵达首次有效工作；`--continue` 固定用 1 次。实际 token 会随 preset、输出长度和缓存状态剧烈波动，所以本项目不宣称一个通用的固定节省百分比。
 
+修复后的 12-cell release acceptance 实测：
+
+| Token 指标 | Nominal | Processed |
+|---|---:|---:|
+| Confirm 相对 `--continue` 的额外成本，合并统计“摘要 + 首次有效工作” | **+12.82%** | +52.56% |
+| Confirm 相对 `--continue` 的额外成本，配对中位数 | **+8.1%** | +65.6% |
+| 摘要 worker 在干净验收组件中的占比 | **20.74%** | 16.71% |
+
+主口径是 nominal。Processed 把 cache-read 等权计入，不等于账单；worker 这一行是构成占比，不是相对“无 Bridge”基线的因果增量。
+
+<details>
+<summary><strong>Token 定义、离散范围与原始总量</strong></summary>
+
+`nominal = uncached input + output`；`processed` 还计入 cache-read/cache-write，是敏感性口径，不等于账单。“摘要 + 首次有效工作”不包含用户原会话的既有成本和官方 compaction 成本。
+
+6 对 fixture 中，confirm 的 nominal 额外成本中位数为 +8.1%，范围 -47.9%～+206.7%；只看目标会话时，中位数为 +11.0%，范围 -74.7%～+1059.1%。离散度很大，所以稳定的产品结论是“少一次请求”，不是固定节省某个 token 百分比。
+
+6 个修复后摘要 worker 共使用 19,551 nominal / 26,463 processed tokens；12 个目标会话共使用 74,716 / 131,932。每份共享摘要只计算一次时，干净验收组件合计 94,267 / 158,395 tokens。详见[完整报告](reports/v0.2.3-e2e-report.md)与[原始 JSON](reports/v0.2.3-e2e-2026-08-20T13-19-13-924Z.raw.json)。
+
+</details>
+
 一句话：安全默认值会明确多花一个“只复述”的确认轮；`--continue` 把确认和有效工作合并为一个目标轮，同时不开放后台 goal 轮次。
 
 ## 准确率
@@ -72,6 +93,9 @@ release acceptance 中每个 fixture 只生成一次摘要。默认确认模式�
 
 这是小样本、修复驱动的发布 gate，不是统计意义的准确率保证。它包含 3 个真实复用 compaction 的 21 消息源会话与 3 个短会话，目标覆盖 minimal、standard、code。完整方法、逐请求 token、离散度与归档证据见 [v0.2.3 基线 + 修复报告](reports/v0.2.3-e2e-report.md)。
 
+<details>
+<summary><strong>更早的压缩档位 benchmark</strong></summary>
+
 更早的 2026 年 8 月 benchmark 仍用于比较压缩档位：
 
 | 指标 | 结果 |
@@ -85,6 +109,8 @@ release acceptance 中每个 fixture 只生成一次摘要。默认确认模式�
 `pro` 与 `flash` 在这里几乎同价；默认 `pro` 是因为失败方差更小，不是因为小样本已经证明均值显著更好。数字与端口仍是主要漂移风险，所以“预览 + 复述”属于产品主链路。
 
 更早实验的完整方法、A/B 对照与已知弱点见 [benchmark](docs/benchmark.md)。
+
+</details>
 
 ## 工作原理
 
