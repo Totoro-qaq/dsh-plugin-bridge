@@ -56,6 +56,28 @@ const ROUTES: Record<string, [keyof ApiProxyLike, string]> = {
 /** 本适配器支持的方法名（测试与自检用）。 */
 export const SUPPORTED_METHODS: readonly string[] = Object.keys(ROUTES);
 
+/** 一个方法在当前 host 上是否可达。 */
+export interface MethodProbe {
+  method: string;
+  available: boolean;
+}
+
+/**
+ * 探测这套 host 的网关面是否还是本插件预期的形状。
+ *
+ * 上游是 developer preview，README 明说会有破坏性变更。与其等用户报「插件用不了」，
+ * 不如让 `/bridge --doctor` 直接把缺了哪个方法说出来。只读方法表，不发起任何调用。
+ */
+export function probeApiProxy(apiProxy: Partial<ApiProxyLike> | undefined): MethodProbe[] {
+  return SUPPORTED_METHODS.map((method) => {
+    const route = ROUTES[method];
+    const domain = route?.[0];
+    const key = route?.[1];
+    const fn = domain && key ? (apiProxy as ApiProxyLike | undefined)?.[domain]?.[key] : undefined;
+    return { method, available: typeof fn === 'function' };
+  });
+}
+
 /**
  * 建一个直连 `ctx.apiProxy` 的 Rpc。
  * @param apiProxy - host 上的网关服务。

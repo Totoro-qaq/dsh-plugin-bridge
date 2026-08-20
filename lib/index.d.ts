@@ -35,15 +35,15 @@ export interface Config {
 export declare const Config: Schema<Config>;
 /** 把 Config 解析成命令层要的形状（Schema 已经填过默认值，这里只兜底）。 */
 export declare function commandConfigOf(config?: Config): {
-    readonly modelTier: "current" | "flash" | "pro";
+    readonly workerModel?: string | undefined;
+    readonly workerProvider?: string | undefined;
+    readonly modelTier: "flash" | "current" | "pro";
     readonly sourceCharBudget: number;
     readonly summaryCharBudget: number;
     readonly goalRounds: number;
-    readonly inject: "both" | "goal" | "prompt";
-    readonly lang: "auto" | "en" | "zh";
+    readonly inject: "prompt" | "goal" | "both";
+    readonly lang: "zh" | "en" | "auto";
     readonly previewTimeoutMs: number;
-    readonly workerProvider?: string | undefined;
-    readonly workerModel?: string | undefined;
 };
 export declare function apply(ctx: Context, config?: Config): void;
 declare const _default: {

@@ -25,12 +25,19 @@ import {
   type ModelTier,
   type PresetRow,
 } from './migrate.ts';
+import type { MethodProbe } from './api-rpc.ts';
 import { RpcError, type Rpc } from './rpc.ts';
 
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
 export interface BridgeInvocation {
   agent?: { session?: { id?: string; header?: { id?: string } } };
   rawInput?: string;
+  /**
+   * rc.8 起注册表会传这个字段（随命令提交的图片块）。`/bridge` 没有声明
+   * `input.images`，所以带图片的调用会在进入这里之前就被注册表挡下来；
+   * 声明出来只是为了让类型如实反映上游传了什么。
+   */
+  attachments?: readonly unknown[];
   signal?: AbortSignal;
 }
 
@@ -54,6 +61,8 @@ export interface BridgeCommandConfig {
 export interface BridgeCommandDeps {
   /** 按本次调用的取消信号建一个 Rpc。 */
   rpcFor: (signal?: AbortSignal) => Rpc;
+  /** 自检：这套 host 的网关面还是不是插件预期的形状。 */
+  probe?: () => MethodProbe[];
   config: BridgeCommandConfig;
   /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
   writeSummary?: (sessionId: string, summary: string) => string | undefined;
@@ -75,6 +84,7 @@ const PENDING_TTL_MS = 30 * 60_000;
 interface ParsedInput {
   preset?: string;
   go: boolean;
+  doctor: boolean;
   tier?: ModelTier;
   lang?: Lang;
   inject?: InjectMode;
@@ -87,7 +97,7 @@ interface ParsedInput {
 /** `<preset> [--go] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
 export function parseBridgeInput(rawInput: string): ParsedInput {
   const tokens = rawInput.trim().split(/\s+/).filter(Boolean);
-  const out: ParsedInput = { go: false, help: false };
+  const out: ParsedInput = { go: false, help: false, doctor: false };
   for (let i = 0; i < tokens.length; i += 1) {
     const token = tokens[i] as string;
     if (!token.startsWith('--')) {
@@ -108,6 +118,7 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
     switch (key) {
       case 'go': out.go = true; break;
       case 'help': out.help = true; break;
+      case 'doctor': out.doctor = true; break;
       case 'tier': {
         const value = take();
         if (value !== 'flash' && value !== 'current' && value !== 'pro') {
@@ -158,6 +169,7 @@ function usage(presets: PresetRow[], current: string | undefined): string {
     ...(current ? [`当前：${current}`] : []),
     '',
     '可选：--tier flash|current|pro · --lang zh|en|auto · --goal-rounds N · --file <改过的摘要文件>',
+    '排查：/bridge --doctor',
   ].join('\n');
 }
 
@@ -174,7 +186,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   return {
     name: 'bridge',
     description: '把这个会话迁移到另一个工具模式（preset），原会话保持不动',
-    input: { hint: '<preset> [--go]' },
+    input: { hint: '<preset> [--go] | --doctor' },
     handler: async (invocation: BridgeInvocation): Promise<BridgeResult> => {
       const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
       if (!sessionId) return { kind: 'error', text: '取不到当前会话身份，无法迁移。' };
@@ -192,6 +204,26 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         current = (await findSession(rpc, sessionId))?.agentPreset;
       } catch (error) {
         return { kind: 'error', text: describe(error) };
+      }
+
+      if (parsed.doctor) {
+        const probes = deps.probe?.() ?? [];
+        const missing = probes.filter((probe) => !probe.available).map((probe) => probe.method);
+        const lines = [
+          `网关：进程内 ctx.apiProxy · ${probes.length - missing.length}/${probes.length} 个方法可用`,
+          `当前模式：${current ?? '（读不到）'}`,
+          `可迁入：${presets.filter((p) => p.id !== current).map((p) => p.id).join(' · ') || '（无）'}`,
+          `配置：档位 ${config.modelTier} · 取材 ${config.sourceCharBudget} 字符 · 摘要 ${config.summaryCharBudget} 字符`
+          + ` · goal ${config.goalRounds} 轮 · 注入 ${config.inject}`,
+        ];
+        if (missing.length) {
+          lines.push('');
+          lines.push(`⚠ 缺少：${missing.join(', ')}`);
+          lines.push('这套 host 的网关面和插件预期的不一致（上游是 developer preview，接口会变）。');
+          lines.push('请到 https://github.com/Totoro-qaq/dsh-plugin-bridge/issues 报一下你的 dsh 版本。');
+          return { kind: 'error', text: lines.join('\n') };
+        }
+        return { kind: 'success', text: lines.join('\n') };
       }
 
       if (parsed.help || !parsed.preset) return { kind: 'success', text: usage(presets, current) };
