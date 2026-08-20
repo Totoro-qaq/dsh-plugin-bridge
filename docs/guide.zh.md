@@ -4,7 +4,7 @@
 
 ## 1. 安装
 
-前置：已安装 dsh（`dsh --version` 能输出版本，本插件在 0.1.0-rc.6 / rc.7 上核对过接口），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
+前置：已安装 dsh（`dsh --version` 能输出版本，本插件在 0.1.0-rc.6 / rc.7 / rc.8 上核对过接口），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
 
 ```bash
 dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
@@ -120,6 +120,9 @@ dsh-bridge migrate --to code --summary-file <path>
 
 **Q：`/bridge` 打了没反应 / 提示未知命令？**
 A：确认重启过 `dsh web`（插件在启动时挂载），并且用的是 `web` profile。命令注册依赖 `commands` 服务、执行依赖 `apiProxy` 服务，两者在官方 web profile 里都在；缺其一插件会挂起等待而不是半挂，日志里能看到。
+
+**Q：升级了 dsh 之后还能用吗？**
+A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十二个网关方法里的哪几个、当前模式是什么、生效配置是什么。全绿就是好的。缺方法它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 都逐条核对过，本插件用到的面在这三个版本上完全一致。
 
 **Q：迁移后新会话「记得」多少？**
 A：26 组实验的探针可用性（事实可回忆率）：pro 档位 95%。丢的通常是「数字合理化」一类（端口被补全成常见值）——所以预览那一步请重点扫数字。

@@ -43,6 +43,18 @@ export interface ApiProxyLike {
 }
 /** 本适配器支持的方法名（测试与自检用）。 */
 export declare const SUPPORTED_METHODS: readonly string[];
+/** 一个方法在当前 host 上是否可达。 */
+export interface MethodProbe {
+    method: string;
+    available: boolean;
+}
+/**
+ * 探测这套 host 的网关面是否还是本插件预期的形状。
+ *
+ * 上游是 developer preview，README 明说会有破坏性变更。与其等用户报「插件用不了」，
+ * 不如让 `/bridge --doctor` 直接把缺了哪个方法说出来。只读方法表，不发起任何调用。
+ */
+export declare function probeApiProxy(apiProxy: Partial<ApiProxyLike> | undefined): MethodProbe[];
 /**
  * 建一个直连 `ctx.apiProxy` 的 Rpc。
  * @param apiProxy - host 上的网关服务。

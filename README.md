@@ -4,7 +4,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh 0.1.0-rc.6 · rc.7](https://img.shields.io/badge/dsh-0.1.0--rc.6%20%C2%B7%20rc.7-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.0-rc.6 · rc.7 · rc.8](https://img.shields.io/badge/dsh-rc.6%20%C2%B7%20rc.7%20%C2%B7%20rc.8-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![presets](https://img.shields.io/badge/presets-standard%20%C2%B7%20code%20%C2%B7%20minimal%20%C2%B7%20cordis-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
 English | [中文](README.zh.md)
@@ -159,12 +159,34 @@ The result splits cleanly by whether the target preset has tools, and averaging 
 
 ⚠️ **This A/B has two known weaknesses, both fixed for future runs but not re-measured yet.** The 2026-08-17 runs shared one workspace, which is exactly how the control arm could scavenge from disk; every run now gets an empty temp workspace. And with n = 4 pairs the comparison is directional, not conclusive. See [docs/benchmark.md](docs/benchmark.md) §10.
 
+### What about `@`-referencing the old session? (new in rc.8)
+
+rc.8's web bundle mounts [`dsh-session-reference`](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/context/session-reference) and the `@` input trigger, so you can now pull another session into the current one as a mention. It is a genuinely useful feature, and it answers a different question than this plugin does.
+
+`@` **adds**: it attaches a bounded, read-only snapshot of another session's history to the session you are already in. Bridge **moves**: it compresses a session into a fixed five-section schema and hands that to a new session under a different preset, leaving the original alone.
+
+The difference bites in exactly the case this plugin exists for. The history you would reference was produced under the *old* preset — tool calls included — which is precisely what a cross-preset handoff wants to drop ("move state, not traces"), and it arrives as raw transcript rather than as goal / state / decisions / files / next step.
+
+Rule of thumb: pulling one fact out of an old session → `@`. Continuing the work under a different preset → `/bridge`.
+
 ## Testing & verification
 
 - `npm test` runs **95 tests**: compression behaviour (including *semantic* budget assertions — "when material is clipped, is the newest still there?"), the session-event folder, summary-schema contracts, **the `/bridge` command end-to-end**, the in-process `ctx.apiProxy` adapter, the full migration pipeline against a fake dsh host, and the CLI end-to-end (real process, real HTTP gateway, real wire envelope). None of it needs a live host or spends a token.
+- `test/upstream-contract.test.mjs` pins the narrow upstream surface this plugin stands on — the twelve RPC method names, the command-definition shape, and tolerance for fields upstream adds later (rc.8's `attachments` landed exactly this way). dsh is a developer preview whose README promises breaking changes; this is the guard that makes CI notice before users do.
 - `npm test` also typechecks `src/` **and** `eval/` — the evaluation harness imports the same modules the command does, so it cannot drift from the product path.
 - CI additionally checks: `lib/` is in sync with `src/`, datasets parse, `npm pack` contents are complete, on Node 22 and 24.
 - ⚠️ **Not yet verified against a live host.** Every RPC signature, the command-dispatch contract, and the `ctx.apiProxy` service shape were checked against upstream source, and the fake host implements that contract — but no one has yet typed `/bridge` into a running `dsh web`. Do that first; `dsh-bridge doctor` covers the same assumptions from the CLI side.
+
+## dsh compatibility
+
+Verified against **0.1.0-rc.6, rc.7 and rc.8** — the surfaces this plugin uses (`ctx.commands.register`, `ctx.apiProxy`, twelve RPC methods, the goal service, the compaction checkpoint marker) are identical across all three. rc.8's command-registry change (image attachments on invocations) is additive and does not affect `/bridge`, which declares no `input.images` and is therefore protected by the registry's own rejection path.
+
+If a future release does move something, `/bridge --doctor` names the missing method instead of failing vaguely:
+
+```
+网关：进程内 ctx.apiProxy · 10/12 个方法可用
+⚠ 缺少：session.rename, goal.create
+```
 
 ## Configuration
 
@@ -186,7 +208,7 @@ Set through the profile's `cordis.patch.yml`, or the `DSH_BRIDGE_*` environment 
 ## Known limitations and deferred work
 
 - **`/bridge <preset>` blocks while the compression worker runs** (typically 20–60s; capped by `previewTimeoutMs`). A command result is synchronous, so a very slow worker can outlast the client's RPC timeout — the migration engine is unaffected, and the CLI path has no such ceiling.
-- **Requires `commands` and `apiProxy`.** Both are in the official `web` profile (base mounts the command registry, the web bundle mounts the API gateway). In a profile without them the plugin pends rather than half-mounting — loud, not silent.
+- **Requires `commands` and `apiProxy`.** Both are in the official `web` profile (base mounts the command registry, the web bundle mounts the API gateway). In a profile without them the plugin pends rather than half-mounting — loud, not silent. `/bridge --doctor` reports which of the twelve gateway methods this host actually exposes.
 - **The compression worker cannot reuse the original session's KV cache.** Upstream's own compaction backend replays the conversation prefix precisely so the auxiliary call is a real prefix of the last routed request; this plugin instead spins a separate worker session, whose prefix is unrelated. The measured cache hits are cross-run repetition of the instruction, not warm-prefix reuse. Doing this properly means calling `ctx.llm.stream()` in-process — deferred.
 - **The material still double-counts what a compaction already summarized.** `session.history` reads the log, so both the checkpoint and the user messages it replaced are collected.
 - **Structured output would be better than a markdown contract.** `ctx.subagents` supports a JSON schema per child (plus model, persona, and tool restriction), which would make "five sections" a type guarantee rather than a measured property. Deferred to keep this version verifiable against the shipped rc.

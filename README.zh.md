@@ -4,7 +4,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh 0.1.0-rc.6 · rc.7](https://img.shields.io/badge/dsh-0.1.0--rc.6%20%C2%B7%20rc.7-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.0-rc.6 · rc.7 · rc.8](https://img.shields.io/badge/dsh-rc.6%20%C2%B7%20rc.7%20%C2%B7%20rc.8-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![presets](https://img.shields.io/badge/presets-standard%20%C2%B7%20code%20%C2%B7%20minimal%20%C2%B7%20cordis-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 
 [English](README.md) | 中文
@@ -161,12 +161,35 @@ dsh-bridge migrate --to code --summary-file <path>
 
 ⚠️ **这组 A/B 有两个已知弱点，都已修复但尚未重测。** 2026-08-17 那批 run 共用一个工作区——这正是对照臂能从磁盘上翻出事实的原因；现在每个 run 都用一个空的临时工作区。另外 n = 4 对只够给方向，不够给结论。见 [docs/benchmark.md](docs/benchmark.md) §10。
 
+### 那 rc.8 的 `@` 引用会话呢？
+
+rc.8 的 web bundle 挂上了 [`dsh-session-reference`](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/context/session-reference) 和 `@` 输入触发，你现在可以在一个会话里 `@` 引用另一个会话。这是个好功能，但它回答的是另一个问题。
+
+`@` 是**加**：把另一个会话历史的一份有界只读快照，挂到你**当前所在**的这个会话上。
+Bridge 是**搬**：把会话压缩成固定的五段 schema，交给目标 preset 下的**新会话**，原会话不动。
+
+这个区别恰好在本插件存在的那个场景上最要命。你要引用的那段历史是在**旧 preset** 下产生的——连同工具调用——而这正是跨 preset 交接最想丢掉的东西（「迁状态不迁痕迹」）；而且它到达的形态是原始转录，不是「目标 / 当前状态 / 关键决策 / 关键文件 / 下一步」。
+
+经验法则：想从旧会话里捞一个事实 → `@`；想换个模式把活继续干下去 → `/bridge`。
+
 ## 测试与验证
 
 - `npm test` 跑 **95 条测试**：压缩取材行为（含**语义**断言——「取材被裁时，最新的那条还在吗」）、会话事件折叠器、摘要五段 schema 契约、**`/bridge` 命令端到端**、进程内 `ctx.apiProxy` 适配器、对着假 dsh host 的完整迁移流水线、以及 CLI 端到端（真进程、真 HTTP 网关、真线协议信封）。全部不需要真的 host，也不烧一个 token。
+- `test/upstream-contract.test.mjs` 把插件赖以立足的那一小片上游面钉住了——十二个 RPC 方法名、命令定义形状、以及对上游后加字段的容忍（rc.8 的 `attachments` 就是这么加进来的）。dsh 是 developer preview，README 自己就写着会有破坏性变更；这道护栏让 CI 先发现，而不是用户先发现。
 - `npm test` 同时对 `src/` **和** `eval/` 做类型检查——评测脚本 import 的就是命令用的那些模块，不可能再和产品路径漂开。
 - CI 额外校验 `lib/` 与 `src/` 同步、数据集可解析、`npm pack` 内容完整，Node 22 与 24 各跑一遍。
 - ⚠️ **尚未在真实 host 上验过。** 每一条 RPC 签名、命令派发的契约、`ctx.apiProxy` 的服务形状都对着上游源码核过，假 host 实现的就是那份契约——但还没有人在跑着的 `dsh web` 里真的敲过一次 `/bridge`。请先做这件事；CLI 那侧的同名假设可以用 `dsh-bridge doctor` 覆盖。
+
+## dsh 兼容性
+
+已对着 **0.1.0-rc.6、rc.7、rc.8** 逐条核对：本插件用到的面（`ctx.commands.register`、`ctx.apiProxy`、十二个 RPC 方法、goal 服务、compaction 检查点标记）在三个版本上完全一致。rc.8 对命令注册表的改动（调用可携带图片附件）是增量的，不影响 `/bridge`——我们没有声明 `input.images`，注册表会替我们挡下带图片的调用。
+
+以后上游真挪了东西，`/bridge --doctor` 会把缺的方法点名说出来，而不是含糊地失败：
+
+```
+网关：进程内 ctx.apiProxy · 10/12 个方法可用
+⚠ 缺少：session.rename, goal.create
+```
 
 ## 配置
 
@@ -188,7 +211,7 @@ dsh-bridge migrate --to code --summary-file <path>
 ## 已知局限与待办
 
 - **`/bridge <preset>` 会阻塞到压缩工人跑完**（通常 20–60 秒，上限由 `previewTimeoutMs` 控制）。命令结果是同步返回的，所以工人特别慢时可能拖过客户端的 RPC 超时——迁移引擎本身不受影响，CLI 那条路也没有这个天花板。
-- **依赖 `commands` 与 `apiProxy`。** 两者在官方 `web` profile 里都在（base 挂命令注册表，web bundle 挂 API 网关）。缺其一时插件会挂起等待而不是半挂——是响的，不是哑的。
+- **依赖 `commands` 与 `apiProxy`。** 两者在官方 `web` profile 里都在（base 挂命令注册表，web bundle 挂 API 网关）。缺其一时插件会挂起等待而不是半挂——是响的，不是哑的。`/bridge --doctor` 会报出这套 host 实际暴露了十二个网关方法里的哪几个。
 - **压缩工人用不上原会话的 KV 缓存。** 上游自己的 compaction 后端会把会话前缀原样重放，正是为了让这次辅助调用成为上次路由请求的真前缀；本插件是另起一个工人会话，前缀毫无关系。实测到的缓存命中是跨 run 的指令重复，不是热前缀复用。要做对得在进程内调 `ctx.llm.stream()`——待办。
 - **取材里 compaction 摘要和它压掉的用户消息仍然重复计费。** `session.history` 读的是日志，检查点和被它替换的消息都还在。
 - **结构化输出会比 markdown 契约更好。** `ctx.subagents` 支持给子会话指定 JSON schema（以及模型、persona、工具限制），那会让「固定五段」从一个需要测量的性质变成类型保证。这一版为了能对着已发布的 rc 核验而没有做。
