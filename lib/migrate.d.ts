@@ -135,6 +135,8 @@ export interface MigrateOptions {
     inject?: InjectMode;
     /** 是否发首轮交接指令。 */
     kickoff?: boolean;
+    /** 是否在复述后自动继续。默认 false：goal 会先暂停，等用户确认。 */
+    autoContinue?: boolean;
     /** 给新会话起个能看出来源的标题。 */
     title?: string;
     onProgress?: (message: string) => void;
@@ -143,6 +145,8 @@ export interface MigrateResult {
     sessionId: string;
     agentPreset: string;
     goalCreated: boolean;
+    goalPaused: boolean;
+    kickoffSent: boolean;
     titled: boolean;
     warnings: string[];
 }

@@ -40,7 +40,7 @@ export declare function summaryTokenBudget(summaryCharBudget?: number): number;
 /** 压缩指令：让工人模型输出固定 schema 的交接摘要。 */
 export declare function buildBridgeInstruction(lang: 'zh' | 'en', options?: BridgeInstructionOptions): string;
 /** 注入新会话首轮的交接指令（goal 之后的第一条 prompt）。 */
-export declare function buildBridgeKickoff(lang: 'zh' | 'en'): string;
+export declare function buildBridgeKickoff(lang: 'zh' | 'en', autoContinue?: boolean): string;
 /** 成本预估（粗）：按取材字符数估输入 tokens，中英混合按 ~2 字符/token。 */
 export declare function estimateSummaryTokens(sourceChars: number, options?: BridgeInstructionOptions): {
     input: number;

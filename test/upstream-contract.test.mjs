@@ -2,7 +2,7 @@
  * 上游契约护栏。
  *
  * dsh 还是 developer preview，README 明说会有破坏性变更。这个插件依赖的上游面
- * 其实很窄——一个命令注册契约、一个 `ctx.apiProxy` 服务、12 个 RPC 方法名。
+ * 其实很窄——一个命令注册契约、一个 `ctx.apiProxy` 服务、13 个 RPC 方法名。
  * 把它们钉在这里，下一次 rc 变形时是 CI 先说话，而不是用户先说话。
  *
  * 核对基线：dsh 0.1.0-rc.6 / rc.7 / rc.8（三个版本上这些面完全一致）。
@@ -32,6 +32,7 @@ const REQUIRED_METHODS = [
   'workspace.archiveSession',
   'agentPreset.list',
   'goal.create',
+  'goal.pause',
 ];
 
 const CONFIG = {
@@ -110,14 +111,16 @@ test('--doctor：上游少了方法时点名说出来，而不是等用户报「
   const host = createFakeHost();
   delete host.apiProxy.sessions.rename;
   delete host.apiProxy.goals.create;
+  delete host.apiProxy.goals.pause;
   const result = await commandOn(host).handler({
     agent: { session: { id: host.sourceSessionId } },
     rawInput: '--doctor',
   });
   assert.equal(result.kind, 'error');
-  assert.match(result.text, /10\/12 个方法可用/);
+  assert.match(result.text, /10\/13 个方法可用/);
   assert.match(result.text, /session\.rename/);
   assert.match(result.text, /goal\.create/);
+  assert.match(result.text, /goal\.pause/);
   assert.match(result.text, /issues/, '要告诉用户去哪儿报');
 });
 

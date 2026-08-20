@@ -69,7 +69,7 @@ test('preview：空会话给出可读的拒绝理由', async () => {
   );
 });
 
-test('migrate：goal 的自主轮次被限制成 1，而不是上游默认的 256', async () => {
+test('migrate：goal 的自主轮次被限制成 1，并默认暂停等待确认', async () => {
   const host = createFakeHost();
   await executeMigration(host.rpc, {
     sessionId: host.sourceSessionId,
@@ -79,6 +79,7 @@ test('migrate：goal 的自主轮次被限制成 1，而不是上游默认的 25
   });
   assert.equal(host.state.goals.length, 1);
   assert.equal(host.state.goals[0].maxGoalRounds, 1, '不显式设值就是 256 轮自主循环');
+  assert.equal(host.state.pausedGoals.length, 1, '默认不能让目标在用户看到新会话前自动续跑');
 });
 
 test('migrate：目标会话建在目标 preset 上，且落在同一工作区', async () => {
@@ -103,6 +104,40 @@ test('migrate：默认注入方式让摘要一定进上下文', async () => {
   );
   assert.ok(kickoff.payload.content[0].text.includes('7101'), '首轮提示必须带上摘要全文');
   assert.ok(kickoff.payload.content[0].text.includes('复述'), '并要求新会话复述理解');
+  assert.ok(kickoff.payload.content[0].text.includes('等待用户确认'), '默认只做理解校验，不继续执行');
+});
+
+test('migrate：显式 autoContinue 才保持目标 armed 并继续下一步', async () => {
+  const host = createFakeHost();
+  const result = await executeMigration(host.rpc, {
+    sessionId: host.sourceSessionId,
+    to: 'code',
+    summary: '## 目标\n端口 7101',
+    lang: 'zh',
+    autoContinue: true,
+  });
+  assert.equal(result.goalPaused, false);
+  assert.equal(result.kickoffSent, true);
+  assert.equal(host.state.pausedGoals.length, 0);
+  const kickoff = host.state.calls.find(
+    (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
+  );
+  assert.ok(kickoff.payload.content[0].text.includes('继续执行下一步'));
+});
+
+test('migrate：pause 失败时取消自动启动且不发送 kickoff', async () => {
+  const host = createFakeHost({ failPause: true });
+  const result = await executeMigration(host.rpc, {
+    sessionId: host.sourceSessionId,
+    to: 'code',
+    summary: '## 目标\n端口 7101',
+    lang: 'zh',
+  });
+  assert.equal(result.goalPaused, false);
+  assert.equal(result.kickoffSent, false);
+  assert.match(result.warnings.join('\n'), /暂停交接目标失败/);
+  assert.ok(host.state.calls.some((c) => c.method === 'session.cancel' && c.payload.sessionId === result.sessionId));
+  assert.ok(!host.state.calls.some((c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId));
 });
 
 test('migrate：没挂 goal 服务时降级而不是失败', async () => {

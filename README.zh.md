@@ -1,19 +1,20 @@
 # dsh-plugin-bridge
 
+<p align="center">
+  <img src="./assets/cover/cover-zh.png" width="100%" alt="dsh-plugin-bridge 通过可预览的固定五段交接，把锁定会话迁移到新的 preset">
+</p>
+
 [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-blue)](https://github.com/deepseek-ai/deepseek-harness)
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
 [![dsh 0.1.0-rc.6 · rc.7 · rc.8](https://img.shields.io/badge/dsh-rc.6%20%C2%B7%20rc.7%20%C2%B7%20rc.8-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![presets](https://img.shields.io/badge/presets-standard%20%C2%B7%20code%20%C2%B7%20minimal%20%C2%B7%20cordis-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![收录于 Awesome DeepSeek Harness](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DeepSeek_Harness-f0b44d)](https://github.com/Dominic789654/awesome-deepseek-harness)
 
 [English](README.md) | 中文
 
-> **想在会话中途换个模式继续，却发现切换入口是锁的？** 锁得对（原因见下）——但锁完不该是死路。本插件就是那个出口：用**固定 schema 的交接摘要**把会话从一种工具模式「搬家」到另一种，而不是绕开官方的模式锁。
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-flow.zh.svg" width="880" alt="Bridge 迁移流程：原会话（模式锁定）→ 压缩工人 → 固定五段摘要 → 你预览确认 → 新 preset 会话；原会话原封不动，随时点回 = 回退">
-</p>
+用固定 schema 的交接摘要，把已有内容的会话迁到另一套工具模式：先预览，再确认，原会话始终不动。
 
 ## 为什么有这个项目
 
@@ -39,14 +40,14 @@ preset 不是「语气档位」，它是一整套组装：系统提示词 + 工�
 
 ### Bridge 就是那个出口：搬家，不绕锁
 
-压缩历史 → 新 preset 建新会话 → 把固定 schema 的摘要交接过去 → 新会话先复述理解再继续。**原会话全程不动，回退 = 点回原会话**（branch 而非 rollback）。
+压缩历史 → 新 preset 建新会话 → 把固定 schema 的摘要交接过去 → 新会话先复述理解并等待你确认。**原会话全程不动，回退 = 点回原会话**（branch 而非 rollback）。只有显式加 `--continue`，目标会话才会立即继续下一步。
 
 无损原理上不存在，所以目标定为实用稳定：有损，但可预览、可验证、可回退。摘要全文在迁移前展示，可编辑，你确认之前什么都不执行。摘要固定五段 schema（目标 / 当前状态 / 关键决策与约定 / 关键文件 / 下一步），新会话首轮先复述理解，事实在不在一问便知。原会话是不可变的只读事实，不满意随时点回去。
 
 ## 安装
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.2
 # 重启 dsh web 生效
 ```
 
@@ -62,12 +63,13 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启 dsh web 后生效
 
 ## 用法：`/bridge`
 
-装上、重启、在输入框里打 `/bridge code`。就这些。
+装上、重启、在输入框里打 `/bridge code`。就这些。安装本身只有一条 dsh 命令；插件热加载和 WebUI 内插件市场属于上游能力，所以官方 WebUI 目前仍需重启一次。
 
 ```
 /bridge                    这个会话能迁到哪些模式？
 /bridge code               生成交接摘要给你过目——什么都不改
-/bridge code --go          确认，建新会话并交接
+/bridge code --go          建新会话、复述交接，然后等我确认
+/bridge code --go --continue  复述后自动继续下一步
 ```
 
 `/bridge` 就是一条普通的 dsh slash 命令，注册方式和 `/compact`、`/goal`、`/plan` 完全一样。host 把它路由给命令注册表，[全程不经过模型](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/host/apiproxy/src/api/sessions.ts)，输出由 UI 渲染、不进对话历史。这带来三个值得直说的结果：
@@ -172,22 +174,26 @@ Bridge 是**搬**：把会话压缩成固定的五段 schema，交给目标 pres
 
 经验法则：想从旧会话里捞一个事实 → `@`；想换个模式把活继续干下去 → `/bridge`。
 
+### 那官方的 Agent Preset 工厂呢？
+
+官方的 preset 页面与 Cordis「创造模式」负责**创建、复制和配置 preset**，服务空白会话或之后的新会话。Bridge 负责把**已经产生历史的会话状态**搬进其中一套 preset 下的新会话。两者互补：preset 工厂造你想要的「手脚」，`/bridge` 在已有工作需要换手时迁状态、不迁旧工具痕迹。
+
 ## 测试与验证
 
-- `npm test` 跑 **95 条测试**：压缩取材行为（含**语义**断言——「取材被裁时，最新的那条还在吗」）、会话事件折叠器、摘要五段 schema 契约、**`/bridge` 命令端到端**、进程内 `ctx.apiProxy` 适配器、对着假 dsh host 的完整迁移流水线、以及 CLI 端到端（真进程、真 HTTP 网关、真线协议信封）。全部不需要真的 host，也不烧一个 token。
-- `test/upstream-contract.test.mjs` 把插件赖以立足的那一小片上游面钉住了——十二个 RPC 方法名、命令定义形状、以及对上游后加字段的容忍（rc.8 的 `attachments` 就是这么加进来的）。dsh 是 developer preview，README 自己就写着会有破坏性变更；这道护栏让 CI 先发现，而不是用户先发现。
+- `npm test` 跑 **111 条测试**：压缩取材行为（含**语义**断言——「取材被裁时，最新的那条还在吗」）、会话事件折叠器、摘要五段 schema 契约、**`/bridge` 命令端到端**、进程内 `ctx.apiProxy` 适配器、对着假 dsh host 的完整迁移流水线、以及 CLI 端到端（真进程、真 HTTP 网关、真线协议信封）。全部不需要真的 host，也不烧一个 token。
+- `test/upstream-contract.test.mjs` 把插件赖以立足的那一小片上游面钉住了——十三个 RPC 方法名、命令定义形状、以及对上游后加字段的容忍（rc.8 的 `attachments` 就是这么加进来的）。dsh 是 developer preview，README 自己就写着会有破坏性变更；这道护栏让 CI 先发现，而不是用户先发现。
 - `npm test` 同时对 `src/` **和** `eval/` 做类型检查——评测脚本 import 的就是命令用的那些模块，不可能再和产品路径漂开。
 - CI 额外校验 `lib/` 与 `src/` 同步、数据集可解析、`npm pack` 内容完整，Node 22 与 24 各跑一遍。
-- ⚠️ **尚未在真实 host 上验过。** 每一条 RPC 签名、命令派发的契约、`ctx.apiProxy` 的服务形状都对着上游源码核过，假 host 实现的就是那份契约——但还没有人在跑着的 `dsh web` 里真的敲过一次 `/bridge`。请先做这件事；CLI 那侧的同名假设可以用 `dsh-bridge doctor` 覆盖。
+- **已在真实 rc.8 验证（2026-08-20）。** 隔离环境全新安装后，官方 WebUI 能加载命令；`/bridge --doctor`、`standard → minimal` 预览与迁移均成功，重启 host 后插件和两个会话仍在。
 
 ## dsh 兼容性
 
-已对着 **0.1.0-rc.6、rc.7、rc.8** 逐条核对：本插件用到的面（`ctx.commands.register`、`ctx.apiProxy`、十二个 RPC 方法、goal 服务、compaction 检查点标记）在三个版本上完全一致。rc.8 对命令注册表的改动（调用可携带图片附件）是增量的，不影响 `/bridge`——我们没有声明 `input.images`，注册表会替我们挡下带图片的调用。
+已对着 **0.1.0-rc.6、rc.7、rc.8** 逐条核对：本插件用到的面（`ctx.commands.register`、`ctx.apiProxy`、十三个 RPC 方法、goal 服务、compaction 检查点标记）在三个版本上完全一致。rc.8 对命令注册表的改动（调用可携带图片附件）是增量的，不影响 `/bridge`——我们没有声明 `input.images`，注册表会替我们挡下带图片的调用。
 
 以后上游真挪了东西，`/bridge --doctor` 会把缺的方法点名说出来，而不是含糊地失败：
 
 ```
-网关：进程内 ctx.apiProxy · 10/12 个方法可用
+网关：进程内 ctx.apiProxy · 11/13 个方法可用
 ⚠ 缺少：session.rename, goal.create
 ```
 
@@ -206,12 +212,13 @@ Bridge 是**搬**：把会话压缩成固定的五段 schema，交给目标 pres
 | `workerProvider` / `workerModel` | `DSH_BRIDGE_PROVIDER` / `_MODEL` | — | 直接指定压缩模型，跳过档位推断 |
 | `previewTimeoutMs` | `DSH_BRIDGE_PREVIEW_TIMEOUT` | `180000` | `/bridge <preset>` 等压缩工人的上限 |
 
-`goalRounds` 值得单说：上游 `goal.create` 的部署默认是 **256** 轮，而 `dsh-goal-round-driver` 会在 agent 空闲时把目标渲染成 `<goal_round>` 提示反复跑。把交接摘要挂成 goal 而不限这个数，等于给新会话开了一个自主循环。交接只需要一轮。
+`goalRounds` 值得单说：上游 `goal.create` 的部署默认是 **256** 轮，而 `dsh-goal-round-driver` 会在 agent 空闲时把目标渲染成 `<goal_round>` 提示反复跑。Bridge 把上限压到 1，且**默认立即暂停 goal**；普通的 `/bridge … --go` 只做复述核对，`--continue` 才显式保持 armed 并继续下一步。
 
 ## 已知局限与待办
 
 - **`/bridge <preset>` 会阻塞到压缩工人跑完**（通常 20–60 秒，上限由 `previewTimeoutMs` 控制）。命令结果是同步返回的，所以工人特别慢时可能拖过客户端的 RPC 超时——迁移引擎本身不受影响，CLI 那条路也没有这个天花板。
-- **依赖 `commands` 与 `apiProxy`。** 两者在官方 `web` profile 里都在（base 挂命令注册表，web bundle 挂 API 网关）。缺其一时插件会挂起等待而不是半挂——是响的，不是哑的。`/bridge --doctor` 会报出这套 host 实际暴露了十二个网关方法里的哪几个。
+- **官方 WebUI 没有给插件提供“跳到刚创建会话”的导航能力。** 成功结果会打印目标标题和 session ID，请从侧栏打开；TotoroPilot 因为拥有客户端界面，可以直接激活目标会话。
+- **依赖 `commands` 与 `apiProxy`。** 两者在官方 `web` profile 里都在（base 挂命令注册表，web bundle 挂 API 网关）。缺其一时插件会挂起等待而不是半挂——是响的，不是哑的。`/bridge --doctor` 会报出这套 host 实际暴露了十三个网关方法里的哪几个。
 - **压缩工人用不上原会话的 KV 缓存。** 上游自己的 compaction 后端会把会话前缀原样重放，正是为了让这次辅助调用成为上次路由请求的真前缀；本插件是另起一个工人会话，前缀毫无关系。实测到的缓存命中是跨 run 的指令重复，不是热前缀复用。要做对得在进程内调 `ctx.llm.stream()`——待办。
 - **取材里 compaction 摘要和它压掉的用户消息仍然重复计费。** `session.history` 读的是日志，检查点和被它替换的消息都还在。
 - **结构化输出会比 markdown 契约更好。** `ctx.subagents` 支持给子会话指定 JSON schema（以及模型、persona、工具限制），那会让「固定五段」从一个需要测量的性质变成类型保证。这一版为了能对着已发布的 rc 核验而没有做。

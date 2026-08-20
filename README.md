@@ -1,19 +1,20 @@
 # dsh-plugin-bridge
 
+<p align="center">
+  <img src="./assets/cover/cover-en.png" width="100%" alt="dsh-plugin-bridge moves a locked session to a new preset through a previewable five-part handoff">
+</p>
+
 [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-blue)](https://github.com/deepseek-ai/deepseek-harness)
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
 [![dsh 0.1.0-rc.6 · rc.7 · rc.8](https://img.shields.io/badge/dsh-rc.6%20%C2%B7%20rc.7%20%C2%B7%20rc.8-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![presets](https://img.shields.io/badge/presets-standard%20%C2%B7%20code%20%C2%B7%20minimal%20%C2%B7%20cordis-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![Listed in Awesome DeepSeek Harness](https://img.shields.io/badge/listed_in-Awesome_DeepSeek_Harness-f0b44d)](https://github.com/Dominic789654/awesome-deepseek-harness)
 
 English | [中文](README.zh.md)
 
-> **Tried to switch presets mid-session and found the switch greyed out?** The lock is right (see below) — but it shouldn't be a dead end. This plugin is the exit: it **moves** a session across tool presets with a fixed-schema handoff summary instead of picking the official lock.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-flow.en.svg" width="880" alt="Bridge flow: original session (preset locked) → compression worker → fixed 5-section summary → your preview → new preset session; the original stays untouched — click back to roll back">
-</p>
+Move a produced session across tool presets with a fixed-schema handoff: preview the state, approve the move, and keep the original untouched.
 
 ## Why this exists
 
@@ -37,14 +38,14 @@ The frustration doesn't come from the lock — it comes from **discovering it to
 
 ### Bridge is that exit: move house, don't pick the lock
 
-Compress the history → open a new session under the target preset → hand the fixed-schema summary over → the new session restates what it understood and continues. **The original session is never touched; rolling back is just clicking back to it** (branch, not rollback).
+Compress the history → open a new session under the target preset → hand the fixed-schema summary over → the new session restates what it understood and waits for your confirmation. **The original session is never touched; rolling back is just clicking back to it** (branch, not rollback). Add `--continue` only when you explicitly want the target to proceed immediately.
 
 Lossless migration is impossible in principle, so the design settles for practically stable: lossy, but previewable, verifiable, and revertible. The full summary is shown and editable before anything happens, and nothing runs without your confirmation. The summary follows a fixed five-section schema (Goal / Current state / Key decisions & conventions / Key files / Next step), and the new session restates its understanding in the first turn, so missing facts are immediately visible. The original session is an immutable, read-only fact you can return to at any time.
 
 ## Installation
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#main
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.2
 # restart dsh web to take effect
 ```
 
@@ -60,12 +61,13 @@ dsh plugin --profile web remove dsh-plugin-bridge   # restart dsh web to take ef
 
 ## Usage: `/bridge`
 
-Install, restart, type `/bridge code`. That is the whole thing.
+Install, restart, type `/bridge code`. That is the whole thing. The install is one dsh command; plugin hot-reload and a WebUI marketplace are upstream capabilities, so the official WebUI still needs one restart.
 
 ```
 /bridge                    what can this session migrate into?
 /bridge code               build the handoff summary and show it — changes nothing
-/bridge code --go          confirmed: create the new session and hand over
+/bridge code --go          create it, restate the handoff, then wait for me
+/bridge code --go --continue  create it and continue after the restatement
 ```
 
 `/bridge` is an ordinary dsh slash command, registered the same way `/compact`, `/goal` and `/plan` are. The host routes it through the command registry — [it never reaches the model](https://github.com/deepseek-ai/deepseek-harness/blob/main/packages/host/apiproxy/src/api/sessions.ts), and its output is rendered by the UI rather than entering the conversation. That has three consequences worth stating plainly:
@@ -169,22 +171,26 @@ The difference bites in exactly the case this plugin exists for. The history you
 
 Rule of thumb: pulling one fact out of an old session → `@`. Continuing the work under a different preset → `/bridge`.
 
+### What about the official Agent Preset factory?
+
+The official preset page and Cordis create mode **build and configure presets** for blank or future sessions. Bridge **moves the state of an already-produced session** into a new session under one of those presets. They are complementary: create the hands you want with the preset factory; use `/bridge` when existing work needs to change hands without carrying incompatible tool traces across the lock.
+
 ## Testing & verification
 
-- `npm test` runs **95 tests**: compression behaviour (including *semantic* budget assertions — "when material is clipped, is the newest still there?"), the session-event folder, summary-schema contracts, **the `/bridge` command end-to-end**, the in-process `ctx.apiProxy` adapter, the full migration pipeline against a fake dsh host, and the CLI end-to-end (real process, real HTTP gateway, real wire envelope). None of it needs a live host or spends a token.
-- `test/upstream-contract.test.mjs` pins the narrow upstream surface this plugin stands on — the twelve RPC method names, the command-definition shape, and tolerance for fields upstream adds later (rc.8's `attachments` landed exactly this way). dsh is a developer preview whose README promises breaking changes; this is the guard that makes CI notice before users do.
+- `npm test` runs **111 tests**: compression behaviour (including *semantic* budget assertions — "when material is clipped, is the newest still there?"), the session-event folder, summary-schema contracts, **the `/bridge` command end-to-end**, the in-process `ctx.apiProxy` adapter, the full migration pipeline against a fake dsh host, and the CLI end-to-end (real process, real HTTP gateway, real wire envelope). None of it needs a live host or spends a token.
+- `test/upstream-contract.test.mjs` pins the narrow upstream surface this plugin stands on — the thirteen RPC method names, the command-definition shape, and tolerance for fields upstream adds later (rc.8's `attachments` landed exactly this way). dsh is a developer preview whose README promises breaking changes; this is the guard that makes CI notice before users do.
 - `npm test` also typechecks `src/` **and** `eval/` — the evaluation harness imports the same modules the command does, so it cannot drift from the product path.
 - CI additionally checks: `lib/` is in sync with `src/`, datasets parse, `npm pack` contents are complete, on Node 22 and 24.
-- ⚠️ **Not yet verified against a live host.** Every RPC signature, the command-dispatch contract, and the `ctx.apiProxy` service shape were checked against upstream source, and the fake host implements that contract — but no one has yet typed `/bridge` into a running `dsh web`. Do that first; `dsh-bridge doctor` covers the same assumptions from the CLI side.
+- **Live rc.8 verified (2026-08-20).** A clean isolated install loaded in the official WebUI; `/bridge --doctor` passed, `standard → minimal` preview and migration completed, and the plugin plus both sessions survived a host restart.
 
 ## dsh compatibility
 
-Verified against **0.1.0-rc.6, rc.7 and rc.8** — the surfaces this plugin uses (`ctx.commands.register`, `ctx.apiProxy`, twelve RPC methods, the goal service, the compaction checkpoint marker) are identical across all three. rc.8's command-registry change (image attachments on invocations) is additive and does not affect `/bridge`, which declares no `input.images` and is therefore protected by the registry's own rejection path.
+Verified against **0.1.0-rc.6, rc.7 and rc.8** — the surfaces this plugin uses (`ctx.commands.register`, `ctx.apiProxy`, thirteen RPC methods, the goal service, the compaction checkpoint marker) are identical across all three. rc.8's command-registry change (image attachments on invocations) is additive and does not affect `/bridge`, which declares no `input.images` and is therefore protected by the registry's own rejection path.
 
 If a future release does move something, `/bridge --doctor` names the missing method instead of failing vaguely:
 
 ```
-网关：进程内 ctx.apiProxy · 10/12 个方法可用
+网关：进程内 ctx.apiProxy · 11/13 个方法可用
 ⚠ 缺少：session.rename, goal.create
 ```
 
@@ -203,12 +209,13 @@ Set through the profile's `cordis.patch.yml`, or the `DSH_BRIDGE_*` environment 
 | `workerProvider` / `workerModel` | `DSH_BRIDGE_PROVIDER` / `_MODEL` | — | Pin the compression model instead of inferring it from the tier |
 | `previewTimeoutMs` | `DSH_BRIDGE_PREVIEW_TIMEOUT` | `180000` | How long `/bridge <preset>` waits for the compression worker |
 
-`goalRounds` deserves a note: upstream's `goal.create` defaults to **256** rounds, and `dsh-goal-round-driver` turns an active goal into `<goal_round>` prompts whenever the agent is idle. Injecting a handoff summary as a goal without capping that is handing the new session an autonomous loop. A handoff needs one round.
+`goalRounds` deserves a note: upstream's `goal.create` defaults to **256** rounds, and `dsh-goal-round-driver` turns an active goal into `<goal_round>` prompts whenever the agent is idle. Bridge caps the goal at one round **and pauses it by default**; `/bridge … --go` performs only the restatement check. `--continue` explicitly leaves it armed for the next step.
 
 ## Known limitations and deferred work
 
 - **`/bridge <preset>` blocks while the compression worker runs** (typically 20–60s; capped by `previewTimeoutMs`). A command result is synchronous, so a very slow worker can outlast the client's RPC timeout — the migration engine is unaffected, and the CLI path has no such ceiling.
-- **Requires `commands` and `apiProxy`.** Both are in the official `web` profile (base mounts the command registry, the web bundle mounts the API gateway). In a profile without them the plugin pends rather than half-mounting — loud, not silent. `/bridge --doctor` reports which of the twelve gateway methods this host actually exposes.
+- **The official WebUI does not let a plugin navigate to the session it creates.** The success result prints the exact target title and session ID; open it from the sidebar. TotoroPilot can activate it directly because it owns that client surface.
+- **Requires `commands` and `apiProxy`.** Both are in the official `web` profile (base mounts the command registry, the web bundle mounts the API gateway). In a profile without them the plugin pends rather than half-mounting — loud, not silent. `/bridge --doctor` reports which of the thirteen gateway methods this host actually exposes.
 - **The compression worker cannot reuse the original session's KV cache.** Upstream's own compaction backend replays the conversation prefix precisely so the auxiliary call is a real prefix of the last routed request; this plugin instead spins a separate worker session, whose prefix is unrelated. The measured cache hits are cross-run repetition of the instruction, not warm-prefix reuse. Doing this properly means calling `ctx.llm.stream()` in-process — deferred.
 - **The material still double-counts what a compaction already summarized.** `session.history` reads the log, so both the checkpoint and the user messages it replaced are collected.
 - **Structured output would be better than a markdown contract.** `ctx.subagents` supports a JSON schema per child (plus model, persona, and tool restriction), which would make "five sections" a type guarantee rather than a measured property. Deferred to keep this version verifiable against the shipped rc.
