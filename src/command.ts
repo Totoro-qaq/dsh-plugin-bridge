@@ -285,7 +285,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               : '新会话没有自动启动；请按下面的警告检查后手动继续。',
             '原会话原封不动，随时点回来；新会话不满意就归档。',
           ];
-          if (result.imagesSent) lines.push(`图片：${result.imagesSent} 张尚未解析的 rc.8 原图已随 kickoff 搬到视觉目标。`);
+          if (result.imagesSent) lines.push(`图片：${result.imagesSent} 张尚未解析的原图已随 kickoff 搬到视觉目标。`);
           for (const warning of result.warnings) lines.push(`⚠ ${warning}`);
           return { kind: 'success', text: lines.join('\n') };
         } catch (error) {

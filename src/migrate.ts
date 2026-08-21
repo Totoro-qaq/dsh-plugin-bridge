@@ -49,6 +49,12 @@ export interface ModelRoute {
   reason: string;
 }
 
+export interface ModelSelection {
+  provider: string;
+  model: string;
+  reasoningEffort?: string;
+}
+
 /** 工人会话优先使用的 preset（工具越少越省，也不会误动工作区）。 */
 const WORKER_PRESET_PREFERENCE = ['minimal', 'standard'];
 /** 每页拉多少条消息、最多翻几页。 */
@@ -345,6 +351,10 @@ export interface MigrateOptions {
 export interface MigrateResult {
   sessionId: string;
   agentPreset: string;
+  /** 是否在 kickoff 前把源会话的模型选择复制到了目标会话。 */
+  modelTransferred: boolean;
+  /** 迁移时读到的源会话模型；读取失败时省略并给出 warning。 */
+  sourceModel?: ModelSelection;
   goalCreated: boolean;
   goalPaused: boolean;
   kickoffSent: boolean;
@@ -428,12 +438,43 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
 
   const sourceSession = await findSession(rpc, options.sessionId);
   const where = await placement(rpc, sourceSession, options.sessionId);
+  let sourceModel: ModelSelection | undefined;
+  try {
+    const models = await rpc<{ current?: Partial<ModelSelection> }>('session.models', { sessionId: options.sessionId });
+    const current = models.current;
+    if (typeof current?.provider === 'string' && current.provider
+      && typeof current.model === 'string' && current.model) {
+      sourceModel = {
+        provider: current.provider,
+        model: current.model,
+        ...(typeof current.reasoningEffort === 'string' && current.reasoningEffort
+          ? { reasoningEffort: current.reasoningEffort }
+          : {}),
+      };
+    }
+  } catch (error) {
+    warnings.push(`读取源会话模型失败，目标将使用 host 默认模型：${error instanceof Error ? error.message : String(error)}`);
+  }
 
   progress(`在 ${options.to} 模式下新建会话…`);
   const created = await rpc<{ sessionId: string; agentPreset?: string }>('session.create', {
     ...where,
     agentPreset: options.to,
   });
+
+  // rc.2 的 session.selectModel 会同时保存 host 默认模型。预览 worker 通常
+  // 选择 pro 档位，因此如果这里依赖新会话默认值，目标会被 worker 悄悄改成
+  // pro，视觉源会话也会失去 VLM。显式复制源选择既保持用户模型意图，也让
+  // 未解析原图能在 kickoff 前通过目标模型的图片准入。
+  let modelTransferred = false;
+  if (sourceModel) {
+    try {
+      await rpc('session.selectModel', { sessionId: created.sessionId, ...sourceModel });
+      modelTransferred = true;
+    } catch (error) {
+      warnings.push(`复制源会话模型失败，目标将使用 host 默认模型：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   let titled = false;
   if (options.title) {
@@ -485,7 +526,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
       warnings.push(`读取图片状态失败，已按纯文本交接：${error instanceof Error ? error.message : String(error)}`);
     }
     if (unresolved.missing > 0) {
-      warnings.push(`有 ${unresolved.missing} 张未解析图片缺少可复用的 rc.8 附件引用；目标会话必须回源会话核验。`);
+      warnings.push(`有 ${unresolved.missing} 张未解析图片缺少可复用的持久附件引用；目标会话必须回源会话核验。`);
     }
 
     if (unresolved.refs.length) {
@@ -518,6 +559,8 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   return {
     sessionId: created.sessionId,
     agentPreset: created.agentPreset ?? options.to,
+    modelTransferred,
+    ...(sourceModel ? { sourceModel } : {}),
     goalCreated,
     goalPaused,
     kickoffSent,

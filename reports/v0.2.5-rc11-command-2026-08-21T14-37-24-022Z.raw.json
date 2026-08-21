@@ -1,0 +1,65 @@
+{
+  "stamp": "2026-08-21T14-37-24-022Z",
+  "api": "http://127.0.0.1:3181/api",
+  "sourceSessionId": "session-ad836bc3-72f0-462d-8f6b-741da8afb274",
+  "command": {
+    "preview": {
+      "commandId": "cmd-2b1b34aa-5",
+      "result": {
+        "kind": "success",
+        "text": "─── 交接摘要 · standard → minimal（请过目，重点看数字与路径）───\n## Goal\nExtract from the attached image exactly five `key=value` lines named CONTRACT_ID, SHAPE, PORT, PATH, and FORBIDDEN, preserving every visible value verbatim; guessing is forbidden.\n\n## Current state\nOnly the initial user message is available; it contains one image attachment whose visual content is unavailable to this summary worker. No image inspection has been performed and no values have been extracted yet. The only blocker is missing visual access to the image in the current context.\n\n## Key decisions & conventions\n- Do not guess or fabricate any image value; missing or unclear values must not be invented.\n- Output exactly five lines, one per key, formatted as `KEY=value`.\n- Use the exact key names: CONTRACT_ID, SHAPE, PORT, PATH, FORBIDDEN.\n- Preserve every visible value exactly, including spelling, case, digits, punctuation, and symbols.\n- The original instruction said to inspect the image directly and not use tools.\n\n## Key files\n(none available from the material)\n\n## Next step\nAccess the attached image under the new tool preset, inspect it directly, and output exactly the five `key=value` lines using only values visibly present in the image.\n\n## Unresolved images\n- Source user message 1 contains 1 image(s) with no associated assistant text. Do not infer their contents; reattach or inspect the original session.\n───────────────────────────────────────────\n取材 285 字符 · 用户消息 1/1 条 · 压缩模型 deepseek-v4-pro · 用时 15s\n图片 1 张 / 1 条消息 · 有关联原文 0 条 · 未解析 1 条\n\n没问题就执行：/bridge minimal --go\n要改：编辑 /var/folders/pg/9vsbq3sd3wn48k9jhk96q8bm0000gn/T/dsh-bridge-4rHFGM/summary-session-ad83.md 之后 /bridge minimal --go --file /var/folders/pg/9vsbq3sd3wn48k9jhk96q8bm0000gn/T/dsh-bridge-4rHFGM/summary-session-ad83.md"
+      }
+    },
+    "migrate": {
+      "commandId": "cmd-2b1b34aa-6",
+      "result": {
+        "kind": "success",
+        "text": "已在 minimal 模式下建好新会话，摘要来自暂存的预览。\n目标会话：Visual Contract Shape Extraction → minimal · session-d94f99bf-a48f-404b-b7c3-7074e8b2fca5\n交接目标已暂停；新会话会在同一轮复述理解并继续下一步，不触发额外 goal 轮次。\n原会话原封不动，随时点回来；新会话不满意就归档。\n图片：1 张尚未解析的 rc.8 原图已随 kickoff 搬到视觉目标。"
+      }
+    }
+  },
+  "target": {
+    "sessionId": "session-d94f99bf-a48f-404b-b7c3-7074e8b2fca5",
+    "text": "The image is now directly available and shows the Bridge Visual Contract card; I will extract only the five visibly printed values without guessing.\n\nCONTRACT_ID=VIS-RC11-8472\nSHAPE=CYAN TRIANGLE\nPORT=57431\nPATH=vision/rc11/evidence.png\nFORBIDDEN=MAGENTA CIRCLE",
+    "hits": {
+      "57431": true,
+      "VIS-RC11-8472": true,
+      "CYAN TRIANGLE": true,
+      "vision/rc11/evidence.png": true,
+      "MAGENTA CIRCLE": true
+    },
+    "hitCount": 5,
+    "model": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-flash-vision-exp",
+      "reasoningEffort": "high"
+    },
+    "usage": {
+      "uncachedInput": 398,
+      "cacheRead": 1536,
+      "cacheWrite": 0,
+      "output": 488,
+      "nominal": 886,
+      "processed": 2422
+    }
+  },
+  "createdSessions": [
+    "session-d94f99bf-a48f-404b-b7c3-7074e8b2fca5",
+    "session-8c0ba273-f5fa-478f-b7f4-4adb5240eced"
+  ],
+  "archive": {
+    "attempts": [
+      {
+        "sessionId": "session-d94f99bf-a48f-404b-b7c3-7074e8b2fca5",
+        "ok": true
+      },
+      {
+        "sessionId": "session-8c0ba273-f5fa-478f-b7f4-4adb5240eced",
+        "ok": true
+      }
+    ],
+    "missing": [],
+    "pass": true
+  },
+  "pass": true
+}

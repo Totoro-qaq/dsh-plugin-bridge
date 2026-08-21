@@ -156,8 +156,17 @@ export function createFakeHost(options = {}) {
         return models;
       case 'session.selectModel': {
         const session = sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');
-        selected.push({ sessionId: session.sessionId, provider: payload.provider, model: payload.model });
-        return { provider: payload.provider, model: payload.model };
+        selected.push({
+          sessionId: session.sessionId,
+          provider: payload.provider,
+          model: payload.model,
+          ...(payload.reasoningEffort ? { reasoningEffort: payload.reasoningEffort } : {}),
+        });
+        return {
+          provider: payload.provider,
+          model: payload.model,
+          ...(payload.reasoningEffort ? { reasoningEffort: payload.reasoningEffort } : {}),
+        };
       }
       case 'session.prompt': {
         const session = sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');

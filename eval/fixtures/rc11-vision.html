@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Bridge rc.2 vision migration fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 1280px; height: 800px; margin: 0; }
+    body {
+      display: grid;
+      place-items: center;
+      background: #eef6ff;
+      color: #13213c;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: 1120px;
+      padding: 54px 62px;
+      border: 5px solid #13213c;
+      border-radius: 30px;
+      background: #fff;
+      box-shadow: 0 28px 70px rgb(20 50 90 / 18%);
+    }
+    h1 { margin: 0 0 34px; font-size: 54px; letter-spacing: .02em; }
+    .grid { display: grid; grid-template-columns: 270px 1fr; gap: 44px; align-items: center; }
+    .shape {
+      width: 0;
+      height: 0;
+      margin: auto;
+      border-left: 112px solid transparent;
+      border-right: 112px solid transparent;
+      border-bottom: 194px solid #16c7d9;
+      filter: drop-shadow(0 16px 18px rgb(22 199 217 / 28%));
+    }
+    dl { display: grid; grid-template-columns: 180px 1fr; gap: 18px 22px; margin: 0; font-size: 31px; }
+    dt { color: #61708c; font-weight: 650; }
+    dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 750; }
+    .warning { color: #9d1830; }
+    footer { margin-top: 38px; padding-top: 24px; border-top: 2px solid #d9e2f0; color: #52627e; font-size: 23px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Bridge Visual Contract</h1>
+    <section class="grid">
+      <div class="shape" aria-label="cyan triangle"></div>
+      <dl>
+        <dt>Contract ID</dt><dd>VIS-RC11-8472</dd>
+        <dt>Shape</dt><dd>CYAN TRIANGLE</dd>
+        <dt>Port</dt><dd>57431</dd>
+        <dt>Path</dt><dd>vision/rc11/evidence.png</dd>
+        <dt>Forbidden</dt><dd class="warning">MAGENTA CIRCLE</dd>
+      </dl>
+    </section>
+    <footer>Read only what is visibly printed. Preserve every value exactly during migration.</footer>
+  </main>
+</body>
+</html>
