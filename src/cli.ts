@@ -323,7 +323,7 @@ async function main(argv: string[]): Promise<number> {
         } else {
           lines.push('新会话没有自动启动；请检查警告后手动继续。');
         }
-        if (result.imagesSent) lines.push(`已把 ${result.imagesSent} 张尚未解析的 rc.8 原图附到目标 kickoff。`);
+        if (result.imagesSent) lines.push(`已把 ${result.imagesSent} 张尚未解析的原图附到目标 kickoff。`);
         lines.push('原会话原封不动，随时可以点回去。');
         for (const warning of result.warnings) lines.push(`⚠ ${warning}`);
         return `${lines.join('\n')}\n`;

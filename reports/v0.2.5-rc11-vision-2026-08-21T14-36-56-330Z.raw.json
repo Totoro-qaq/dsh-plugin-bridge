@@ -1,0 +1,256 @@
+{
+  "stamp": "2026-08-21T14-36-56-330Z",
+  "api": "http://127.0.0.1:3181/api",
+  "dshVersion": "0.1.1-rc.2",
+  "bridgeVersion": "0.2.5",
+  "provider": "deepseek-official",
+  "model": "deepseek-v4-flash-vision-exp",
+  "fixture": {
+    "path": "/Users/totoro/Documents/dsh-gui/dsh-plugin-bridge/eval/fixtures/rc11-vision.png",
+    "sha256": "fcde25225381226631b56f693eeb9845133812e488208824db8d4f9cdb15d0e0",
+    "facts": {
+      "contractId": "VIS-RC11-8472",
+      "shape": "CYAN TRIANGLE",
+      "port": "57431",
+      "path": "vision/rc11/evidence.png",
+      "forbidden": "MAGENTA CIRCLE"
+    }
+  },
+  "environment": {
+    "host": {
+      "version": "0.0.1",
+      "cwd": "/Users/totoro",
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-flash-vision-exp",
+      "attachedSessions": 6,
+      "home": "/Users/totoro",
+      "canOpenPath": true
+    },
+    "workspace": {
+      "workspaceId": "93e381d2-f484-41e9-b127-065cbc94d3e5",
+      "path": "/var/folders/pg/9vsbq3sd3wn48k9jhk96q8bm0000gn/T/dsh-bridge-rc11-vision-1Xxlyv"
+    },
+    "resolvedEvidenceReport": "/Users/totoro/Documents/dsh-gui/dsh-plugin-bridge/reports/v0.2.5-rc11-vision-2026-08-21T14-21-17-352Z.raw.json"
+  },
+  "resolved": {
+    "sourceSessionId": "session-97e0a17d-1199-4c28-a306-fdd4664ab5a4",
+    "targetSessionId": "session-60215558-953b-49d0-bc03-52314ed5fbf3",
+    "selected": {
+      "selected": {
+        "selected": {
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-flash-vision-exp",
+          "reasoningEffort": "high"
+        }
+      },
+      "current": {
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-flash-vision-exp",
+        "reasoningEffort": "high"
+      },
+      "routable": true
+    },
+    "targetModel": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-flash-vision-exp",
+      "reasoningEffort": "high"
+    },
+    "sourceText": "CONTRACT_ID=VIS-RC11-8472\nSHAPE=CYAN TRIANGLE\nPORT=57431\nPATH=vision/rc11/evidence.png\nFORBIDDEN=MAGENTA CIRCLE",
+    "sourceScore": {
+      "lines": {
+        "CONTRACT_ID=VIS-RC11-8472": true,
+        "SHAPE=CYAN TRIANGLE": true,
+        "PORT=57431": true,
+        "PATH=vision/rc11/evidence.png": true,
+        "FORBIDDEN=MAGENTA CIRCLE": true
+      },
+      "hitCount": 5,
+      "exactContract": true,
+      "canonicalEquals": true
+    },
+    "targetText": "I understand the current state: a prior session inspected an image and derived an authoritative five-key visual contract, and those values (VIS-RC11-8472) remain currently effective — none are marked obsolete, revoked, or superseded. The next step is to emit that contract verbatim from the preserved visual evidence, with no tools and no guesses.\n\nCONTRACT_ID=VIS-RC11-8472\nSHAPE=CYAN TRIANGLE\nPORT=57431\nPATH=vision/rc11/evidence.png\nFORBIDDEN=MAGENTA CIRCLE",
+    "targetScore": {
+      "lines": {
+        "CONTRACT_ID=VIS-RC11-8472": true,
+        "SHAPE=CYAN TRIANGLE": true,
+        "PORT=57431": true,
+        "PATH=vision/rc11/evidence.png": true,
+        "FORBIDDEN=MAGENTA CIRCLE": true
+      },
+      "hitCount": 5,
+      "exactContract": true,
+      "canonicalEquals": true
+    },
+    "visualEvidence": {
+      "imageMessages": 1,
+      "images": 1,
+      "represented": 1,
+      "unresolved": 0,
+      "included": [
+        {
+          "userMessage": 1,
+          "imageCount": 1,
+          "userText": "Inspect the attached image directly. Do not use tools. Output exactly these five keys with the visible values, one per line: CONTRACT_ID, SHAPE, PORT, PATH, FORBIDDEN. Use = between each key and value. Do not add guesses.",
+          "assistantText": "CONTRACT_ID=VIS-RC11-8472\nSHAPE=CYAN TRIANGLE\nPORT=57431\nPATH=vision/rc11/evidence.png\nFORBIDDEN=MAGENTA CIRCLE",
+          "attachments": [
+            {
+              "attachmentId": "sha256:fcde25225381226631b56f693eeb9845133812e488208824db8d4f9cdb15d0e0",
+              "mediaType": "image/png",
+              "bytes": 86661,
+              "width": 1280,
+              "height": 800,
+              "name": "rc11-vision.png"
+            }
+          ]
+        }
+      ],
+      "omitted": 0,
+      "truncated": false
+    },
+    "migration": {
+      "sessionId": "session-60215558-953b-49d0-bc03-52314ed5fbf3",
+      "agentPreset": "code",
+      "goalCreated": true,
+      "goalPaused": true,
+      "kickoffSent": true,
+      "titled": true,
+      "imagesSent": 0,
+      "warnings": []
+    },
+    "usage": {
+      "source": {
+        "uncachedInput": 9095,
+        "cacheRead": 384,
+        "cacheWrite": 0,
+        "output": 146,
+        "nominal": 9241,
+        "processed": 9625
+      },
+      "target": {
+        "uncachedInput": 9983,
+        "cacheRead": 384,
+        "cacheWrite": 0,
+        "output": 331,
+        "nominal": 10314,
+        "processed": 10698
+      }
+    },
+    "pass": true
+  },
+  "unresolved": {
+    "sourceSessionId": "session-ad836bc3-72f0-462d-8f6b-741da8afb274",
+    "targetSessionId": "session-1485dfa4-61b9-48b6-8191-5ec732646f2f",
+    "selected": {
+      "selected": {
+        "selected": {
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-flash-vision-exp",
+          "reasoningEffort": "high"
+        }
+      },
+      "current": {
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-flash-vision-exp",
+        "reasoningEffort": "high"
+      },
+      "routable": true
+    },
+    "targetModel": {
+      "provider": "deepseek-official",
+      "model": "deepseek-v4-flash-vision-exp",
+      "reasoningEffort": "high"
+    },
+    "targetText": "I understand the current state is a handoff asking me to inspect the attached source image and extract the visible Bridge Visual Contract values, outputting exactly the five required fields without using tools or guessing. The attached image is available, so the next step is to emit the five lines.\n\nCONTRACT_ID: VIS-RC11-8472\nSHAPE: CYAN TRIANGLE\nPORT: 57431\nPATH: vision/rc11/evidence.png\nFORBIDDEN: MAGENTA CIRCLE",
+    "targetScore": {
+      "lines": {
+        "CONTRACT_ID=VIS-RC11-8472": true,
+        "SHAPE=CYAN TRIANGLE": true,
+        "PORT=57431": true,
+        "PATH=vision/rc11/evidence.png": true,
+        "FORBIDDEN=MAGENTA CIRCLE": true
+      },
+      "hitCount": 5,
+      "exactContract": true,
+      "canonicalEquals": false
+    },
+    "visualEvidence": {
+      "imageMessages": 1,
+      "images": 1,
+      "represented": 0,
+      "unresolved": 1,
+      "included": [
+        {
+          "userMessage": 1,
+          "imageCount": 1,
+          "userText": "Inspect the attached image directly. Do not use tools. Output exactly five key=value lines named CONTRACT_ID, SHAPE, PORT, PATH, and FORBIDDEN, preserving every visible value. Do not guess.",
+          "assistantText": "",
+          "attachments": [
+            {
+              "attachmentId": "sha256:fcde25225381226631b56f693eeb9845133812e488208824db8d4f9cdb15d0e0",
+              "mediaType": "image/png",
+              "bytes": 86661,
+              "width": 1280,
+              "height": 800,
+              "name": "rc11-vision.png"
+            }
+          ]
+        }
+      ],
+      "omitted": 0,
+      "truncated": false
+    },
+    "migration": {
+      "sessionId": "session-1485dfa4-61b9-48b6-8191-5ec732646f2f",
+      "agentPreset": "minimal",
+      "modelTransferred": true,
+      "sourceModel": {
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-flash-vision-exp",
+        "reasoningEffort": "high"
+      },
+      "goalCreated": true,
+      "goalPaused": true,
+      "kickoffSent": true,
+      "titled": true,
+      "imagesSent": 1,
+      "warnings": []
+    },
+    "usage": {
+      "source": {
+        "uncachedInput": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "output": 0,
+        "nominal": 0,
+        "processed": 0
+      },
+      "target": {
+        "uncachedInput": 64,
+        "cacheRead": 1664,
+        "cacheWrite": 0,
+        "output": 889,
+        "nominal": 953,
+        "processed": 2617
+      }
+    },
+    "pass": true
+  },
+  "archive": {
+    "attempts": [
+      {
+        "sessionId": "session-ad836bc3-72f0-462d-8f6b-741da8afb274",
+        "ok": true
+      },
+      {
+        "sessionId": "session-1485dfa4-61b9-48b6-8191-5ec732646f2f",
+        "ok": true
+      }
+    ],
+    "tracked": 2,
+    "archived": 2,
+    "missing": [],
+    "pass": true
+  },
+  "pass": true,
+  "fatalError": null
+}

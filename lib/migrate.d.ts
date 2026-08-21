@@ -37,6 +37,11 @@ export interface ModelRoute {
     /** 为什么选中它：configured / follow-session / tier:<tier> / fallback-current。 */
     reason: string;
 }
+export interface ModelSelection {
+    provider: string;
+    model: string;
+    reasoningEffort?: string;
+}
 /**
  * 列出全部会话。
  *
@@ -144,6 +149,10 @@ export interface MigrateOptions {
 export interface MigrateResult {
     sessionId: string;
     agentPreset: string;
+    /** 是否在 kickoff 前把源会话的模型选择复制到了目标会话。 */
+    modelTransferred: boolean;
+    /** 迁移时读到的源会话模型；读取失败时省略并给出 warning。 */
+    sourceModel?: ModelSelection;
     goalCreated: boolean;
     goalPaused: boolean;
     kickoffSent: boolean;

@@ -4,10 +4,10 @@
 
 ## 1. 安装
 
-前置：已安装 dsh（`dsh --version` 能输出版本，本插件在 0.1.0-rc.6 / rc.7 / rc.8 上核对过接口），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
+前置：已安装 dsh（`dsh --version` 能输出版本，本插件已核对 0.1.0-rc.6 / rc.7 / rc.8，并在 0.1.1-rc.2 完成真实视觉迁移），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.3
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.6
 ```
 
 发生了什么（不用手动干预）：
@@ -125,7 +125,10 @@ dsh-bridge migrate --to code --summary-file <path>
 A：确认重启过 `dsh web`（插件在启动时挂载），并且用的是 `web` profile。命令注册依赖 `commands` 服务、执行依赖 `apiProxy` 服务，两者在官方 web profile 里都在；缺其一插件会挂起等待而不是半挂，日志里能看到。
 
 **Q：升级了 dsh 之后还能用吗？**
-A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十三个网关方法里的哪几个、当前模式是什么、生效配置是什么。全绿就是好的。缺方法它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 都逐条核对过，本插件用到的面在这三个版本上完全一致。
+A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十三个网关方法里的哪几个、当前模式是什么、生效配置是什么。全绿就是好的。缺方法它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 已逐条核对；0.1.1-rc.2 的 doctor 13/13、预览、迁移、目标模型继承与原图 kickoff 均实测通过。
+
+**Q：图片迁移需要怎么选模型？**
+A：图片已有助手分析时，Bridge 逐字搬这段视觉证据，不需要再次烧视觉 token。图片还没被分析时，源会话应选 `deepseek-v4-flash-vision-exp` 等视觉路由；Bridge 会在 kickoff 前把源 provider/model/reasoning effort 复制到目标，再搬原图。文本模型仍不能识图，Bridge 也不会暗中启动本地视觉模型。
 
 **Q：迁移后新会话「记得」多少？**
 A：26 组实验的探针可用性（事实可回忆率）：pro 档位 95%。丢的通常是「数字合理化」一类（端口被补全成常见值）——所以预览那一步请重点扫数字。

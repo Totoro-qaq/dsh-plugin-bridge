@@ -102,6 +102,32 @@ test('migrate：目标会话建在目标 preset 上，且落在同一工作区',
   assert.equal(create.payload.workspaceId, 'ws-1');
 });
 
+test('migrate：preview worker 改过 host 默认模型也不会污染目标模型', async () => {
+  const vision = {
+    provider: 'deepseek-official',
+    model: 'deepseek-v4-flash-vision-exp',
+    reasoningEffort: 'high',
+  };
+  const host = createFakeHost({
+    models: {
+      current: vision,
+      routable: true,
+      groups: [{ id: 'deepseek-official', models: [{ id: vision.model }, { id: 'deepseek-v4-pro' }] }],
+      failures: [],
+    },
+  });
+  const result = await executeMigration(host.rpc, {
+    sessionId: host.sourceSessionId, to: 'minimal', summary: '## 目标\n继续识图', lang: 'zh',
+  });
+  assert.equal(result.modelTransferred, true);
+  assert.deepEqual(result.sourceModel, vision);
+  const targetSelection = host.state.selected.find((item) => item.sessionId === result.sessionId);
+  assert.deepEqual(
+    [targetSelection.provider, targetSelection.model, targetSelection.reasoningEffort],
+    [vision.provider, vision.model, vision.reasoningEffort],
+  );
+});
+
 test('migrate：默认注入方式让摘要一定进上下文', async () => {
   // 上游 goal.create 本身不注入模型上下文，摘要能被看见依赖 goal-round-driver。
   // 所以默认把摘要也放进首轮提示：任何组装下都成立。

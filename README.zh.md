@@ -8,8 +8,8 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh rc.6 · rc.7 · rc.8](https://img.shields.io/badge/dsh-rc.6%20%C2%B7%20rc.7%20%C2%B7%20rc.8-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
-[![收录于 Awesome DeepSeek Harness](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DeepSeek_Harness-f0b44d)](https://github.com/Dominic789654/awesome-deepseek-harness)
+[![dsh rc.6 → 0.1.1-rc.2](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.1--rc.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 [English](README.md) | 中文
 
@@ -20,7 +20,7 @@
 ## 快速开始
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.5
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.6
 # 重启一次 dsh web
 ```
 
@@ -41,7 +41,7 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.5
 
 卸载：`dsh plugin --profile web remove dsh-plugin-bridge`，然后重启 `dsh web`。
 
-> **官方 rc.8 WebUI 实测（2026-08-20）：**干净安装、插件加载、`standard → minimal` 预览与迁移、暂停目标持久化、host 重启均通过。仓库自带预构建 `lib/`，git 安装不需要 pnpm 构建脚本白名单。
+> **最新实测——DSH 0.1.1-rc.2（2026-08-21）：**隔离安装、`/bridge` 注册、doctor 13/13、`standard → minimal` 预览与迁移、源 VLM 保持、未解析 PNG 原图搬运均通过；模型为 `deepseek-v4-flash-vision-exp`。rc.8 的完整生命周期与重启基线仍单独保留。
 
 ## 安全与成本
 
@@ -94,6 +94,15 @@ release acceptance 中每个 fixture 只生成一次摘要。默认确认模式�
 
 这是小样本、修复驱动的发布 gate，不是统计意义的准确率保证。它包含 3 个真实复用 compaction 的 21 消息源会话与 3 个短会话，目标覆盖 minimal、standard、code。完整方法、逐请求 token、离散度与归档证据见 [v0.2.3 基线 + 修复报告](reports/v0.2.3-e2e-report.md)。
 
+独立的 rc.2 视觉 gate 使用只存在于 PNG 内、不可猜的事实：
+
+| 视觉路径 | 结果 | 重发原图 | 目标模型 |
+|---|---:|---:|---|
+| 已有识图回答 → 逐字视觉证据 | **5/5** | 0 | vision-exp |
+| 未解析原图 → 安装版 `/bridge` 命令 | **5/5** | 1 | vision-exp |
+
+安装版命令的摘要 worker + 目标首次回答共使用 1,770 nominal / 4,714 processed tokens。这是单个受控 fixture 的绝对值，不是通用开销百分比。详见 [rc.2 视觉报告](reports/v0.2.6-rc11-vision-report.md)。
+
 <details>
 <summary><strong>更早的压缩档位 benchmark</strong></summary>
 
@@ -118,7 +127,7 @@ release acceptance 中每个 fixture 只生成一次摘要。默认确认模式�
 ```text
 折叠历史 → 生成五段摘要 → 预览/编辑 → 创建目标会话
          → 暂停存储目标 → 注入摘要 → 复述（可选同轮继续）
-图片历史 → 原样搬运关联助手正文；未解析原图走 rc.8 能力降级
+图片历史 → 原样搬运关联助手正文；未解析原图走持久附件网关
 ```
 
 五段分别是：目标、当前状态、关键决策与约定、关键文件、下一步。旧 preset 的工具痕迹会被主动丢弃：迁的是状态，不是与新工具集不兼容的调用历史。
@@ -126,19 +135,20 @@ release acceptance 中每个 fixture 只生成一次摘要。默认确认模式�
 原会话不会被改写。迁移不满意时，点回原会话并归档新会话即可。
 
 <details>
-<summary><strong>rc.8 图片：什么时候搬原图，什么时候搬原文</strong></summary>
+<summary><strong>rc.8+ 图片：什么时候搬原图，什么时候搬原文</strong></summary>
 
 Bridge 使用自动、准确率优先的图片策略：
 
 - 只有图片、没有文字的用户消息不再从取材中静默消失。
 - 图片同轮已有助手正文时，Bridge 将它逐字追加到 `视觉证据`，摘要 worker 无权改写。预览刻意称它为“关联助手响应”，而不是保证每个像素都已被理解。
-- 图片后没有助手正文时标记为 `未解析`。在 rc.8 上，Bridge 读取源会话的持久附件，并尝试把原图放进目标 kickoff。
+- 图片后没有助手正文时标记为 `未解析`。在支持持久附件恢复的 host 上，Bridge 读取源会话附件，并尝试把原图放进目标 kickoff。
+- kickoff 前，Bridge 会把源会话的 provider、model 与 reasoning effort 复制到空白目标，避免摘要 worker 的模型选择把视觉路由静默换掉。
 - 视觉目标会收到原图与交接；默认纯文本 DeepSeek 会在 host 准入阶段拒绝图片，此时消息与模型请求尚未创建，Bridge 再自动发送带未解析警告的纯文本交接。
 - 已有逐字证据时默认不重复发送原图，避免无必要的视觉 token 与缓存成本。如果原响应不足以支撑下一步，应从源会话重新附图核验。
 
 普通五段摘要仍受 `summaryCharBudget` 约束，默认 2,400 字符。逐字视觉证据使用独立的 60,000 字符预算，并以完整块为单位纳入：超限时会明确省略较早整块，但绝不会从一段图片结论中间截断。复制已有文字不增加模型轮次；原图成功进入视觉目标时，图片成本由所选视觉模型提供方计算。
 
-rc.6/rc.7 继续走文本兼容路径。原图读取只是 rc.8 的可选网关能力，不会被加入 `/bridge --doctor` 的必需方法集合。
+rc.6/rc.7 继续走文本兼容路径。原图读取只是 rc.8+ 的可选网关能力，不会被加入 `/bridge --doctor` 的必需方法集合；0.1.1-rc.2 + `deepseek-v4-flash-vision-exp` 的完整原图迁移已实测通过。
 
 </details>
 
@@ -166,10 +176,10 @@ Bridge 尊重这个边界：建立干净的目标会话，只携带一份有界�
 
 ## 兼容性与局限
 
-已核对 DeepSeek Harness **0.1.0-rc.6、rc.7、rc.8**，CI 覆盖 Node.js 22/24。升级 Harness 后可先运行 `/bridge --doctor`；缺少哪个网关方法会被直接点名。
+已核对 DeepSeek Harness **0.1.0-rc.6、rc.7、rc.8 与 0.1.1-rc.2**，CI 覆盖 Node.js 22/24。升级 Harness 后可先运行 `/bridge --doctor`；缺少哪个网关方法会被直接点名。
 
 - 官方 WebUI 安装后目前需要重启一次，也不允许插件自动跳转到新建会话；Bridge 会打印准确标题与 session ID。
-- 默认 DeepSeek 文本模型仍不能读图。Bridge 只保留已有视觉证据，并在 rc.8 附件不可复用时明确降级；不会暗中运行本地小视觉模型。
+- DeepSeek 文本路由仍不能读图。未解析图片应使用 `deepseek-v4-flash-vision-exp` 等视觉路由；Bridge 会把源模型选择保留到目标，并在附件不可复用时明确降级，不会暗中运行本地小视觉模型。
 - 预览通常需要 20–60 秒，受 `previewTimeoutMs` 上限保护。
 - release acceptance 已覆盖真实 compaction 复用，但每个 cell 仅 1 次，不应理解为总体保证值。
 - 更早的档位对比数据早于 prompt+goal 双注入，继续作为带边界的历史证据。
@@ -194,11 +204,13 @@ dsh-bridge migrate --to code --summary-file <路径> --continue
 ## 开发验证
 
 ```bash
-npm test          # build + typecheck + 120 tests
+npm test          # build + typecheck + 121 tests
 npm run pack:check
 ```
 
 CI 检查 Node 22/24、生成的 `lib/`、数据集、安装包内容与上游 RPC/command 窄契约。测试使用 fake host，不消耗模型 token；评测另行运行并使用本机模型凭据，详见 [benchmark](docs/benchmark.md)。
+
+社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
 ## License
 

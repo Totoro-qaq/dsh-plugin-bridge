@@ -2,6 +2,26 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.2.6 — 2026-08-21
+
+这一版补齐 DSH 0.1.1-rc.2 的真实视觉迁移链，并阻止摘要 worker 静默改变目标模型。
+
+### 修复
+
+- 目标会话会在 goal 与 kickoff 之前显式继承源会话的 provider、model 与 reasoning effort。
+  rc.2 会把摘要 worker 的 `session.selectModel` 保存为 host 默认值；旧实现因此可能把视觉源会话
+  的目标悄悄切成 `deepseek-v4-pro`。复制失败时现在会明确 warning，不再静默换模型。
+- 用户可见的图片搬运提示不再把能力写死为 rc.8；rc.8+ 与 0.1.1-rc.2 共用同一持久附件路径。
+
+### 兼容性与验证
+
+- 在隔离的官方 `@deepseek-ai/dsh@0.1.1-rc.2` profile 上安装并加载插件，`/bridge --doctor`
+  为 13/13；`deepseek-v4-flash-vision-exp` 未解析 PNG 经真实 `/bridge minimal` 预览和
+  `--go --continue` 迁移后，目标保持同一 VLM，首轮事实 5/5，原图发送 1 张。
+- 最终安装命令路径使用 1,770 nominal / 4,714 processed tokens；这是单 fixture 绝对值，
+  不是相对无 Bridge 的因果百分比。详见 `reports/v0.2.6-rc11-vision-report.md`。
+- 新增模型继承回归测试；完整套件 121/121 通过。
+
 ## 0.2.5 — 2026-08-21
 
 这一版对齐 rc.8 的图片附件链路，同时保持默认 DeepSeek 文本模型下的低成本、可见降级。
