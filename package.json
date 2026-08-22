@@ -1,24 +1,33 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.2.9",
-  "description": "DeepSeek Harness Cordis bundle for cross-preset session migration via fixed-schema handoff summaries",
+  "version": "0.2.10",
+  "description": "Previewable cross-preset session migration for DeepSeek Harness with bounded, fixed-schema handoffs",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
     "lib",
     "docs",
+    "reports/v0.2.3-e2e-2026-08-20T13-19-13-924Z.raw.json",
+    "reports/v0.2.3-e2e-report.md",
+    "reports/v0.2.6-rc11-vision-report.md",
     "cordis.patch.yml",
     "README.md",
     "README.zh.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:check": "npm run build && git diff --exit-code -- lib",
     "typecheck": "tsc -p tsconfig.check.json",
     "prepack": "npm run build",
+    "prepublishOnly": "npm run verify",
     "test": "npm run build && npm run typecheck && node --experimental-strip-types --test test/*.test.mjs",
     "eval": "node eval/run.mjs",
-    "pack:check": "npm pack --dry-run"
+    "datasets:check": "node scripts/check-datasets.mjs",
+    "pack:check": "npm pack --dry-run",
+    "package:smoke": "node scripts/package-smoke.mjs",
+    "release:check": "node scripts/check-release-version.mjs",
+    "verify": "npm test && npm run build:check && npm run datasets:check && npm run package:smoke"
   },
   "keywords": [
     "dsh-plugin",
