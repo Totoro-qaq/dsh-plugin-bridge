@@ -176,6 +176,25 @@ function usage(presets: PresetRow[], current: string | undefined): string {
   ].join('\n');
 }
 
+function commandMetadata(lang: Lang): { description: string; hint: string } {
+  if (lang === 'en') {
+    return {
+      description: 'Migrate this session to another tool preset while keeping the original untouched',
+      hint: '<preset> [--go] [--continue] | --doctor',
+    };
+  }
+  if (lang === 'zh') {
+    return {
+      description: '把这个会话迁移到另一工具 preset，原会话保持不动',
+      hint: '<模式> [--go] [--continue] | --doctor',
+    };
+  }
+  return {
+    description: 'Migrate across tool presets; keep the original untouched · 跨 preset 迁移会话，原会话保持不动',
+    hint: '<preset/模式> [--go] [--continue] | --doctor',
+  };
+}
+
 /** 建一个 `/bridge` 命令定义。返回值形状对齐上游 `CommandDefinition`。 */
 export function createBridgeCommand(deps: BridgeCommandDeps): {
   name: string;
@@ -185,11 +204,12 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
 } {
   const pending = new Map<string, Pending>();
   const now = deps.now ?? (() => Date.now());
+  const metadata = commandMetadata(deps.config.lang);
 
   return {
     name: 'bridge',
-    description: '把这个会话迁移到另一个工具模式（preset），原会话保持不动',
-    input: { hint: '<preset> [--go] [--continue] | --doctor' },
+    description: metadata.description,
+    input: { hint: metadata.hint },
     handler: async (invocation: BridgeInvocation): Promise<BridgeResult> => {
       const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
       if (!sessionId) return { kind: 'error', text: '取不到当前会话身份，无法迁移。' };

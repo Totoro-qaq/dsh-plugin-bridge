@@ -54,6 +54,24 @@ test('命令定义形状符合上游 CommandDefinition', () => {
   assert.ok(command.input.hint.includes('--doctor'), '自检入口要出现在提示里');
 });
 
+test('命令列表文案跟随 lang，auto 默认用单行双语', () => {
+  const auto = setup({}, { lang: 'auto' }).command;
+  assert.match(auto.description, /Migrate across tool presets/);
+  assert.match(auto.description, /跨 preset 迁移会话/);
+  assert.equal(auto.description.includes('\n'), false);
+  assert.match(auto.input.hint, /preset\/模式/);
+
+  const en = setup({}, { lang: 'en' }).command;
+  assert.match(en.description, /^Migrate this session/);
+  assert.doesNotMatch(en.description, /[\u3400-\u9fff]/u);
+  assert.match(en.input.hint, /^<preset>/);
+
+  const zh = setup({}, { lang: 'zh' }).command;
+  assert.match(zh.description, /^把这个会话迁移/);
+  assert.doesNotMatch(zh.description, /Migrate/);
+  assert.match(zh.input.hint, /^<模式>/);
+});
+
 test('/bridge 不带参数：列出可迁入的模式与当前模式', async () => {
   const { invoke } = setup();
   const result = await invoke('');
