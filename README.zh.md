@@ -15,6 +15,10 @@
 
 通过可预览、固定 schema 的交接，把已有内容的 DeepSeek Harness 会话迁到另一套工具 preset；原会话始终不动。
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-demo.zh.gif" width="880" alt="Bridge 在 DeepSeek Harness 官方 WebUI 中完成一次真实会话迁移">
+</p>
+
 [快速开始](#快速开始) · [安全与成本](#安全与成本) · [准确率](#准确率) · [工作原理](#工作原理) · [兼容性](#兼容性与局限)
 
 ## 快速开始
@@ -170,10 +174,6 @@ Bridge 尊重这个边界：建立干净的目标会话，只携带一份有界�
 - rc.8 的 `@` 引用把另一会话的有界只读快照加到当前会话；Bridge 新建会话，并去掉旧 preset 的工具痕迹。
 - **TotoroPilot** 用 GUI 弹窗承载同一迁移流水线；本插件本身可以直接在官方 WebUI 使用。
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-demo.zh.gif" width="880" alt="TotoroPilot 中的一次真实 Bridge 迁移">
-</p>
-
 </details>
 
 ## 兼容性与局限
@@ -207,7 +207,7 @@ dsh-bridge migrate --to code --summary-file <路径> --continue
 ## 开发验证
 
 ```bash
-npm test          # build + typecheck + 121 tests
+npm test          # build + typecheck + 125 tests
 npm run pack:check
 ```
 

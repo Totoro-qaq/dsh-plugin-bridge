@@ -15,6 +15,10 @@ English | [中文](README.zh.md)
 
 Move a produced DeepSeek Harness session to another tool preset through a previewable, fixed-schema handoff. The original session stays untouched.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-demo.en.gif" width="880" alt="A real Bridge migration in the official DeepSeek Harness WebUI">
+</p>
+
 [Quick start](#quick-start) · [Safety and cost](#safety-and-cost) · [Accuracy](#accuracy) · [How it works](#how-it-works) · [Compatibility](#compatibility-and-limits)
 
 ## Quick start
@@ -170,10 +174,6 @@ Bridge respects that boundary by opening a clean target session and carrying onl
 - rc.8's `@` reference attaches a bounded read-only snapshot of another session to the current session. Bridge creates a new session and removes old-preset tool traces.
 - **TotoroPilot** exposes the same migration pipeline through a GUI modal. The plugin itself remains usable directly in the official WebUI.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-bridge/main/assets/bridge-demo.en.gif" width="880" alt="A real Bridge migration shown in TotoroPilot">
-</p>
-
 </details>
 
 ## Compatibility and limits
@@ -207,7 +207,7 @@ The default injection mode is `both`: the summary is stored as a resumable goal 
 ## Development
 
 ```bash
-npm test          # build + typecheck + 121 tests
+npm test          # build + typecheck + 125 tests
 npm run pack:check
 ```
 
