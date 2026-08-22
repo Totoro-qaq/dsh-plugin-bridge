@@ -20,7 +20,7 @@ Move a produced DeepSeek Harness session to another tool preset through a previe
 ## Quick start
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.8
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.9
 # restart dsh web once
 ```
 

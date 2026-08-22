@@ -7,7 +7,7 @@
 前置：已安装 dsh（`dsh --version` 能输出版本，本插件已核对 0.1.0-rc.6 / rc.7 / rc.8，并在 0.1.1-rc.2 完成真实视觉迁移），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.8
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.9
 ```
 
 发生了什么（不用手动干预）：
