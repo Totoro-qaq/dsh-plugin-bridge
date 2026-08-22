@@ -21,6 +21,9 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
+      # Trusted publishing requires npm >=11.5.1. Pin the CLI instead of
+      # depending on whichever npm happens to ship with the runner's Node 24.
+      - run: npm install --global npm@11.19.0
       - run: npm ci
       - run: npm run release:check -- "${{ github.event.release.tag_name }}"
       - name: Publish to npm when this version is missing
