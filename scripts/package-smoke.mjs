@@ -31,7 +31,21 @@ try {
   const tarball = join(scratch, packed.filename);
   const installRoot = join(scratch, 'install');
   await mkdir(installRoot);
-  run(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--dry-run=false', '--prefix', installRoot, tarball], scratch);
+  // DSH supplies Cordis at runtime. Install that declared peer explicitly so
+  // npm 10/Node 22 does not spend an unbounded amount of time resolving the
+  // peer graph after this package already exists on the public registry.
+  run([
+    'install',
+    '--ignore-scripts',
+    '--legacy-peer-deps',
+    '--no-audit',
+    '--no-fund',
+    '--dry-run=false',
+    '--prefix',
+    installRoot,
+    tarball,
+    '@deepseek-ai/cordis@4.0.1',
+  ], scratch);
 
   const packageRoot = join(installRoot, 'node_modules', 'dsh-plugin-bridge');
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
