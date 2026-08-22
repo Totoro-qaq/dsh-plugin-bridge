@@ -5,6 +5,7 @@
 </p>
 
 [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-blue)](https://github.com/deepseek-ai/deepseek-harness)
+[![npm](https://img.shields.io/npm/v/dsh-plugin-bridge?color=cb3837)](https://www.npmjs.com/package/dsh-plugin-bridge)
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
