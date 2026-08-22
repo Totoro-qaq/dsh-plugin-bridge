@@ -20,7 +20,7 @@
 ## 快速开始
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.6
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.7
 # 重启一次 dsh web
 ```
 
@@ -50,7 +50,7 @@ Bridge 的目标是：**高准确率、成本有界的迁移**。
 - **默认模式——准确率优先：**目标会话用一个短轮次复述交接，然后等待；你确认无误后才开工。
 - **`--continue`——更低延迟/成本：**目标会话在**同一次模型请求**里完成复述并开始下一步。
 - 两种确认模式都会在 kickoff 前暂停已存储的 goal（如有），goal driver 不会静默追加模型轮次。
-- pause 失败时 fail closed：取消自动启动，不发送 kickoff。
+- pause 失败时 fail closed：清除已存储的 goal、取消目标会话，不发送 kickoff。
 - 只安装、不迁移时，正常会话增加 **0 prompt token**。`/bridge` 是 host slash command，不是模型工具或 skill。
 - 已有识图结果会在压缩摘要之外逐字搬运；只有尚未解析且目标能接图时才可能产生视觉 token。
 
@@ -150,6 +150,8 @@ Bridge 使用自动、准确率优先的图片策略：
 
 rc.6/rc.7 继续走文本兼容路径。原图读取只是 rc.8+ 的可选网关能力，不会被加入 `/bridge --doctor` 的必需方法集合；0.1.1-rc.2 + `deepseek-v4-flash-vision-exp` 的完整原图迁移已实测通过。
 
+在 0.1.1-rc.2 上，即使会话历史含图，`session.selectModel` 也允许选中纯文本模型；`session.prompt` 仍会执行图片能力准入，并触发 Bridge 的显式文本降级。Bridge 会在 kickoff 前复制源模型，避免预览 worker 或 host 默认值把源 VLM 静默替换掉。
+
 </details>
 
 <details>
@@ -180,6 +182,7 @@ Bridge 尊重这个边界：建立干净的目标会话，只携带一份有界�
 
 - 官方 WebUI 安装后目前需要重启一次，也不允许插件自动跳转到新建会话；Bridge 会打印准确标题与 session ID。
 - DeepSeek 文本路由仍不能读图。未解析图片应使用 `deepseek-v4-flash-vision-exp` 等视觉路由；Bridge 会把源模型选择保留到目标，并在附件不可复用时明确降级，不会暗中运行本地小视觉模型。
+- 在 0.1.1-rc.2 上，模型选择阶段不再拒绝这种不匹配，真正的能力闸留在 prompt 准入；因此复制源模型是兼容性护栏，不只是便利功能。
 - 预览通常需要 20–60 秒，受 `previewTimeoutMs` 上限保护。
 - release acceptance 已覆盖真实 compaction 复用，但每个 cell 仅 1 次，不应理解为总体保证值。
 - 更早的档位对比数据早于 prompt+goal 双注入，继续作为带边界的历史证据。

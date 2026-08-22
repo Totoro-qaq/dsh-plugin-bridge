@@ -503,10 +503,20 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
         await rpc('goal.pause', { sessionId: created.sessionId, ref: createdGoal.ref });
         goalPaused = true;
       } catch (error) {
-        // 安全优先：pause 失败时不再发 kickoff，并尽力取消/解除自动续跑授权。
+        // 安全优先：pause 失败时不再发 kickoff。先清除 goal，挡住尚未入队的
+        // requestDrive；再 cancel，截住已排队或已开始的 attempt。
         safeToKickoff = false;
+        let goalCleared = false;
+        try {
+          await rpc('goal.clear', { sessionId: created.sessionId, ref: createdGoal.ref });
+          goalCleared = true;
+        } catch (clearError) {
+          warnings.push(`清除未暂停的交接目标失败，已继续取消目标会话；请保持目标会话关闭并手动检查：${clearError instanceof Error ? clearError.message : String(clearError)}`);
+        }
         await rpc('session.cancel', { sessionId: created.sessionId }).catch(() => undefined);
-        warnings.push(`暂停交接目标失败，已取消自动启动；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`);
+        warnings.push(goalCleared
+          ? `暂停交接目标失败，已清除目标并取消自动启动；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`
+          : `暂停交接目标失败，已取消自动启动但无法确认目标已清除；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`);
       }
     } catch (error) {
       // 没挂 goal 服务的部署也应该能迁移：摘要还会走首轮提示。

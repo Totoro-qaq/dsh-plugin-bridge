@@ -20,7 +20,7 @@ Move a produced DeepSeek Harness session to another tool preset through a previe
 ## Quick start
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.6
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.7
 # restart dsh web once
 ```
 
@@ -50,7 +50,7 @@ Bridge optimizes for **high-fidelity, bounded-cost migration**:
 - **Default — accuracy first:** the target restates the handoff in one short turn and waits. You verify it before any work starts.
 - **`--continue` — lower latency/cost:** the target restates and begins the next step in the **same model request**.
 - In both confirmation modes, any stored goal is paused before kickoff. The goal driver cannot silently queue another model round.
-- If pausing fails, Bridge fails closed: it cancels automatic startup and sends no kickoff.
+- If pausing fails, Bridge fails closed: it clears the stored goal, cancels the target session, and sends no kickoff.
 - Installing the plugin adds **zero prompt tokens** to normal sessions. `/bridge` is a host slash command, not a model tool or skill.
 - Existing image analysis is copied verbatim outside the compressed summary. Only unresolved images may use vision tokens, and only when the target accepts images.
 
@@ -150,6 +150,8 @@ The normal five-part summary remains bounded by `summaryCharBudget` (2,400 chara
 
 rc.6/rc.7 remain compatible through the text path. Raw attachment recovery is an optional rc.8+ gateway capability and does not become a required `/bridge --doctor` method. The full raw-image path is live-tested on 0.1.1-rc.2 with `deepseek-v4-flash-vision-exp`.
 
+On 0.1.1-rc.2, `session.selectModel` permits selecting a text-only model even when the session history contains images; `session.prompt` still enforces image capability and triggers Bridge's explicit text fallback. Bridge copies the source model before kickoff so a preview worker or host default cannot silently replace the source VLM.
+
 </details>
 
 <details>
@@ -180,6 +182,7 @@ Verified against DeepSeek Harness **0.1.0-rc.6, rc.7, rc.8, and 0.1.1-rc.2**, No
 
 - The official WebUI currently needs one restart after install and cannot let a plugin navigate to the session it creates. Bridge prints the exact title and session ID.
 - DeepSeek text routes still cannot inspect images. Use an image-capable route such as `deepseek-v4-flash-vision-exp` for unresolved images; Bridge preserves that source selection on the target and fails visibly when no reusable attachment is available. It does not run a hidden local vision model.
+- On 0.1.1-rc.2, model selection itself no longer rejects this mismatch; prompt admission remains the enforcement point. Source-model copying is therefore a compatibility safeguard, not just a convenience.
 - Preview normally takes 20–60 seconds and is bounded by `previewTimeoutMs`.
 - Release acceptance now covers real compaction reuse, but only one run per cell; it should not be read as a population guarantee.
 - The older tier-comparison benchmark predates prompt+goal dual injection and remains labeled as historical evidence.
