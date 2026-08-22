@@ -20,7 +20,7 @@
 ## 快速开始
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.8
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.9
 # 重启一次 dsh web
 ```
 

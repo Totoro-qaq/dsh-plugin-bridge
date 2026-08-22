@@ -95,6 +95,21 @@ test('/bridge code：出摘要、落盘、给出确认命令，且不动任何�
   assert.equal(host.state.archived.length, 1, '工人用完即归档');
 });
 
+test('/bridge --lang en：预览与确认正文全程英文，并由暂存预览继承语言', async () => {
+  const { invoke } = setup();
+  const preview = await invoke('code --lang en');
+  assert.equal(preview.kind, 'success', preview.text);
+  assert.match(preview.text, /Handoff · minimal → code/);
+  assert.match(preview.text, /Review and run: \/bridge code --go/);
+  assert.doesNotMatch(preview.text, /交接摘要|没问题就执行/);
+
+  const migrated = await invoke('code --go');
+  assert.equal(migrated.kind, 'success', migrated.text);
+  assert.match(migrated.text, /Created a new session in the code preset/);
+  assert.match(migrated.text, /wait for your confirmation/);
+  assert.doesNotMatch(migrated.text, /[\u3400-\u9fff]/u);
+});
+
 test('/bridge code --go：用预览的摘要建目标会话，goal 只给一轮', async () => {
   const { host, invoke } = setup();
   await invoke('code');
