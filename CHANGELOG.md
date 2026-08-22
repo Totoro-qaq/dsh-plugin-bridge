@@ -2,6 +2,23 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.2.10 — 2026-08-23
+
+这一版把已有的迁移安全与实测证据收成可发布、可安装、可扫读的产品路径；迁移运行时语义不变。
+
+### 发布与验证
+
+- 新增统一 `npm run verify`：构建、类型检查、125 项 fake-host 测试、生成产物同步、数据集检查，以及真实 npm tarball 的打包、安装和导入 smoke。
+- `prepublishOnly` 复用同一门禁；GitHub Release 发布前校验 tag 与 `package.json` 版本一致。
+- 新增 GitHub OIDC Trusted Publishing 工作流，首次手动 npm 发布并配置 trusted publisher 后，后续 release 不需要长期 npm token。
+- npm 包包含设计说明、关键报告和原始证据，安装命令缩短为 `dsh plugin --profile web add dsh-plugin-bridge`。
+
+### 文档
+
+- 中英 README 首屏改为“使用场景 → 官方 WebUI 证据 → 一行安装”，长篇安全、成本和图片策略下沉到 `docs/design.md`。
+- 增加兼容矩阵与迁移决策表，保留 30/30、60/60、视觉 5/5、token 配对中位数与适用边界。
+- 完成原生 WebUI 迁移卡片可行性验证；确认官方 client module / slot 路径可行，但因 prerelease 版本耦合暂不进入主包。
+
 ## 0.2.6 — 2026-08-21
 
 这一版补齐 DSH 0.1.1-rc.2 的真实视觉迁移链，并阻止摘要 worker 静默改变目标模型。

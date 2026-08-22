@@ -21,18 +21,9 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      # npm test = build + typecheck(src+eval) + 单元测试（含对着假 host 的
-      # 迁移全链路与 CLI 端到端，不需要真的 dsh host，也不烧 token）
-      - run: npm test
-      - name: 构建产物与提交同步（git 安装不跑构建，lib/ 必须随源码提交）
-        run: |
-          npm run build
-          git diff --exit-code lib/ || { echo "::error::lib/ 与 src/ 不同步，请本地 npm run build 后提交 lib/"; exit 1; }
-      - name: 校验数据集可解析
-        run: |
-          node -e "for (const f of ['test','validation']) { const d = require('./datasets/' + f + '.json'); if (!d.themes?.length || !d.templates?.plant) throw new Error(f + ' 数据集结构不完整'); } console.log('datasets ok');"
-      - name: npm 包内容检查
-        run: npm run pack:check
+      # One public gate: build + typecheck + fake-host integration tests,
+      # generated-artifact sync, datasets, then install/import the actual tarball.
+      - run: npm run verify
 
   # 聚合闸：分支保护要求的检查名是 `build`，矩阵会把它拆成 build (22)/(24)，
   # 因此用这个与矩阵同结果的汇聚 job 提供字面名为 build 的检查。

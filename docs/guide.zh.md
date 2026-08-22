@@ -7,7 +7,13 @@
 前置：已安装 dsh（`dsh --version` 能输出版本，本插件已核对 0.1.0-rc.6 / rc.7 / rc.8，并在 0.1.1-rc.2 完成真实视觉迁移），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.9
+dsh plugin --profile web add dsh-plugin-bridge
+```
+
+需要固定 GitHub tag 或 npm 暂时不可用时：
+
+```bash
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.10
 ```
 
 发生了什么（不用手动干预）：
@@ -131,7 +137,7 @@ A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十三
 A：图片已有助手分析时，Bridge 逐字搬这段视觉证据，不需要再次烧视觉 token。图片还没被分析时，源会话应选 `deepseek-v4-flash-vision-exp` 等视觉路由；Bridge 会在 kickoff 前把源 provider/model/reasoning effort 复制到目标，再搬原图。文本模型仍不能识图，Bridge 也不会暗中启动本地视觉模型。
 
 **Q：迁移后新会话「记得」多少？**
-A：26 组实验的探针可用性（事实可回忆率）：pro 档位 95%。丢的通常是「数字合理化」一类（端口被补全成常见值）——所以预览那一步请重点扫数字。
+A：当前 release gate 的 6 份摘要、12 个目标会话达到摘要 30/30、复述 60/60、首次有效工作 60/60，预定义旧值复活为 0。这是修复驱动的小样本回归门禁，不是总体准确率保证。更早 26 组档位实验里，pro 探针可用性为 95%；两组证据都提示数字与端口需要在预览里重点检查。
 
 **Q：为什么不在原会话直接切模式？**
 A：官方在网关层硬锁，且锁得对：历史里的工具调用只在原工具集下合法，换了组合会留下「幽灵调用」，不报错但质量静默劣化。Bridge 选择搬家而不是绕锁。
