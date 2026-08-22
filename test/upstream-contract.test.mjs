@@ -5,7 +5,7 @@
  * 其实很窄——一个命令注册契约、一个 `ctx.apiProxy` 服务、13 个 RPC 方法名。
  * 把它们钉在这里，下一次 rc 变形时是 CI 先说话，而不是用户先说话。
  *
- * 核对基线：dsh 0.1.0-rc.6 / rc.7 / rc.8（三个版本上这些面完全一致）。
+ * 核对基线：dsh 0.1.0-rc.6 / rc.7 / rc.8 与 0.1.1-rc.1 / rc.2。
  * 上游出处见每条断言的注释。
  */
 import test from 'node:test';
@@ -62,6 +62,14 @@ test('rc.8 图片读取是可选 RPC，不降低 rc.6/rc.7 主链路兼容性', 
   const host = createFakeHost();
   delete host.apiProxy.sessions.attachment;
   assert.equal(probeApiProxy(host.apiProxy).some((row) => row.method === 'session.attachment'), false);
+});
+
+test('goal.clear 是 pause 失败时的可选 fail-closed RPC，不改变 doctor 13/13', () => {
+  const host = createFakeHost();
+  delete host.apiProxy.goals.clear;
+  assert.equal(SUPPORTED_METHODS.includes('goal.clear'), false);
+  assert.equal(probeApiProxy(host.apiProxy).length, REQUIRED_METHODS.length);
+  assert.equal(probeApiProxy(host.apiProxy).every((row) => row.available), true);
 });
 
 test('命令定义形状符合上游 CommandDefinition（name/description/input.hint/handler）', () => {

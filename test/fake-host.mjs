@@ -17,6 +17,7 @@ export function createFakeHost(options = {}) {
     startAfterPolls = 0,
     failGoal = false,
     failPause = false,
+    failClear = false,
     sourceImage = undefined,
     targetSupportsImages = false,
     presets = [
@@ -45,6 +46,7 @@ export function createFakeHost(options = {}) {
   const archived = [];
   const goals = [];
   const pausedGoals = [];
+  const clearedGoals = [];
   const renames = [];
   const selected = [];
   const attachments = new Map();
@@ -212,6 +214,11 @@ export function createFakeHost(options = {}) {
         pausedGoals.push({ ...payload });
         return { ref: { id: payload.ref.id, revision: payload.ref.revision + 1 } };
       }
+      case 'goal.clear': {
+        if (failClear) fail('internal', '清除目标失败');
+        clearedGoals.push({ ...payload });
+        return { cleared: true };
+      }
       case 'workspace.list':
         return { items: [{ workspaceId: 'ws-1', path: '/work/shop', sessionIds: [source.sessionId] }], archivedSessionIds: archived };
       case 'workspace.archiveSession':
@@ -249,7 +256,7 @@ export function createFakeHost(options = {}) {
       list: unary('workspace.list'),
       archiveSession: unary('workspace.archiveSession'),
     },
-    goals: { create: unary('goal.create'), pause: unary('goal.pause') },
+    goals: { create: unary('goal.create'), pause: unary('goal.pause'), clear: unary('goal.clear') },
     agentPresets: { list: unary('agentPreset.list') },
   };
 
@@ -257,7 +264,7 @@ export function createFakeHost(options = {}) {
     handle,
     apiProxy,
     sourceSessionId: source.sessionId,
-    state: { sessions, calls, archived, goals, pausedGoals, renames, selected, attachments },
+    state: { sessions, calls, archived, goals, pausedGoals, clearedGoals, renames, selected, attachments },
     /** 把假 host 包成 migrate.ts 需要的 Rpc。 */
     rpc: (method, payload) => handle(method, payload),
   };

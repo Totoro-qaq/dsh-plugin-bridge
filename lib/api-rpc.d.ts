@@ -41,7 +41,7 @@ export interface ApiProxyLike {
     goals: Record<string, UnaryMethod>;
     agentPresets: Record<string, UnaryMethod>;
 }
-/** 主迁移链路必需的方法名（测试与 doctor 用）；不含 rc.8 可选图片读取。 */
+/** 主迁移链路必需的方法名（测试与 doctor 用）；不含可选图片读取与 fail-closed 增强。 */
 export declare const SUPPORTED_METHODS: readonly string[];
 /** 一个方法在当前 host 上是否可达。 */
 export interface MethodProbe {

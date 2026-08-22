@@ -194,7 +194,7 @@ test('migrate：autoContinue 在同一轮继续，但 goal 仍暂停以免追加
   assert.ok(kickoff.payload.content[0].text.includes('继续执行下一步'));
 });
 
-test('migrate：pause 失败时取消自动启动且不发送 kickoff', async () => {
+test('migrate：pause 失败时先清除 goal、再取消自动启动且不发送 kickoff', async () => {
   const host = createFakeHost({ failPause: true });
   const result = await executeMigration(host.rpc, {
     sessionId: host.sourceSessionId,
@@ -204,7 +204,32 @@ test('migrate：pause 失败时取消自动启动且不发送 kickoff', async ()
   });
   assert.equal(result.goalPaused, false);
   assert.equal(result.kickoffSent, false);
-  assert.match(result.warnings.join('\n'), /暂停交接目标失败/);
+  assert.match(result.warnings.join('\n'), /已清除目标并取消自动启动/);
+  assert.equal(host.state.clearedGoals.length, 1);
+  const clearIndex = host.state.calls.findIndex(
+    (c) => c.method === 'goal.clear' && c.payload.sessionId === result.sessionId,
+  );
+  const cancelIndex = host.state.calls.findIndex(
+    (c) => c.method === 'session.cancel' && c.payload.sessionId === result.sessionId,
+  );
+  assert.ok(clearIndex >= 0);
+  assert.ok(cancelIndex > clearIndex, '必须先清掉尚未入队的 goal，再取消已排队或运行中的 attempt');
+  assert.ok(!host.state.calls.some((c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId));
+});
+
+test('migrate：旧 host 没有可选 goal.clear 时仍 fail closed，并明确要求人工检查', async () => {
+  const host = createFakeHost({ failPause: true });
+  delete host.apiProxy.goals.clear;
+  const result = await executeMigration(createApiProxyRpc(host.apiProxy), {
+    sessionId: host.sourceSessionId,
+    to: 'code',
+    summary: '## 目标\n端口 7101',
+    lang: 'zh',
+  });
+  assert.equal(result.goalPaused, false);
+  assert.equal(result.kickoffSent, false);
+  assert.match(result.warnings.join('\n'), /无法确认目标已清除/);
+  assert.match(result.warnings.join('\n'), /apiProxy 上没有 goals\.clear/);
   assert.ok(host.state.calls.some((c) => c.method === 'session.cancel' && c.payload.sessionId === result.sessionId));
   assert.ok(!host.state.calls.some((c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId));
 });

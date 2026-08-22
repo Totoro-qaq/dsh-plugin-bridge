@@ -54,10 +54,14 @@ const ROUTES: Record<string, [keyof ApiProxyLike, string]> = {
   'agentPreset.list': ['agentPresets', 'list'],
   'goal.create': ['goals', 'create'],
   'goal.pause': ['goals', 'pause'],
+  // pause 失败时的可选 fail-closed 兜底；rc.7+ 有此路由，但不抬高 doctor 基线。
+  'goal.clear': ['goals', 'clear'],
 };
 
-/** 主迁移链路必需的方法名（测试与 doctor 用）；不含 rc.8 可选图片读取。 */
-export const SUPPORTED_METHODS: readonly string[] = Object.keys(ROUTES).filter((method) => method !== 'session.attachment');
+const OPTIONAL_METHODS = new Set(['session.attachment', 'goal.clear']);
+
+/** 主迁移链路必需的方法名（测试与 doctor 用）；不含可选图片读取与 fail-closed 增强。 */
+export const SUPPORTED_METHODS: readonly string[] = Object.keys(ROUTES).filter((method) => !OPTIONAL_METHODS.has(method));
 
 /** 一个方法在当前 host 上是否可达。 */
 export interface MethodProbe {
