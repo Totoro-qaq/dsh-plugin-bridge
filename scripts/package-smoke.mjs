@@ -59,6 +59,8 @@ try {
     'cordis.patch.yml',
     'docs/design.md',
     'reports/v0.2.3-e2e-report.md',
+    'reports/native-workbench-2026-08-25.md',
+    'reports/native-workbench-2026-08-25.raw.json',
   ]) {
     if (!existsSync(join(packageRoot, relative))) throw new Error(`packed artifact is missing ${relative}`);
   }

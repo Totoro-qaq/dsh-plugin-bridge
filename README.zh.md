@@ -34,7 +34,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.10
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.11
 ```
 
 然后在官方 WebUI 输入：
@@ -47,7 +47,7 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.10
 /bridge code --go --continue  在同一次目标请求里复述并开始工作
 ```
 
-预览可以编辑。数字或路径不对时，修改输出里打印的摘要文件，再执行：
+DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`：Markdown 和完整 JSON 都能直接读，点「编辑」修改准确交接，点「确认迁移」后自动打开目标会话。服务端命令仍是回退；旧客户端可修改输出里打印的摘要文件，再执行：
 
 ```text
 /bridge code --go --file <路径>
@@ -78,6 +78,7 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.10
 | Confirm / `--continue` 到首次有效工作的目标请求数 | **2 · 1** |
 | Confirm 相对 `--continue` 的 nominal 配对中位额外成本 | **+8.1%** |
 | 摘要 worker 在干净验收组件中的 nominal 占比 | **20.74%** |
+| 原生 WebUI 重复门禁（预览 / 目标事实） | **3/3 · 3/3**，每次五项 |
 
 token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 占比是组成，不是相对“无 Bridge”的因果开销。稳定结论是默认确认多一个请求。边界和原始证据见[设计与证据说明](docs/design.md)、[完整 release report](reports/v0.2.3-e2e-report.md)和[视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)。
 
@@ -105,23 +106,23 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 
 ## 兼容性
 
-| DSH 基线 | 文本交接 | 未解析原图 | 验证边界 |
+| DSH 基线 | 服务端交接 | 原生卡片 | 验证边界 |
 |---|---:|---:|---|
-| 0.1.0-rc.6 / rc.7 | 支持 | 无可选附件网关 | 窄 RPC 契约与文本兼容测试 |
-| 0.1.0-rc.8 | 支持 | 取决于 host | 真实安装、重启、命令生命周期和迁移基线 |
-| 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI + `deepseek-v4-flash-vision-exp`，doctor 13/13，视觉 gate 5/5 |
+| 0.1.0-rc.6 | 支持 | 不支持 | 窄 RPC 契约与文本兼容测试 |
+| 0.1.0-rc.7 / rc.8 | 支持 | 契约核对 | client module / command slot 契约与服务端回退 |
+| 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI 实装：doctor 13/13、编辑/确认/自动跳转、三次重复门禁 |
 
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
 当前边界：
 
 - 安装后需要重启一次 WebUI；
-- 官方尚无稳定的插件跳转目标会话接口，Bridge 会打印新会话标题和 ID；
-- 预览通常 20–60 秒，并受 `previewTimeoutMs` 限制；
+- 原生卡片通过官方 Session runtime 自动打开目标；旧客户端仍回退为标题和 ID；
+- worker 运行时立即显示进度；本次三次固定样本的 worker 用时为 7.4–12.8 秒，`previewTimeoutMs` 仍是硬上限；
 - 纯文本模型无法读取未解析原图；
-- release acceptance 每个 cell 目前只有一次运行，表格是发布证据，不是统计保证。
+- 原生卡片重复门禁也只有三次固定输入，是发布证据，不是统计保证。
 
-服务端命令仍是兼容核心。官方 client module 与 slot 已证明原生迁移卡片可行，但其 prerelease 契约还不稳定，因此暂不把它塞进 v0.2.10；详见[可行性记录](docs/native-webui-feasibility.md)。
+服务端命令仍是兼容核心。同一个包现在附带可选的官方 WebUI client half，负责渲染、编辑和跳转；即使 prerelease 客户端契约加载失败，`/bridge` 的完整服务端结果仍在。详见[实现边界](docs/native-webui-feasibility.md)。
 
 ## 文档
 
@@ -129,6 +130,7 @@ CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；�
 - [中文安装、配置、回退与 FAQ](docs/guide.zh.md)
 - [完整 release acceptance](reports/v0.2.3-e2e-report.md)
 - [视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)
+- [原生 WebUI 重复验收](reports/native-workbench-2026-08-25.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
@@ -138,7 +140,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建、类型检查、运行 125 项 fake-host 测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 140 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

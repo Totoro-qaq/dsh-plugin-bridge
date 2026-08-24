@@ -19,6 +19,7 @@ const APP = process.env.DSH_WEB_URL ?? API.replace(/\/api$/u, '/')
 const OUT = process.env.BRIDGE_DEMO_OUT ?? '/tmp/bridge-rec'
 const WORKSPACE_PATH = process.env.BRIDGE_DEMO_WORKSPACE ?? '/tmp/bridge-demo-ws'
 const SOURCE_TITLE = process.env.BRIDGE_DEMO_SOURCE ?? 'Bridge native demo'
+const TIER = process.env.BRIDGE_DEMO_TIER ?? 'pro'
 const TZ = 'Asia/Shanghai'
 
 const FIXTURE = {
@@ -174,6 +175,9 @@ async function openSource(page, lang) {
   await switchLanguage(page, lang)
   const item = sourceItem(page)
   if (!(await item.isVisible().catch(() => false))) {
+    for (const group of await page.locator('[role="treeitem"][aria-expanded="false"]').all()) {
+      await group.click().catch(() => undefined)
+    }
     const more = page.getByRole('button', { name: /(?:展开其余|Show .*more session)/iu })
     if (await more.isVisible().catch(() => false)) await moveAndClick(page, more, 'expand remaining sessions', 250)
   }
@@ -243,7 +247,7 @@ async function record(lang) {
     const existingCards = await page.locator('.dsh-bridge-card').count()
     const sessionsBefore = new Set((await rpc('session.list', {})).items.map((item) => item.sessionId))
     await subtitle(page, lang === 'zh' ? '生成交接预览，原会话保持不动' : 'Generate a handoff preview; keep the source untouched')
-    await typeSlowly(page, composer(page), `/bridge code --tier flash --lang ${lang}`, 'bridge command')
+    await typeSlowly(page, composer(page), `/bridge code --tier ${TIER} --lang ${lang}`, 'bridge command')
     await composer(page).press('Enter')
     const card = page.locator('.dsh-bridge-card').nth(existingCards)
     await card.locator('.dsh-bridge-progress').waitFor({ state: 'visible', timeout: 5_000 })

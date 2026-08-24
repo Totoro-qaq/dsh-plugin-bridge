@@ -81,4 +81,4 @@ Bridge's preview, safety, and migration engine depends on the typed `BridgeHost`
 
 `/bridge --doctor` checks thirteen required semantic capabilities and names missing capabilities before mutation. Attachment recovery and goal clearing are optional enhancements and do not raise that baseline. Any future adapter must implement `BridgeHost` and pass the same fail-closed fixtures.
 
-The server-side slash command remains the compatibility core. A native WebUI card is feasible but would depend on prerelease client-module and slot contracts; the current decision is documented in [native-webui-feasibility.md](native-webui-feasibility.md).
+The server-side slash command remains the compatibility core. The package also ships an optional WebUI client half that occupies the official per-command slot, reuses `MarkdownText` / `JsonTree`, submits the reviewed summary back to the same host command, and opens the created target through the official Session runtime. No folding, attachment, goal, or fail-closed policy is reimplemented in the browser. The version boundary and fallback are documented in [native-webui-feasibility.md](native-webui-feasibility.md).

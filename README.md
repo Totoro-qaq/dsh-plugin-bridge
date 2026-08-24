@@ -34,7 +34,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.10
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.11
 ```
 
 Then type in the official WebUI:
@@ -47,7 +47,7 @@ Then type in the official WebUI:
 /bridge code --go --continue  restate and start work in the same target request
 ```
 
-The preview is editable. Correct a number or path in the printed summary file, then run:
+On DSH rc.7 and later, the official WebUI renders `/bridge` as a native card: Markdown and complete JSON documents are readable, **Edit** changes the exact handoff, and **Confirm migration** opens the created target session. The server command remains the fallback; on older clients, correct the printed summary file and run:
 
 ```text
 /bridge code --go --file <path>
@@ -78,6 +78,7 @@ The release gate is intentionally small and reproducible; these are regression r
 | Confirm / `--continue` target request shape | **2 · 1** to first useful work |
 | Confirm extra, paired nominal median | **+8.1%** vs `--continue` |
 | Summary worker share of clean acceptance components | **20.74% nominal** |
+| Native WebUI repeat gate (preview / target facts) | **3/3 · 3/3**, five facts each |
 
 The token percentage varies widely with preset, response length, and cache state. The worker share is composition, not causal overhead versus no Bridge; the stable product claim is one additional confirmation request. Read the [design and evidence boundaries](docs/design.md), [full release report](reports/v0.2.3-e2e-report.md), and [vision report](reports/v0.2.6-rc11-vision-report.md).
 
@@ -105,23 +106,23 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 ## Compatibility
 
-| DSH baseline | Text handoff | Raw unresolved image | Verification boundary |
+| DSH baseline | Server handoff | Native card | Verification boundary |
 |---|---:|---:|---|
-| 0.1.0-rc.6 / rc.7 | Yes | Optional gateway unavailable | Narrow RPC contract and text compatibility tests |
-| 0.1.0-rc.8 | Yes | Host-dependent | Real install, restart, command lifecycle, and migration baseline |
-| 0.1.1-rc.2 | Yes | Yes | Official WebUI migration with `deepseek-v4-flash-vision-exp`, 13/13 doctor methods, and 5/5 vision gates |
+| 0.1.0-rc.6 | Yes | No | Narrow RPC contract and text compatibility tests |
+| 0.1.0-rc.7 / rc.8 | Yes | Contract-checked | Client-module/command-slot contract plus server fallback |
+| 0.1.1-rc.2 | Yes | Yes | Installed official WebUI: doctor 13/13, edit/confirm/auto-open, three-run repeat gate |
 
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 
 Current limits:
 
 - installation needs one WebUI restart;
-- Bridge prints the created title and session ID because stable plugin-driven session navigation is not yet available;
-- preview normally takes 20–60 seconds and is bounded by `previewTimeoutMs`;
+- the native card auto-opens the created target through the official Session runtime; older clients still receive the title and session ID fallback;
+- progress appears immediately while the worker runs; the current fixed three-run sample took 7.4–12.8 seconds of worker time, while `previewTimeoutMs` remains the hard bound;
 - text-only models cannot inspect unresolved images;
-- each release-acceptance cell currently has one run, so the tables are release evidence rather than statistical guarantees.
+- the native-card repeat gate is still only three fixed runs, so it is release evidence rather than a statistical guarantee.
 
-The server command stays the compatibility core. A native migration card is technically possible through official client modules and slots, but is intentionally deferred until that prerelease contract is stable; see the [feasibility note](docs/native-webui-feasibility.md).
+The server command stays the compatibility core. The same package now adds an optional official client half for rendered editing and navigation; if that prerelease client contract fails to load, `/bridge` still returns the complete server result. See the [implementation boundary](docs/native-webui-feasibility.md).
 
 ## Documentation
 
@@ -129,6 +130,7 @@ The server command stays the compatibility core. A native migration card is tech
 - [Chinese install, configuration, rollback, and FAQ](docs/guide.zh.md)
 - [Release acceptance report](reports/v0.2.3-e2e-report.md)
 - [Vision migration report](reports/v0.2.6-rc11-vision-report.md)
+- [Native WebUI repeat acceptance](reports/native-workbench-2026-08-25.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development
@@ -138,7 +140,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks the project, runs 125 fake-host tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 140 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
