@@ -55,7 +55,7 @@ export function createFakeHost(options = {}) {
     const sessionId = `s-${(nextId += 1)}`;
     sessions.set(sessionId, {
       sessionId, agentPreset, running: false, blank: true, events: [],
-      pendingPolls: 0, startPolls: 0, reply: null, ...extra,
+      pendingPolls: 0, startPolls: 0, turnStarted: false, reply: null, ...extra,
     });
     return sessions.get(sessionId);
   };
@@ -82,14 +82,19 @@ export function createFakeHost(options = {}) {
         continue;
       }
       if (session.pendingPolls > 0) {
-        session.pendingPolls -= 1;
+        if (!session.turnStarted) {
+          session.turnStarted = true;
+          push(session, 'turn/start', {});
+        }
         session.running = true;
+        session.pendingPolls -= 1;
         if (session.pendingPolls === 0) {
           session.running = false;
           if (session.reply) {
             push(session, 'assistant/message', { turn: 9, step: 1, message: { content: [{ type: 'text', text: session.reply }] } });
             session.reply = null;
           }
+          push(session, 'turn/end', {});
         }
       }
     }
@@ -151,6 +156,7 @@ export function createFakeHost(options = {}) {
         return { sessionId: created.sessionId, agentPreset: created.agentPreset };
       }
       case 'session.history': {
+        tick();
         const session = sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');
         return { events: session.events, hasMore: false };
       }
@@ -179,6 +185,7 @@ export function createFakeHost(options = {}) {
         push(session, 'user/message', { content: payload.content });
         session.pendingPolls = replyAfterPolls;
         session.startPolls = startAfterPolls;
+        session.turnStarted = false;
         session.reply = session === source ? '好的' : workerReply;
         return { accepted: true };
       }
