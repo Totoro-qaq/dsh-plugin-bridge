@@ -75,8 +75,8 @@ test('native card parses created target session for navigation', () => {
 
 test('edited summary command uses bounded base64url and never shell quoting', () => {
   const summary = '## 目标\n端口改成 8118；保留 `*.md`。';
-  const command = buildBridgeMigrationCommand('code', summary);
-  assert.match(command, /^\/bridge code --go --summary64 [A-Za-z0-9_-]+$/);
+  const command = buildBridgeMigrationCommand('code', summary, 'zh');
+  assert.match(command, /^\/bridge code --go --lang zh --summary64 [A-Za-z0-9_-]+$/);
   assert.doesNotMatch(command, /端口|\s['"]/);
 });
 
