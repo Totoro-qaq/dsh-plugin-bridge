@@ -31,4 +31,22 @@ The guarantees were derived from [GitHub issue #22](https://github.com/Totoro-qa
 
 DSH `0.1.1-rc.2` has no unary `session.get` or `session.status` RPC. Bridge therefore records the worker's pre-prompt event watermark and polls that session's bounded history tail for a newer `turn/end`. If upstream later exposes a direct completion/status method, it can replace this compatibility path without changing the migration contract.
 
-No real model tokens were used by these tests; runtime compatibility still relies on the already-supported upstream `turn/start` and `turn/end` history events.
+## Live model acceptance
+
+On 2026-08-24, the current branch was packed and installed into a fresh isolated official `@deepseek-ai/dsh@0.1.1-rc.2` Web profile. One real `deepseek-official/deepseek-v4-flash` migration ran through the installed command registry:
+
+| Gate | Result |
+|---|---:|
+| `/bridge --doctor` | 13/13 |
+| Source response exact low-collision facts | 4/4 |
+| `/bridge minimal --tier flash --lang en` preview facts | 4/4 |
+| Migrated minimal target first response facts | 4/4 |
+| Preview duration | 5,319 ms |
+| Preview worker nominal tokens | 1,998 |
+| Target nominal tokens | 1,804 |
+| Migration total nominal tokens | 3,802 |
+| Test sessions archived | 3/3 |
+
+The separate source-fixture turn used 9,188 nominal tokens and is excluded from migration overhead. The target preserved the source model and `high` reasoning effort. The source, preview worker, and target were all cancelled if needed and archived after the assertions.
+
+The automated suite itself uses no model tokens. The live check is one controlled compatibility run, not a latency or token population benchmark; runtime compatibility still relies on upstream `turn/start` and `turn/end` history events.
