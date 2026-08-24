@@ -48,6 +48,7 @@ function setup(hostOptions = {}, overrides = {}) {
 test('命令定义形状符合上游 CommandDefinition', () => {
   const { command } = setup();
   assert.equal(command.name, 'bridge');
+  assert.equal(command.recordInput, false, '编辑后的摘要不能以命令参数写进持久会话日志');
   assert.ok(command.description.length > 10);
   assert.equal(typeof command.handler, 'function');
   assert.ok(command.input.hint.includes('preset'));
@@ -175,6 +176,32 @@ test('改过的摘要文件优先于暂存的预览', async () => {
   assert.ok(host.state.goals[0].objective.includes('7999'), '摘要文件是唯一事实源');
 });
 
+test('WebUI 编辑后的 base64url 摘要优先于暂存预览，且不会落盘', async () => {
+  const { host, invoke, files } = setup();
+  await invoke('code');
+  const edited = '## 目标\nWebUI 人工改过：端口其实是 8118\n\n```json\n{"owner":"human"}\n```';
+  const payload = Buffer.from(edited, 'utf8').toString('base64url');
+  const result = await invoke(`code --go --summary64 ${payload}`);
+  assert.equal(result.kind, 'success', result.text);
+  assert.ok(host.state.goals[0].objective.includes('8118'), '浏览器编辑稿必须成为迁移唯一事实源');
+  assert.match(result.text, /WebUI 里编辑后的预览/);
+  assert.equal(files.size, 1, '确认动作不得再写一个摘要文件');
+});
+
+test('WebUI 摘要载荷损坏或过大时 fail closed', async () => {
+  const { invoke } = setup();
+  await invoke('code');
+
+  const malformed = await invoke('code --go --summary64 !!!');
+  assert.equal(malformed.kind, 'error');
+  assert.match(malformed.text, /摘要载荷/);
+
+  const oversized = Buffer.from('x'.repeat(24_001), 'utf8').toString('base64url');
+  const tooLarge = await invoke(`code --go --summary64 ${oversized}`);
+  assert.equal(tooLarge.kind, 'error');
+  assert.match(tooLarge.text, /过长/);
+});
+
 test('迁到自己当前的模式会被拒绝', async () => {
   const { invoke } = setup();
   const result = await invoke('minimal');
@@ -232,6 +259,7 @@ test('参数解析', () => {
   assert.equal(parseBridgeInput('code --go').go, true);
   assert.equal(parseBridgeInput('code --go --continue').autoContinue, true);
   assert.equal(parseBridgeInput('code --tier=flash').tier, 'flash');
+  assert.equal(parseBridgeInput('code --go --summary64 eyJvayI6dHJ1ZX0').summary64, 'eyJvayI6dHJ1ZX0');
   assert.equal(parseBridgeInput('  code   --goal-rounds 3 ').goalRounds, 3);
   assert.match(parseBridgeInput('code --nope').error, /不认识的参数/);
   assert.match(parseBridgeInput('code extra').error, /多余的参数/);
