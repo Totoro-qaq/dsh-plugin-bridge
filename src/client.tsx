@@ -83,10 +83,13 @@ function RunningCard() {
     return () => { window.clearInterval(timer) }
   }, [])
   return <div className="dsh-bridge-card" aria-live="polite">
-    <Header lang="zh" />
+    <div className="dsh-bridge-head">
+      <span className="dsh-bridge-mark" aria-hidden>B</span>
+      <span className="dsh-bridge-title">Bridge · 会话迁移</span>
+    </div>
     <div className="dsh-bridge-body">
-      <div className="dsh-bridge-copy">{COPY.zh.preparing} · {seconds}s</div>
-      <div className="dsh-bridge-status">{COPY.zh.safe}</div>
+      <div className="dsh-bridge-copy">Preparing editable handoff · 正在生成可编辑交接 · {seconds}s</div>
+      <div className="dsh-bridge-status">Source stays untouched · 原会话保持不动</div>
       <div className="dsh-bridge-progress" aria-hidden />
     </div>
   </div>
