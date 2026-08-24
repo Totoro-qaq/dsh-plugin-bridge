@@ -23,8 +23,9 @@ The guarantees were derived from [GitHub issue #22](https://github.com/Totoro-qa
 |---|---|---|---|---|
 | 1 | Worker poll count no longer increases global `session.list` scans | `preview + execute：worker 轮询不应把 session.list 放大成全局扫描` | Integration | PASS |
 | 2 | A worker that starts after several polls is not mistaken for a completed worker | `waitIdle：会话排队慢也不会被误判成已跑完` | Integration | PASS |
-| 3 | Preview, migration, CLI, and slash-command paths accept and reuse one source-session row | Full `npm test` suite | Integration / CLI | PASS |
-| 4 | Generated package artifacts match TypeScript source and install/import successfully | `npm run build:check`, `npm run package:smoke` | Packaging | PASS |
+| 3 | Slash-command preview/confirm performs one source-list read per invocation | `/bridge code --go：用预览的摘要建目标会话，goal 只给一轮` | Command integration | PASS |
+| 4 | One-shot CLI run reuses the preview source row during migration | `run：预览 + 迁移一步到位` | CLI E2E | PASS |
+| 5 | Generated package artifacts match TypeScript source and install/import successfully | `npm run build:check`, `npm run package:smoke` | Packaging | PASS |
 
 ## Implementation boundary and known gap
 

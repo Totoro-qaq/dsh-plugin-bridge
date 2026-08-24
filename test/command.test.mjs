@@ -123,6 +123,11 @@ test('/bridge code --go：用预览的摘要建目标会话，goal 只给一轮'
   assert.equal(host.state.goals[0].maxGoalRounds, 1);
   assert.equal(host.state.pausedGoals.length, 1);
   assert.ok(host.state.goals[0].objective.includes('7101'));
+  assert.equal(
+    host.state.calls.filter((call) => call.method === 'session.list').length,
+    2,
+    '预览和确认是两次命令调用，每次只应读取一次源会话列表',
+  );
 });
 
 test('/bridge code --go --continue：同一轮继续，goal 仍暂停', async () => {
