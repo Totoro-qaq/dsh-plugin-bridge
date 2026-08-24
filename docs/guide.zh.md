@@ -13,7 +13,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 需要固定 GitHub tag 或 npm 暂时不可用时：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.10
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.11
 ```
 
 发生了什么（不用手动干预）：
@@ -57,7 +57,7 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 
 `/bridge code` 会：拉取并折叠会话历史 → 按字符预算取材（用户消息全文 + 最近几轮结论 + 最近一次 compaction 底稿）→ 起一个临时的压缩工人生成**固定五段摘要**（目标 / 当前状态 / 关键决策与约定 / 关键文件 / 下一步）→ 工人用完即归档 → 把摘要贴给你。
 
-通常 20–60 秒。**认真扫一眼**：
+卡片会立即显示经过秒数；模型耗时取决于取材与路由。本次 `0.1.1-rc.2` 三次固定输入的 worker 用时为 7.4–12.8 秒，超出 `previewTimeoutMs` 仍会被取消。**认真扫一眼**：
 
 - 目标对不对；
 - 关键约定在不在——尤其是**数字**，漂移里最主要的一类就是端口被补全成 3000/8080；
@@ -66,7 +66,9 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 
 ### 3.2 要改摘要
 
-预览会把摘要写进一个文件并打印路径。改那个文件，然后：
+rc.7+ 的官方 WebUI 会把摘要渲染成 Markdown；完整 JSON 文档会变成可展开的树。点卡片里的「编辑」修改，切回「预览」核对，再点「确认迁移」，校对稿会成为目标的唯一事实源并自动打开目标会话。
+
+旧客户端或 CLI 仍可走文件回退：预览会把摘要写进一个文件并打印路径。改那个文件，然后：
 
 ```
 /bridge code --go --file /tmp/dsh-bridge-xxxx/summary-....md

@@ -63,6 +63,15 @@ test('CLI 仍然可用（手动 / 脚本路径），且能直接执行', () => {
   assert.ok(readFileSync(cli, 'utf8').startsWith('#!/usr/bin/env node'), 'CLI 需要 shebang 才能作为 bin 直接执行');
 });
 
+test('BridgeHost 作为独立子路径对 adapter 作者可用', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  assert.equal(manifest.exports['./host'].default, './lib/host.js');
+  const host = await import('../lib/host.js');
+  assert.equal(typeof host.createBridgeHostFromRpc, 'function');
+  assert.equal(typeof host.probeBridgeHost, 'function');
+  assert.equal(host.REQUIRED_BRIDGE_CAPABILITIES.length, 13);
+});
+
 test('Config：空配置给默认值，且与压缩核心常量一致', async () => {
   const { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } = await import('../lib/compression.js');
   const resolved = Config({});
@@ -99,6 +108,26 @@ test('dsh.bundle 激活声明存在且指向真实 patch 文件（dsh plugin add
   assert.ok(existsSync(join(packageRoot, patch)), `${patch} 不存在`);
   assert.ok(manifest.files.includes('cordis.patch.yml'), 'files 必须包含 cordis.patch.yml');
   assert.equal(manifest.bin['dsh-bridge'], 'lib/cli.js');
+});
+
+test('同一个包声明官方 WebUI client half，并交付可加载的原生卡片 bundle', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  assert.equal(manifest.dsh?.client?.platform, 'web');
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-conversation'));
+  assert.equal(manifest.exports['./client'].default, './lib/client.js');
+
+  const client = await readFile(join(packageRoot, 'lib', 'client.js'), 'utf8');
+  assert.match(client, /window\.__ModuleLoader__\.load\(\{\s*id:\s*["']dsh-plugin-bridge["']/u);
+  assert.match(client, /conversation\.chat\.commandview/u);
+  assert.match(client, /MarkdownText/u);
+  assert.match(client, /JsonTree/u);
+  assert.match(client, /["']remote["']\s*,\s*["']remote\.commands["']/u,
+    'rc.2 对父 remote face 与 commands capability 分别做注入校验');
+  assert.match(client, /commands\.execute\(sessionId,\s*line,\s*\[\]\)/u,
+    'rc.2 的 command.execute wire contract 要求显式传空图片数组');
+  assert.match(client, /Preparing editable handoff · 正在生成可编辑交接/u,
+    '执行中拿不到未记录的 --lang 参数，进度文案必须对中英文用户都可读');
+  assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
 test('cordis.patch.yml 的 insert 行指向本包，且配置键与 Config schema 一一对应', async () => {

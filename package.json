@@ -11,12 +11,15 @@
     "reports/v0.2.3-e2e-2026-08-20T13-19-13-924Z.raw.json",
     "reports/v0.2.3-e2e-report.md",
     "reports/v0.2.6-rc11-vision-report.md",
+    "reports/native-workbench-2026-08-25.md",
+    "reports/native-workbench-2026-08-25.raw.json",
     "cordis.patch.yml",
     "README.md",
     "README.zh.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npm run build:client",
+    "build:client": "tsdown --config tsdown.config.ts",
     "build:check": "npm run build && git diff --exit-code -- lib",
     "typecheck": "tsc -p tsconfig.check.json",
     "prepack": "npm run build",
@@ -41,20 +44,50 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ],
+      "platform": "web"
     }
   },
   "engines": {
     "node": ">=22"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1"
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.0-rc.7 || ^0.1.1-rc.1",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.7 || ^0.1.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.7 || ^0.1.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.7 || ^0.1.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.7 || ^0.1.1-rc.1",
+    "react": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-api-remotes": { "optional": true },
+    "@deepseek-ai/dsh-client-runtime": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-conversation": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-primitives": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
+    "react": { "optional": true }
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-runtime": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.1-rc.2",
     "@types/node": "^26.2.0",
+    "@types/react": "~18.3.1",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.14",
     "typescript": "^7.0.2"
   },
   "publishConfig": {
@@ -88,6 +121,10 @@
       "types": "./lib/migrate.d.ts",
       "default": "./lib/migrate.js"
     },
+    "./host": {
+      "types": "./lib/host.d.ts",
+      "default": "./lib/host.js"
+    },
     "./rpc": {
       "types": "./lib/rpc.d.ts",
       "default": "./lib/rpc.js"
@@ -99,6 +136,10 @@
     "./command": {
       "types": "./lib/command.d.ts",
       "default": "./lib/command.js"
+    },
+    "./client": {
+      "types": "./lib/client.d.ts",
+      "default": "./lib/client.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"

@@ -52,9 +52,15 @@ try {
   for (const relative of [
     'lib/index.js',
     'lib/index.d.ts',
+    'lib/host.js',
+    'lib/host.d.ts',
+    'lib/client.js',
+    'lib/client.d.ts',
     'cordis.patch.yml',
     'docs/design.md',
     'reports/v0.2.3-e2e-report.md',
+    'reports/native-workbench-2026-08-25.md',
+    'reports/native-workbench-2026-08-25.raw.json',
   ]) {
     if (!existsSync(join(packageRoot, relative))) throw new Error(`packed artifact is missing ${relative}`);
   }
@@ -62,6 +68,10 @@ try {
   const plugin = await import(pathToFileURL(join(packageRoot, 'lib/index.js')).href);
   if (plugin.name !== 'dsh-plugin-bridge' || typeof plugin.apply !== 'function') {
     throw new Error('installed artifact does not expose the Bridge plugin entrypoint');
+  }
+  const host = await import(pathToFileURL(join(packageRoot, 'lib/host.js')).href);
+  if (typeof host.createBridgeHostFromRpc !== 'function' || host.REQUIRED_BRIDGE_CAPABILITIES?.length !== 13) {
+    throw new Error('installed artifact does not expose the BridgeHost adapter entrypoint');
   }
 
   console.log(`package smoke ok: ${manifest.name}@${manifest.version} (${packed.entryCount} files)`);

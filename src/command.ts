@@ -26,8 +26,9 @@ import {
   type PresetRow,
   type SessionRow,
 } from './migrate.ts';
-import type { MethodProbe } from './api-rpc.ts';
+import { asBridgeHost, missingHostCapability, type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { RpcError, type Rpc } from './rpc.ts';
+import { MAX_EDITED_SUMMARY_CHARS } from './client-contract.ts';
 
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
 export interface BridgeInvocation {
@@ -60,10 +61,12 @@ export interface BridgeCommandConfig {
 }
 
 export interface BridgeCommandDeps {
-  /** 按本次调用的取消信号建一个 Rpc。 */
-  rpcFor: (signal?: AbortSignal) => Rpc;
-  /** 自检：这套 host 的网关面还是不是插件预期的形状。 */
-  probe?: () => MethodProbe[];
+  /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */
+  hostFor?: (signal?: AbortSignal) => BridgeHost;
+  /** @deprecated 0.2.x 兼容入口；会自动包装成 BridgeHost。 */
+  rpcFor?: (signal?: AbortSignal) => Rpc;
+  /** 自检：这套 host adapter 是否提供 Bridge 所需的能力。 */
+  probe?: () => BridgeHostProbe[];
   config: BridgeCommandConfig;
   /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
   writeSummary?: (sessionId: string, summary: string) => string | undefined;
@@ -93,6 +96,7 @@ interface ParsedInput {
   inject?: InjectMode;
   goalRounds?: number;
   file?: string;
+  summary64?: string;
   help: boolean;
   error?: string;
 }
@@ -153,6 +157,12 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
         const value = take();
         if (!value) return { ...out, error: '--file 需要一个路径' };
         out.file = value;
+        break;
+      }
+      case 'summary64': {
+        const value = take();
+        if (!value) return { ...out, error: '--summary64 需要 WebUI 生成的摘要载荷' };
+        out.summary64 = value;
         break;
       }
       default:
@@ -217,11 +227,18 @@ function commandMetadata(lang: Lang): { description: string; hint: string } {
   };
 }
 
+function resolveCommandHost(deps: BridgeCommandDeps, signal?: AbortSignal): BridgeHost {
+  if (deps.hostFor) return deps.hostFor(signal);
+  if (deps.rpcFor) return asBridgeHost(deps.rpcFor(signal));
+  throw missingHostCapability('BridgeHost');
+}
+
 /** 建一个 `/bridge` 命令定义。返回值形状对齐上游 `CommandDefinition`。 */
 export function createBridgeCommand(deps: BridgeCommandDeps): {
   name: string;
   description: string;
   input: { hint: string };
+  recordInput: false;
   handler: (invocation: BridgeInvocation) => Promise<BridgeResult>;
 } {
   const pending = new Map<string, Pending>();
@@ -232,6 +249,9 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     name: 'bridge',
     description: metadata.description,
     input: { hint: metadata.hint },
+    // Native WebUI confirmation carries the edited summary in --summary64.
+    // The outcome remains durable, but the raw command payload must not become log content.
+    recordInput: false,
     handler: async (invocation: BridgeInvocation): Promise<BridgeResult> => {
       const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
       if (!sessionId) return { kind: 'error', text: '取不到当前会话身份，无法迁移。' };
@@ -245,15 +265,20 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         };
       }
 
-      const rpc = deps.rpcFor(invocation.signal);
+      let host: BridgeHost;
+      try {
+        host = resolveCommandHost(deps, invocation.signal);
+      } catch (error) {
+        return { kind: 'error', text: describe(error) };
+      }
       const config = deps.config;
 
       let presets: PresetRow[];
       let sourceSession: SessionRow | undefined;
       let current: string | undefined;
       try {
-        presets = await listPresets(rpc);
-        sourceSession = await findSession(rpc, sessionId);
+        presets = await listPresets(host);
+        sourceSession = await findSession(host, sessionId);
         current = sourceSession?.agentPreset;
       } catch (error) {
         return { kind: 'error', text: describe(error) };
@@ -265,14 +290,14 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         const available = presets.filter((p) => p.id !== current).map((p) => p.id).join(' · ');
         const lines = initialLang === 'en'
           ? [
-              `Gateway: in-process ctx.apiProxy · ${probes.length - missing.length}/${probes.length} methods available`,
+              `Adapter: ${host.descriptor.id} · ${probes.length - missing.length}/${probes.length} methods available`,
               `Current preset: ${current ?? '(unavailable)'}`,
               `Available targets: ${available || '(none)'}`,
               `Config: tier ${config.modelTier} · source ${config.sourceCharBudget} chars · summary ${config.summaryCharBudget} chars`
               + ` · goal ${config.goalRounds} rounds · injection ${config.inject}`,
             ]
           : [
-              `网关：进程内 ctx.apiProxy · ${probes.length - missing.length}/${probes.length} 个方法可用`,
+              `适配器：${host.descriptor.id} · ${probes.length - missing.length}/${probes.length} 个方法可用`,
               `当前模式：${current ?? '（读不到）'}`,
               `可迁入：${available || '（无）'}`,
               `配置：档位 ${config.modelTier} · 取材 ${config.sourceCharBudget} 字符 · 摘要 ${config.summaryCharBudget} 字符`
@@ -313,7 +338,27 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       if (parsed.go) {
         let summary: string | undefined;
         let pendingLang: DisplayLang | undefined;
-        if (parsed.file) {
+        if (parsed.summary64) {
+          try {
+            if (!/^[A-Za-z0-9_-]+$/u.test(parsed.summary64)) throw new Error('invalid base64url');
+            summary = Buffer.from(parsed.summary64, 'base64url').toString('utf8');
+            const canonical = Buffer.from(summary, 'utf8').toString('base64url');
+            if (canonical !== parsed.summary64 || !summary.trim()) throw new Error('invalid base64url');
+            if (summary.length > MAX_EDITED_SUMMARY_CHARS) {
+              return {
+                kind: 'error',
+                text: initialLang === 'en'
+                  ? `The edited WebUI handoff is too long (maximum ${MAX_EDITED_SUMMARY_CHARS} characters).`
+                  : `WebUI 编辑后的摘要过长（上限 ${MAX_EDITED_SUMMARY_CHARS} 字符）。`,
+              };
+            }
+          } catch {
+            return {
+              kind: 'error',
+              text: initialLang === 'en' ? 'The edited WebUI handoff payload is invalid.' : 'WebUI 编辑后的摘要载荷无效。',
+            };
+          }
+        } else if (parsed.file) {
           try {
             summary = deps.readSummary?.(parsed.file);
           } catch (error) {
@@ -327,7 +372,9 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           }
         }
         const runLang = parsed.lang === 'en' || parsed.lang === 'zh' ? parsed.lang : pendingLang ?? initialLang;
-        const source = parsed.file ?? (runLang === 'en' ? 'the reviewed preview' : '暂存的预览');
+        const source = parsed.summary64
+          ? (runLang === 'en' ? 'the edited WebUI preview' : 'WebUI 里编辑后的预览')
+          : parsed.file ?? (runLang === 'en' ? 'the reviewed preview' : '暂存的预览');
         if (!summary?.trim()) {
           return {
             kind: 'error',
@@ -339,7 +386,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         try {
           const sourceTitle = titleOf(sourceSession);
           const targetTitle = sourceTitle ? migratedTitle(sourceTitle, target) : (runLang === 'en' ? `Migrated to ${target}` : migratedTitle(sourceTitle, target));
-          const result = await executeMigration(rpc, {
+          const result = await executeMigration(host, {
             sessionId,
             sourceSession,
             to: target,
@@ -387,7 +434,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       /* ---------------- 预览 ---------------- */
       const startedAt = now();
       try {
-        const preview = await previewMigration(rpc, {
+        const preview = await previewMigration(host, {
           sessionId,
           sourceSession,
           tier: parsed.tier ?? config.modelTier,
