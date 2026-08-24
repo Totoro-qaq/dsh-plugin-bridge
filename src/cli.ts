@@ -305,6 +305,7 @@ async function main(argv: string[]): Promise<number> {
       const source = await findSession(rpc, sessionId).catch(() => undefined);
       const result = await executeMigration(rpc, {
         sessionId,
+        sourceSession: source,
         to,
         summary,
         goalRounds: num(args, 'goal-rounds'),
@@ -346,9 +347,9 @@ async function main(argv: string[]): Promise<number> {
         ...(num(args, 'worker-timeout') === undefined ? {} : { workerTimeoutMs: num(args, 'worker-timeout') }),
         onProgress: progress,
       });
-      const source = await findSession(rpc, sessionId).catch(() => undefined);
       const result = await executeMigration(rpc, {
         sessionId,
+        sourceSession: preview.sourceSession,
         to,
         summary: preview.summary,
         lang: preview.lang,
@@ -356,7 +357,7 @@ async function main(argv: string[]): Promise<number> {
         inject: injectOf(args),
         kickoff: !bool(args, 'no-kickoff'),
         autoContinue: bool(args, 'continue'),
-        title: str(args, 'title') ?? migratedTitle(titleOf(source), to),
+        title: str(args, 'title') ?? migratedTitle(titleOf(preview.sourceSession), to),
         onProgress: progress,
       });
       out({ ...result, summary: preview.summary, source: preview.source }, () =>

@@ -156,17 +156,19 @@ export async function resolveWorkerPreset(rpc: Rpc): Promise<string | undefined>
 
 export interface WaitOptions {
   timeoutMs?: number;
-  /** 等「开始跑」的宽限期；超过还没 running 就当它已经跑完了。 */
+  /** 等待新 `turn/start` 的宽限期；超过仍未出现就按未启动处理。 */
   startGraceMs?: number;
   pollMs?: number;
+  /** 只观察这个事件序号之后的新一轮；worker 新建后通常为 0。 */
+  afterSeq?: number;
 }
 
 /**
- * 等一个会话回到空闲。
+ * 等一个会话的新一轮写入 `turn/end`。
  *
- * 旧实现是「先 sleep 2s，再看 running 是不是 false」——host 排队稍慢一点，
- * 第一次轮询就会把「还没开始」误判成「已经跑完」，取到的是上一轮的回答。
- * 这里先等它真的 running 起来（有宽限期），再等它落回 false。
+ * `session.list` 是全局列表，拿它每两秒轮询一个 worker 会把会话总量放大成
+ * O(会话数 × 轮询次数)。`session.history` 则只读目标会话；用 prompt 前的事件
+ * 水位隔开旧轮次后，`turn/start` / `turn/end` 也比易过期的 running 快照更可靠。
  */
 export async function waitIdle(
   rpc: Rpc,
@@ -176,18 +178,34 @@ export async function waitIdle(
   const pollMs = options.pollMs ?? 2000;
   const deadline = Date.now() + (options.timeoutMs ?? 360_000);
   const startBy = Date.now() + (options.startGraceMs ?? 25_000);
+  const afterSeq = options.afterSeq ?? 0;
   let started = false;
   while (Date.now() < deadline) {
     await sleep(pollMs);
-    const row = await findSession(rpc, sessionId).catch(() => undefined);
-    if (row?.running) {
-      started = true;
-      continue;
-    }
-    if (started) return { idle: true, started: true };
-    if (Date.now() > startBy) return { idle: true, started: false };
+    const events = await tailSessionEvents(rpc, sessionId).catch(() => [] as SessionEvent[]);
+    const fresh = events.filter((event) => typeof event.seq === 'number' && event.seq > afterSeq);
+    if (fresh.some((event) => event.type === 'turn/start')) started = true;
+    if (fresh.some((event) => event.type === 'turn/end')) return { idle: true, started: true };
+    if (!started && Date.now() > startBy) return { idle: true, started: false };
   }
   return { idle: false, started };
+}
+
+/** 读取单个会话的尾页；不触发全局 session.list 扫描。 */
+async function tailSessionEvents(rpc: Rpc, sessionId: string): Promise<SessionEvent[]> {
+  const res = await rpc<{ events?: { event: SessionEvent }[] }>(
+    'session.history',
+    { sessionId, maxMessages: 2 },
+    60_000,
+  );
+  return (res.events ?? []).map((entry) => entry.event);
+}
+
+async function latestSessionSeq(rpc: Rpc, sessionId: string): Promise<number> {
+  const events = await tailSessionEvents(rpc, sessionId);
+  return events.reduce((max, event) => (
+    typeof event.seq === 'number' && event.seq > max ? event.seq : max
+  ), 0);
 }
 
 /** 拉取并折叠会话历史（按需翻页）。 */
@@ -227,6 +245,8 @@ export async function lastAssistantText(rpc: Rpc, sessionId: string): Promise<st
 
 export interface PreviewOptions {
   sessionId: string;
+  /** 同一命令已经读取过的源会话行，避免重复扫描全局列表。 */
+  sourceSession?: SessionRow;
   tier?: ModelTier;
   provider?: string;
   model?: string;
@@ -254,7 +274,7 @@ export interface PreviewResult {
 /** 生成交接摘要：取材 → 起临时工人 → 收摘要 → 归档工人。 */
 export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promise<PreviewResult> {
   const progress = options.onProgress ?? (() => {});
-  const sourceSession = await findSession(rpc, options.sessionId);
+  const sourceSession = options.sourceSession ?? await findSession(rpc, options.sessionId);
 
   progress('拉取并折叠会话历史…');
   const messages = await foldedHistory(rpc, options.sessionId);
@@ -288,6 +308,7 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
         });
     }
     const instruction = buildBridgeInstruction(lang, { summaryCharBudget: options.summaryCharBudget });
+    const workerBaselineSeq = await latestSessionSeq(rpc, worker.sessionId).catch(() => 0);
     await rpc('session.prompt', {
       sessionId: worker.sessionId,
       mode: 'queue',
@@ -296,6 +317,7 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
     progress('等待摘要…');
     const settled = await waitIdle(rpc, worker.sessionId, {
       timeoutMs: options.workerTimeoutMs ?? 360_000,
+      afterSeq: workerBaselineSeq,
       ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs, startGraceMs: options.pollMs * 6 }),
     });
     if (!settled.idle) {
@@ -326,6 +348,8 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
 
 export interface MigrateOptions {
   sessionId: string;
+  /** 同一流程已经读取过的源会话行，避免重复扫描全局列表。 */
+  sourceSession?: SessionRow;
   to: string;
   summary: string;
   lang?: 'zh' | 'en';
@@ -436,7 +460,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   const summary = options.summary.trim();
   if (!summary) throw new RpcError('bridge.migrate', 'empty-summary', '摘要为空，拒绝迁移。');
 
-  const sourceSession = await findSession(rpc, options.sessionId);
+  const sourceSession = options.sourceSession ?? await findSession(rpc, options.sessionId);
   const where = await placement(rpc, sourceSession, options.sessionId);
   let sourceModel: ModelSelection | undefined;
   try {
