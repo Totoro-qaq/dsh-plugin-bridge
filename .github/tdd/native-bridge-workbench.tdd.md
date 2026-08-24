@@ -20,6 +20,7 @@ No plan file was supplied. The journeys came from the requested product scope:
 | rc.2 command wire | `2e45901`: generated command Remote requires the image-array argument | `354013c`: native confirmation sends an explicit empty image batch |
 | Running-state language | `2c6aa56`: private command input means `--lang` is unavailable before settlement | `ba7f501`: progress copy is short bilingual text; settled cards still follow the summary language |
 | Persisted-preview confirmation language | `7e804ee`: confirmation omitted `--lang`, so an English persisted preview could produce a Chinese kickoff after restart | `4208b11`: the edited confirmation command carries the card's explicit language |
+| Untrusted command-output parsing | GitHub CodeQL check `97607559158`: two high-severity polynomial-regex alerts in preview/target parsing | Replaced both patterns with bounded `startsWith` / `indexOf` / `slice` scans and added a 120K-character adversarial regression fixture |
 
 ## Automated guarantees
 
@@ -32,7 +33,7 @@ No plan file was supplied. The journeys came from the requested product scope:
 | Edited WebUI text becomes the goal's exact source of truth and is not written as command input | `test/command.test.mjs` | PASS |
 | Package manifest, optional client graph, module-table wrapper, official primitives, parent Remote guard, and image wire are present | `test/load.test.mjs` | PASS |
 | Built tarball contains both halves and the native acceptance report, installs, and imports | `npm run package:smoke` | PASS, 41 packed files |
-| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 140/140 |
+| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 141/141 |
 
 ## Installed official-WebUI evidence
 

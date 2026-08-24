@@ -85,3 +85,12 @@ test('JSON renderer only claims a complete JSON document', () => {
   assert.equal(parseJsonDocument('## Goal\n```json\n{"ok":true}\n```'), undefined);
   assert.equal(parseJsonDocument('{broken'), undefined);
 });
+
+test('card parser stays linear on adversarial host output', () => {
+  const hostilePreview = `─── 交接摘要 · ${' '.repeat(40_000)}→${'→!'.repeat(20_000)}`;
+  const hostileTarget = `目标会话：${'a · '.repeat(20_000)}${' '.repeat(40_000)}`;
+  const started = performance.now();
+  assert.equal(parseBridgeCard({ kind: 'success', text: hostilePreview }).phase, 'message');
+  assert.equal(parseBridgeCard({ kind: 'success', text: `已在 code 模式下建好新会话\n${hostileTarget}` }).phase, 'message');
+  assert.ok(performance.now() - started < 250, '超长宿主输出必须在线性时间内被拒绝');
+});

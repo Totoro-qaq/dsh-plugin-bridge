@@ -27,9 +27,41 @@ export type BridgeCard =
   | { phase: 'error'; text: string }
   | { phase: 'message'; text: string; lang: 'zh' | 'en' }
 
-const PREVIEW_HEADER = /^───\s*(Handoff|交接摘要)\s*·\s*(.*?)\s*→\s*([^\s（(]+).*───\s*$/u
-const DIVIDER = /^─{10,}\s*$/u
 const RUN_COMMAND = /\/bridge\s+([^\s]+)\s+--go(?:\s|$)/u
+
+interface PreviewHeader {
+  lang: 'zh' | 'en'
+  sourcePreset: string
+  targetPreset: string
+}
+
+function previewHeaderOf(line: string): PreviewHeader | undefined {
+  const prefix = line.startsWith('─── Handoff · ')
+    ? { text: '─── Handoff · ', lang: 'en' as const }
+    : line.startsWith('─── 交接摘要 · ')
+      ? { text: '─── 交接摘要 · ', lang: 'zh' as const }
+      : undefined
+  if (!prefix) return undefined
+  const route = line.slice(prefix.text.length)
+  const arrow = route.indexOf('→')
+  if (arrow < 1) return undefined
+  const sourcePreset = route.slice(0, arrow).trim()
+  const targetTail = route.slice(arrow + 1).trimStart()
+  let targetEnd = 0
+  while (targetEnd < targetTail.length) {
+    const char = targetTail[targetEnd]
+    if (char === undefined || /\s/u.test(char) || char === '(' || char === '（' || char === '─') break
+    targetEnd += 1
+  }
+  const targetPreset = targetTail.slice(0, targetEnd)
+  if (!sourcePreset || !targetPreset) return undefined
+  return { lang: prefix.lang, sourcePreset, targetPreset }
+}
+
+function isDivider(line: string): boolean {
+  const trimmed = line.trim()
+  return trimmed.length >= 10 && [...trimmed].every((char) => char === '─')
+}
 
 function languageOf(text: string): 'zh' | 'en' {
   return /[\u3400-\u9fff]/u.test(text) ? 'zh' : 'en'
@@ -37,12 +69,12 @@ function languageOf(text: string): 'zh' | 'en' {
 
 function parsePreview(text: string): BridgeCard | undefined {
   const lines = text.split('\n')
-  const header = PREVIEW_HEADER.exec(lines[0] ?? '')
+  const header = previewHeaderOf(lines[0] ?? '')
   if (!header) return undefined
-  const divider = lines.findIndex((line, index) => index > 0 && DIVIDER.test(line))
+  const divider = lines.findIndex((line, index) => index > 0 && isDivider(line))
   if (divider < 2) return undefined
   const command = RUN_COMMAND.exec(text)
-  const targetPreset = command?.[1] ?? header[3]
+  const targetPreset = command?.[1] ?? header.targetPreset
   if (!targetPreset) return undefined
 
   const tail = lines.slice(divider + 1)
@@ -52,8 +84,8 @@ function parsePreview(text: string): BridgeCard | undefined {
     .map((line) => line.replace(/^⚠\s*/u, ''))
   return {
     phase: 'preview',
-    lang: header[1] === 'Handoff' ? 'en' : 'zh',
-    sourcePreset: (header[2] ?? '').trim(),
+    lang: header.lang,
+    sourcePreset: header.sourcePreset,
     targetPreset,
     summary: lines.slice(1, divider).join('\n').trim(),
     stats,
@@ -65,21 +97,28 @@ function parseMigrated(text: string): BridgeCard | undefined {
   const lines = text.split('\n').map((line) => line.trim()).filter(Boolean)
   const first = lines[0] ?? ''
   const lang: 'zh' | 'en' = first.startsWith('Created a new session') ? 'en' : 'zh'
-  const preset = lang === 'en'
-    ? /^Created a new session in the (.+?) preset\b/u.exec(first)?.[1]
-    : /^已在 (.+?) 模式下建好新会话/u.exec(first)?.[1]
+  const presetPrefix = lang === 'en' ? 'Created a new session in the ' : '已在 '
+  const presetSuffix = lang === 'en' ? ' preset' : ' 模式下建好新会话'
+  const presetEnd = first.indexOf(presetSuffix, presetPrefix.length)
+  const preset = presetEnd < 0 ? undefined : first.slice(presetPrefix.length, presetEnd).trim()
   if (!preset) return undefined
-  const targetIndex = lines.findIndex((line) => /^(?:Target session:|目标会话：)/u.test(line))
+  const targetIndex = lines.findIndex((line) => line.startsWith('Target session:') || line.startsWith('目标会话：'))
   if (targetIndex < 0) return undefined
-  const target = /^(?:Target session:|目标会话：)\s*(.+?)\s*·\s*(\S+)\s*$/u.exec(lines[targetIndex] ?? '')
-  if (!target?.[1] || !target[2]) return undefined
+  const targetLine = lines[targetIndex] ?? ''
+  const targetPrefix = targetLine.startsWith('Target session:') ? 'Target session:' : '目标会话：'
+  const targetPayload = targetLine.slice(targetPrefix.length).trim()
+  const targetSeparator = targetPayload.lastIndexOf(' · ')
+  if (targetSeparator < 1) return undefined
+  const title = targetPayload.slice(0, targetSeparator).trim()
+  const sessionId = targetPayload.slice(targetSeparator + 3).trim()
+  if (!title || !sessionId || /\s/u.test(sessionId)) return undefined
   const remaining = lines.filter((_, index) => index !== 0 && index !== targetIndex)
   return {
     phase: 'migrated',
     lang,
     targetPreset: preset,
-    title: target[1],
-    sessionId: target[2],
+    title,
+    sessionId,
     details: remaining.filter((line) => !line.startsWith('⚠')),
     warnings: remaining.filter((line) => line.startsWith('⚠')).map((line) => line.replace(/^⚠\s*/u, '')),
   }
