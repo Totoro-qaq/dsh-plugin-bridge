@@ -12,8 +12,8 @@ The guarantees were derived from [GitHub issue #22](https://github.com/Totoro-qa
 
 | Stage | Command | Result | Evidence |
 |---|---|---|---|
-| RED | `node --experimental-strip-types --test --test-name-pattern='preview \\+ execute' test/migrate.test.mjs` | Expected failure | 30 worker polls produced 32 `session.list` calls; assertion expected 1. Commit `7b48e0a`. |
-| GREEN | `node --experimental-strip-types --test --test-name-pattern='preview \\+ execute\|waitIdle' test/migrate.test.mjs` | PASS, 2/2 | Worker completion uses per-session `session.history`; the same 30-poll flow performs one source-list lookup, and delayed start remains correct. |
+| RED | `node --experimental-strip-types --test --test-name-pattern='preview \+ execute' test/migrate.test.mjs` | Expected failure | 30 worker polls produced 32 `session.list` calls; assertion expected 1. Commit `7b48e0a`. |
+| GREEN | `node --experimental-strip-types --test --test-name-pattern='preview \+ execute|waitIdle' test/migrate.test.mjs` | PASS, 2/2 | Worker completion uses per-session `session.history`; the same 30-poll flow performs one source-list lookup, and delayed start remains correct. |
 | Full verification | `npm run verify` | PASS, 126/126 | Includes build, typecheck, generated `lib/` consistency, dataset checks, and isolated package smoke installation. |
 | Coverage | `node --experimental-strip-types --experimental-test-coverage --test test/migrate.test.mjs` | PASS | 89.43% line coverage overall; `src/migrate.ts` 94.43% line coverage. |
 
