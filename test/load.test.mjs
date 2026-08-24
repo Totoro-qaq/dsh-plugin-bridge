@@ -110,6 +110,20 @@ test('dsh.bundle 激活声明存在且指向真实 patch 文件（dsh plugin add
   assert.equal(manifest.bin['dsh-bridge'], 'lib/cli.js');
 });
 
+test('同一个包声明官方 WebUI client half，并交付可加载的原生卡片 bundle', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  assert.equal(manifest.dsh?.client?.platform, 'web');
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-conversation'));
+  assert.equal(manifest.exports['./client'].default, './lib/client.js');
+
+  const client = await readFile(join(packageRoot, 'lib', 'client.js'), 'utf8');
+  assert.match(client, /window\.__ModuleLoader__\.load\(\{\s*id:\s*["']dsh-plugin-bridge["']/u);
+  assert.match(client, /conversation\.chat\.commandview/u);
+  assert.match(client, /MarkdownText/u);
+  assert.match(client, /JsonTree/u);
+  assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
+});
+
 test('cordis.patch.yml 的 insert 行指向本包，且配置键与 Config schema 一一对应', async () => {
   const text = await readFile(join(packageRoot, 'cordis.patch.yml'), 'utf8');
   assert.match(text, /^- insert:/m, 'patch 必须含 insert 列表');

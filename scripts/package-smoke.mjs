@@ -54,6 +54,8 @@ try {
     'lib/index.d.ts',
     'lib/host.js',
     'lib/host.d.ts',
+    'lib/client.js',
+    'lib/client.d.ts',
     'cordis.patch.yml',
     'docs/design.md',
     'reports/v0.2.3-e2e-report.md',
