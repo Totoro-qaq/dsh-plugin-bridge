@@ -123,6 +123,8 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.match(client, /JsonTree/u);
   assert.match(client, /["']remote["']\s*,\s*["']remote\.commands["']/u,
     'rc.2 对父 remote face 与 commands capability 分别做注入校验');
+  assert.match(client, /commands\.execute\(sessionId,\s*line,\s*\[\]\)/u,
+    'rc.2 的 command.execute wire contract 要求显式传空图片数组');
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
