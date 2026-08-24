@@ -10,6 +10,7 @@
  * `migrate.ts` 只认注入进来的 `Rpc`，于是同一套编排在三个地方复用：
  * `/bridge` 命令（这里）、CLI（走 HTTP）、评测 harness。
  */
+import { type BridgeHost } from './host.ts';
 import { type Rpc } from './rpc.ts';
 /** 一个 unary 网关方法：`(request, signal) => 信封`。 */
 type UnaryMethod = (request: {
@@ -61,4 +62,6 @@ export declare function probeApiProxy(apiProxy: Partial<ApiProxyLike> | undefine
  * @param signal - 派发方的取消信号（命令处理器拿到的那个）。
  */
 export declare function createApiProxyRpc(apiProxy: ApiProxyLike, signal?: AbortSignal): Rpc;
+/** 当前 DSH 进程内网关的 BridgeHost adapter。 */
+export declare function createApiProxyHost(apiProxy: ApiProxyLike, signal?: AbortSignal): BridgeHost;
 export {};

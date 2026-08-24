@@ -26,7 +26,7 @@ import {
   type PresetRow,
   type SessionRow,
 } from './migrate.ts';
-import type { MethodProbe } from './api-rpc.ts';
+import { asBridgeHost, missingHostCapability, type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { RpcError, type Rpc } from './rpc.ts';
 
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
@@ -60,10 +60,12 @@ export interface BridgeCommandConfig {
 }
 
 export interface BridgeCommandDeps {
-  /** 按本次调用的取消信号建一个 Rpc。 */
-  rpcFor: (signal?: AbortSignal) => Rpc;
-  /** 自检：这套 host 的网关面还是不是插件预期的形状。 */
-  probe?: () => MethodProbe[];
+  /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */
+  hostFor?: (signal?: AbortSignal) => BridgeHost;
+  /** @deprecated 0.2.x 兼容入口；会自动包装成 BridgeHost。 */
+  rpcFor?: (signal?: AbortSignal) => Rpc;
+  /** 自检：这套 host adapter 是否提供 Bridge 所需的能力。 */
+  probe?: () => BridgeHostProbe[];
   config: BridgeCommandConfig;
   /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
   writeSummary?: (sessionId: string, summary: string) => string | undefined;
@@ -245,15 +247,22 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         };
       }
 
-      const rpc = deps.rpcFor(invocation.signal);
+      let host: BridgeHost;
+      try {
+        host = deps.hostFor?.(invocation.signal)
+          ?? (deps.rpcFor ? asBridgeHost(deps.rpcFor(invocation.signal)) : undefined)
+          ?? (() => { throw missingHostCapability('BridgeHost'); })();
+      } catch (error) {
+        return { kind: 'error', text: describe(error) };
+      }
       const config = deps.config;
 
       let presets: PresetRow[];
       let sourceSession: SessionRow | undefined;
       let current: string | undefined;
       try {
-        presets = await listPresets(rpc);
-        sourceSession = await findSession(rpc, sessionId);
+        presets = await listPresets(host);
+        sourceSession = await findSession(host, sessionId);
         current = sourceSession?.agentPreset;
       } catch (error) {
         return { kind: 'error', text: describe(error) };
@@ -265,14 +274,14 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         const available = presets.filter((p) => p.id !== current).map((p) => p.id).join(' · ');
         const lines = initialLang === 'en'
           ? [
-              `Gateway: in-process ctx.apiProxy · ${probes.length - missing.length}/${probes.length} methods available`,
+              `Adapter: ${host.descriptor.id} · ${probes.length - missing.length}/${probes.length} methods available`,
               `Current preset: ${current ?? '(unavailable)'}`,
               `Available targets: ${available || '(none)'}`,
               `Config: tier ${config.modelTier} · source ${config.sourceCharBudget} chars · summary ${config.summaryCharBudget} chars`
               + ` · goal ${config.goalRounds} rounds · injection ${config.inject}`,
             ]
           : [
-              `网关：进程内 ctx.apiProxy · ${probes.length - missing.length}/${probes.length} 个方法可用`,
+              `适配器：${host.descriptor.id} · ${probes.length - missing.length}/${probes.length} 个方法可用`,
               `当前模式：${current ?? '（读不到）'}`,
               `可迁入：${available || '（无）'}`,
               `配置：档位 ${config.modelTier} · 取材 ${config.sourceCharBudget} 字符 · 摘要 ${config.summaryCharBudget} 字符`
@@ -339,7 +348,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         try {
           const sourceTitle = titleOf(sourceSession);
           const targetTitle = sourceTitle ? migratedTitle(sourceTitle, target) : (runLang === 'en' ? `Migrated to ${target}` : migratedTitle(sourceTitle, target));
-          const result = await executeMigration(rpc, {
+          const result = await executeMigration(host, {
             sessionId,
             sourceSession,
             to: target,
@@ -387,7 +396,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       /* ---------------- 预览 ---------------- */
       const startedAt = now();
       try {
-        const preview = await previewMigration(rpc, {
+        const preview = await previewMigration(host, {
           sessionId,
           sourceSession,
           tier: parsed.tier ?? config.modelTier,

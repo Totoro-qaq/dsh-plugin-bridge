@@ -1,8 +1,8 @@
 /**
  * 迁移编排：取材 → 压缩工人 → 目标会话。
  *
- * 只依赖注入进来的 `Rpc`，不碰 process / argv / 文件系统，所以可以对着一个
- * 假的 RPC（见 test/migrate.test.mjs）跑完整条链路而不烧任何 token。
+ * 只依赖注入进来的 `BridgeHost`，不碰 process / argv / 文件系统，所以可以对着
+ * 任意宿主 adapter（见 test/migrate.test.mjs）跑完整条链路而不烧任何 token。
  * CLI（`cli.ts`）与客户端 GUI 都消费这里的函数，保证「被验证的」和
  * 「被交付的」是同一条代码路径。
  */
@@ -16,43 +16,29 @@ import {
   type BridgeSource,
 } from './compression.ts';
 import { foldSessionEvents } from './fold.ts';
-import { RpcError, sleep, type Rpc } from './rpc.ts';
+import {
+  asBridgeHost,
+  missingHostCapability,
+  type BridgeHost,
+  type BridgeHostInput,
+  type ModelSelection,
+  type PresetRow,
+  type SessionRow,
+} from './host.ts';
+import { RpcError, sleep } from './rpc.ts';
 import type { ChatMessage, ImageAttachmentRef, SessionEvent } from './types.ts';
+
+export type { ModelSelection, PresetRow, SessionRow } from './host.ts';
 
 export type ModelTier = 'flash' | 'current' | 'pro';
 export type InjectMode = 'goal' | 'prompt' | 'both';
 export type Lang = 'zh' | 'en' | 'auto';
-
-export interface SessionRow {
-  sessionId: string;
-  running?: boolean;
-  blank?: boolean;
-  cwd?: string;
-  agentPreset?: string;
-  parentSessionId?: string;
-  projections?: { values?: Record<string, unknown> };
-}
-
-export interface PresetRow {
-  id: string;
-  trust?: 'system' | 'user';
-  isDefault?: boolean;
-  name?: string;
-  description?: string;
-  broken?: string;
-}
 
 export interface ModelRoute {
   provider: string;
   model: string;
   /** 为什么选中它：configured / follow-session / tier:<tier> / fallback-current。 */
   reason: string;
-}
-
-export interface ModelSelection {
-  provider: string;
-  model: string;
-  reasoningEffort?: string;
 }
 
 /** 工人会话优先使用的 preset（工具越少越省，也不会误动工作区）。 */
@@ -69,14 +55,12 @@ const HISTORY_MAX_PAGES = 4;
  * `session.list` 的 v1 一次返回全部，`cursor` 是预留位；这里仍按 cursor 取完，
  * 免得上游哪天真的分页之后这里悄悄只看第一页。
  */
-export async function listSessions(rpc: Rpc): Promise<SessionRow[]> {
+export async function listSessions(input: BridgeHostInput): Promise<SessionRow[]> {
+  const host = asBridgeHost(input);
   const rows: SessionRow[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 20; page += 1) {
-    const res = await rpc<{ items?: SessionRow[]; nextCursor?: string }>(
-      'session.list',
-      cursor === undefined ? {} : { cursor },
-    );
+    const res = await host.sessions.list(cursor === undefined ? {} : { cursor });
     rows.push(...(res.items ?? []));
     if (!res.nextCursor) break;
     cursor = res.nextCursor;
@@ -84,25 +68,27 @@ export async function listSessions(rpc: Rpc): Promise<SessionRow[]> {
   return rows;
 }
 
-export async function findSession(rpc: Rpc, sessionId: string): Promise<SessionRow | undefined> {
-  return (await listSessions(rpc)).find((row) => row.sessionId === sessionId);
+export async function findSession(host: BridgeHostInput, sessionId: string): Promise<SessionRow | undefined> {
+  return (await listSessions(host)).find((row) => row.sessionId === sessionId);
 }
 
 /** 找出会话所属工作区；找不到就返回 undefined（调用方退回用 cwd 建会话）。 */
-export async function findWorkspaceId(rpc: Rpc, sessionId: string): Promise<string | undefined> {
-  const res = await rpc<{ items?: { workspaceId: string; sessionIds?: string[] }[] }>('workspace.list', {});
+export async function findWorkspaceId(input: BridgeHostInput, sessionId: string): Promise<string | undefined> {
+  const host = asBridgeHost(input);
+  const res = await host.workspaces.list();
   return res.items?.find((ws) => ws.sessionIds?.includes(sessionId))?.workspaceId;
 }
 
 /** 可作为迁移目标的 preset（去掉 broken 的）。 */
-export async function listPresets(rpc: Rpc): Promise<PresetRow[]> {
-  const res = await rpc<{ presets?: PresetRow[] }>('agentPreset.list', {});
+export async function listPresets(input: BridgeHostInput): Promise<PresetRow[]> {
+  const host = asBridgeHost(input);
+  const res = await host.presets.list();
   return (res.presets ?? []).filter((preset) => preset.broken === undefined);
 }
 
 /** 新会话的落点：优先同工作区，否则同 cwd，再否则交给 host 默认。 */
-async function placement(rpc: Rpc, source: SessionRow | undefined, sessionId: string): Promise<Record<string, string>> {
-  const workspaceId = await findWorkspaceId(rpc, sessionId).catch(() => undefined);
+async function placement(host: BridgeHost, source: SessionRow | undefined, sessionId: string): Promise<Record<string, string>> {
+  const workspaceId = await findWorkspaceId(host, sessionId).catch(() => undefined);
   if (workspaceId) return { workspaceId };
   if (source?.cwd) return { cwd: source.cwd };
   return {};
@@ -116,18 +102,16 @@ async function placement(rpc: Rpc, source: SessionRow | undefined, sessionId: st
  * 装不上的理由。
  */
 export async function resolveWorkerModel(
-  rpc: Rpc,
+  input: BridgeHostInput,
   sessionId: string,
   tier: ModelTier,
   override: { provider?: string; model?: string } = {},
 ): Promise<ModelRoute> {
+  const host = asBridgeHost(input);
   if (override.provider && override.model) {
     return { provider: override.provider, model: override.model, reason: 'configured' };
   }
-  const models = await rpc<{
-    current?: { provider?: string; model?: string };
-    groups?: { id: string; models?: { id: string }[] }[];
-  }>('session.models', { sessionId });
+  const models = await host.sessions.models({ sessionId });
   const current = models.current;
   const fallback: ModelRoute = {
     provider: override.provider ?? current?.provider ?? '',
@@ -146,8 +130,8 @@ export async function resolveWorkerModel(
 }
 
 /** 压缩工人用哪个 preset：优先 minimal，其次 standard，再否则 host 默认。 */
-export async function resolveWorkerPreset(rpc: Rpc): Promise<string | undefined> {
-  const presets = await listPresets(rpc).catch(() => [] as PresetRow[]);
+export async function resolveWorkerPreset(input: BridgeHostInput): Promise<string | undefined> {
+  const presets = await listPresets(input).catch(() => [] as PresetRow[]);
   for (const wanted of WORKER_PRESET_PREFERENCE) {
     if (presets.some((preset) => preset.id === wanted)) return wanted;
   }
@@ -171,10 +155,11 @@ export interface WaitOptions {
  * 水位隔开旧轮次后，`turn/start` / `turn/end` 也比易过期的 running 快照更可靠。
  */
 export async function waitIdle(
-  rpc: Rpc,
+  input: BridgeHostInput,
   sessionId: string,
   options: WaitOptions = {},
 ): Promise<{ idle: boolean; started: boolean }> {
+  const host = asBridgeHost(input);
   const pollMs = options.pollMs ?? 2000;
   const deadline = Date.now() + (options.timeoutMs ?? 360_000);
   const startBy = Date.now() + (options.startGraceMs ?? 25_000);
@@ -182,7 +167,7 @@ export async function waitIdle(
   let started = false;
   while (Date.now() < deadline) {
     await sleep(pollMs);
-    const events = await tailSessionEvents(rpc, sessionId).catch(() => [] as SessionEvent[]);
+    const events = await tailSessionEvents(host, sessionId).catch(() => [] as SessionEvent[]);
     const fresh = events.filter((event) => typeof event.seq === 'number' && event.seq > afterSeq);
     if (fresh.some((event) => event.type === 'turn/start')) started = true;
     if (fresh.some((event) => event.type === 'turn/end')) return { idle: true, started: true };
@@ -192,17 +177,14 @@ export async function waitIdle(
 }
 
 /** 读取单个会话的尾页；不触发全局 session.list 扫描。 */
-async function tailSessionEvents(rpc: Rpc, sessionId: string): Promise<SessionEvent[]> {
-  const res = await rpc<{ events?: { event: SessionEvent }[] }>(
-    'session.history',
-    { sessionId, maxMessages: 2 },
-    60_000,
-  );
+async function tailSessionEvents(input: BridgeHostInput, sessionId: string): Promise<SessionEvent[]> {
+  const host = asBridgeHost(input);
+  const res = await host.sessions.history({ sessionId, maxMessages: 2 }, { timeoutMs: 60_000 });
   return (res.events ?? []).map((entry) => entry.event);
 }
 
-async function latestSessionSeq(rpc: Rpc, sessionId: string): Promise<number> {
-  const events = await tailSessionEvents(rpc, sessionId);
+async function latestSessionSeq(host: BridgeHostInput, sessionId: string): Promise<number> {
+  const events = await tailSessionEvents(host, sessionId);
   return events.reduce((max, event) => (
     typeof event.seq === 'number' && event.seq > max ? event.seq : max
   ), 0);
@@ -210,19 +192,19 @@ async function latestSessionSeq(rpc: Rpc, sessionId: string): Promise<number> {
 
 /** 拉取并折叠会话历史（按需翻页）。 */
 export async function foldedHistory(
-  rpc: Rpc,
+  input: BridgeHostInput,
   sessionId: string,
   options: { pageMessages?: number; maxPages?: number } = {},
 ): Promise<ChatMessage[]> {
+  const host = asBridgeHost(input);
   const pageMessages = options.pageMessages ?? HISTORY_PAGE_MESSAGES;
   const maxPages = options.maxPages ?? HISTORY_MAX_PAGES;
   let events: SessionEvent[] = [];
   let beforeSeq: number | undefined;
   for (let page = 0; page < maxPages; page += 1) {
-    const res = await rpc<{ events?: { event: SessionEvent }[]; hasMore?: boolean }>(
-      'session.history',
+    const res = await host.sessions.history(
       { sessionId, maxMessages: pageMessages, ...(beforeSeq === undefined ? {} : { beforeSeq }) },
-      60_000,
+      { timeoutMs: 60_000 },
     );
     const chunk = (res.events ?? []).map((entry) => entry.event);
     if (!chunk.length) break;
@@ -236,8 +218,8 @@ export async function foldedHistory(
 }
 
 /** 会话里最后一条非空 assistant 文本。 */
-export async function lastAssistantText(rpc: Rpc, sessionId: string): Promise<string> {
-  const messages = await foldedHistory(rpc, sessionId, { pageMessages: 20, maxPages: 1 });
+export async function lastAssistantText(host: BridgeHostInput, sessionId: string): Promise<string> {
+  const messages = await foldedHistory(host, sessionId, { pageMessages: 20, maxPages: 1 });
   return [...messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())?.content.trim() ?? '';
 }
 
@@ -272,12 +254,13 @@ export interface PreviewResult {
 }
 
 /** 生成交接摘要：取材 → 起临时工人 → 收摘要 → 归档工人。 */
-export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promise<PreviewResult> {
+export async function previewMigration(input: BridgeHostInput, options: PreviewOptions): Promise<PreviewResult> {
+  const host = asBridgeHost(input);
   const progress = options.onProgress ?? (() => {});
-  const sourceSession = options.sourceSession ?? await findSession(rpc, options.sessionId);
+  const sourceSession = options.sourceSession ?? await findSession(host, options.sessionId);
 
   progress('拉取并折叠会话历史…');
-  const messages = await foldedHistory(rpc, options.sessionId);
+  const messages = await foldedHistory(host, options.sessionId);
   const source = buildBridgeSource(messages, { sourceCharBudget: options.sourceCharBudget });
   if (!source.text.trim()) {
     throw new RpcError('bridge.preview', 'empty-source', '这个会话还没有可迁移的内容（取材为空）。直接开一个新会话更省事。');
@@ -285,15 +268,15 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
   const lang = options.lang && options.lang !== 'auto' ? options.lang : detectLang(source.text);
 
   const tier = options.tier ?? 'pro';
-  const route = await resolveWorkerModel(rpc, options.sessionId, tier, options);
+  const route = await resolveWorkerModel(host, options.sessionId, tier, options);
   if (options.dryRun) {
     return { summary: '', source, lang, worker: { ...route }, capped: false, sourceSession };
   }
 
-  const preset = await resolveWorkerPreset(rpc);
-  const where = await placement(rpc, sourceSession, options.sessionId);
+  const preset = await resolveWorkerPreset(host);
+  const where = await placement(host, sourceSession, options.sessionId);
   progress(`起压缩工人（${preset ?? '默认 preset'} / ${route.model || '会话默认模型'}）…`);
-  const worker = await rpc<{ sessionId: string }>('session.create', {
+  const worker = await host.sessions.create({
     ...where,
     ...(preset === undefined ? {} : { agentPreset: preset }),
   });
@@ -301,31 +284,31 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
   let capped = false;
   try {
     if (route.provider && route.model) {
-      await rpc('session.selectModel', { sessionId: worker.sessionId, provider: route.provider, model: route.model })
+      await host.sessions.selectModel({ sessionId: worker.sessionId, provider: route.provider, model: route.model })
         .catch((error: unknown) => {
           // 选模型失败不该让整次迁移失败：工人用会话默认模型照样能写摘要。
           progress(`选模型失败，改用默认模型（${error instanceof Error ? error.message : String(error)}）`);
         });
     }
     const instruction = buildBridgeInstruction(lang, { summaryCharBudget: options.summaryCharBudget });
-    const workerBaselineSeq = await latestSessionSeq(rpc, worker.sessionId).catch(() => 0);
-    await rpc('session.prompt', {
+    const workerBaselineSeq = await latestSessionSeq(host, worker.sessionId).catch(() => 0);
+    await host.sessions.prompt({
       sessionId: worker.sessionId,
       mode: 'queue',
       content: [{ type: 'text', text: `${instruction}${source.text}` }],
     });
     progress('等待摘要…');
-    const settled = await waitIdle(rpc, worker.sessionId, {
+    const settled = await waitIdle(host, worker.sessionId, {
       timeoutMs: options.workerTimeoutMs ?? 360_000,
       afterSeq: workerBaselineSeq,
       ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs, startGraceMs: options.pollMs * 6 }),
     });
     if (!settled.idle) {
       capped = true;
-      await rpc('session.cancel', { sessionId: worker.sessionId }).catch(() => undefined);
+      await host.sessions.cancel({ sessionId: worker.sessionId }).catch(() => undefined);
       await sleep(2500);
     }
-    const workerSummary = await lastAssistantText(rpc, worker.sessionId);
+    const workerSummary = await lastAssistantText(host, worker.sessionId);
     if (!workerSummary) {
       throw new RpcError('bridge.preview', 'worker-empty', '压缩工人没有产出摘要（可能是模型不可用或被取消）。');
     }
@@ -340,7 +323,7 @@ export async function previewMigration(rpc: Rpc, options: PreviewOptions): Promi
     };
   } finally {
     // 工人是一次性的：无论成败都归档，不在侧栏留垃圾。
-    await rpc('workspace.archiveSession', { sessionId: worker.sessionId }).catch(() => undefined);
+    await host.workspaces.archiveSession({ sessionId: worker.sessionId }).catch(() => undefined);
   }
 }
 
@@ -413,14 +396,16 @@ function unresolvedImageRefs(messages: ChatMessage[]): { refs: ImageAttachmentRe
   return { refs, missing };
 }
 
-async function readPromptImages(rpc: Rpc, sourceSessionId: string, refs: ImageAttachmentRef[]): Promise<PromptImage[]> {
+async function readPromptImages(host: BridgeHost, sourceSessionId: string, refs: ImageAttachmentRef[]): Promise<PromptImage[]> {
+  const readAttachment = host.sessions.attachment;
+  if (readAttachment === undefined) throw missingHostCapability('session attachment reading');
   return Promise.all(refs.map(async (ref) => {
-    const stored = await rpc<{ attachment?: ImageAttachmentRef; data?: string }>('session.attachment', {
+    const stored = await readAttachment({
       sessionId: sourceSessionId,
       attachmentId: ref.attachmentId,
     });
     if (!stored.data || typeof stored.data !== 'string') {
-      throw new RpcError('session.attachment', 'empty-image', `附件 ${ref.attachmentId} 没有返回图片字节。`);
+      throw new RpcError('bridge.host', 'empty-image', `附件 ${ref.attachmentId} 没有返回图片字节。`);
     }
     const attachment = stored.attachment ?? ref;
     return {
@@ -434,8 +419,8 @@ async function readPromptImages(rpc: Rpc, sourceSessionId: string, refs: ImageAt
 
 function imageFallbackAllowed(error: unknown): boolean {
   if (!(error instanceof RpcError)) return false;
-  if (error.method === 'session.attachment') return true;
-  if (error.method !== 'session.prompt' || error.code !== 'attachment-error') return false;
+  if (error.code === 'unavailable' || error.code === 'empty-image') return true;
+  if (error.code !== 'attachment-error') return false;
   const reason = error.details && typeof error.details === 'object' && 'reason' in error.details
     ? String((error.details as { reason?: unknown }).reason)
     : '';
@@ -452,7 +437,8 @@ function imageFallbackAllowed(error: unknown): boolean {
  * 摘要能被模型看见依赖 goal-round-driver 把它渲染成 `<goal_round>` 提示，
  * 或模型主动调 `get_goal`。所以默认把摘要同时放进首轮提示：任何组装下都成立。
  */
-export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promise<MigrateResult> {
+export async function executeMigration(input: BridgeHostInput, options: MigrateOptions): Promise<MigrateResult> {
+  const host = asBridgeHost(input);
   const progress = options.onProgress ?? (() => {});
   const warnings: string[] = [];
   const inject = options.inject ?? 'both';
@@ -460,11 +446,11 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   const summary = options.summary.trim();
   if (!summary) throw new RpcError('bridge.migrate', 'empty-summary', '摘要为空，拒绝迁移。');
 
-  const sourceSession = options.sourceSession ?? await findSession(rpc, options.sessionId);
-  const where = await placement(rpc, sourceSession, options.sessionId);
+  const sourceSession = options.sourceSession ?? await findSession(host, options.sessionId);
+  const where = await placement(host, sourceSession, options.sessionId);
   let sourceModel: ModelSelection | undefined;
   try {
-    const models = await rpc<{ current?: Partial<ModelSelection> }>('session.models', { sessionId: options.sessionId });
+    const models = await host.sessions.models({ sessionId: options.sessionId });
     const current = models.current;
     if (typeof current?.provider === 'string' && current.provider
       && typeof current.model === 'string' && current.model) {
@@ -481,7 +467,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   }
 
   progress(`在 ${options.to} 模式下新建会话…`);
-  const created = await rpc<{ sessionId: string; agentPreset?: string }>('session.create', {
+  const created = await host.sessions.create({
     ...where,
     agentPreset: options.to,
   });
@@ -493,7 +479,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   let modelTransferred = false;
   if (sourceModel) {
     try {
-      await rpc('session.selectModel', { sessionId: created.sessionId, ...sourceModel });
+      await host.sessions.selectModel({ sessionId: created.sessionId, ...sourceModel });
       modelTransferred = true;
     } catch (error) {
       warnings.push(`复制源会话模型失败，目标将使用 host 默认模型：${error instanceof Error ? error.message : String(error)}`);
@@ -503,7 +489,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   let titled = false;
   if (options.title) {
     try {
-      await rpc('session.rename', { sessionId: created.sessionId, title: options.title });
+      await host.sessions.rename({ sessionId: created.sessionId, title: options.title });
       titled = true;
     } catch (error) {
       warnings.push(`改标题失败（不影响迁移）：${error instanceof Error ? error.message : String(error)}`);
@@ -517,14 +503,14 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
   let imagesSent = 0;
   if (inject === 'goal' || inject === 'both') {
     try {
-      const createdGoal = await rpc<{ ref: { id: string; revision: number } }>('goal.create', {
+      const createdGoal = await host.goals.create({
         sessionId: created.sessionId,
         objective: summary,
         maxGoalRounds: options.goalRounds ?? 1,
       });
       goalCreated = true;
       try {
-        await rpc('goal.pause', { sessionId: created.sessionId, ref: createdGoal.ref });
+        await host.goals.pause({ sessionId: created.sessionId, ref: createdGoal.ref });
         goalPaused = true;
       } catch (error) {
         // 安全优先：pause 失败时不再发 kickoff。先清除 goal，挡住尚未入队的
@@ -532,12 +518,14 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
         safeToKickoff = false;
         let goalCleared = false;
         try {
-          await rpc('goal.clear', { sessionId: created.sessionId, ref: createdGoal.ref });
+          const clearGoal = host.goals.clear;
+          if (clearGoal === undefined) throw missingHostCapability('goal clearing');
+          await clearGoal({ sessionId: created.sessionId, ref: createdGoal.ref });
           goalCleared = true;
         } catch (clearError) {
           warnings.push(`清除未暂停的交接目标失败，已继续取消目标会话；请保持目标会话关闭并手动检查：${clearError instanceof Error ? clearError.message : String(clearError)}`);
         }
-        await rpc('session.cancel', { sessionId: created.sessionId }).catch(() => undefined);
+        await host.sessions.cancel({ sessionId: created.sessionId }).catch(() => undefined);
         warnings.push(goalCleared
           ? `暂停交接目标失败，已清除目标并取消自动启动；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`
           : `暂停交接目标失败，已取消自动启动但无法确认目标已清除；请打开目标会话检查后手动继续：${error instanceof Error ? error.message : String(error)}`);
@@ -555,7 +543,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
     progress('发送首轮交接指令…');
     let unresolved: { refs: ImageAttachmentRef[]; missing: number } = { refs: [], missing: 0 };
     try {
-      unresolved = unresolvedImageRefs(await foldedHistory(rpc, options.sessionId));
+      unresolved = unresolvedImageRefs(await foldedHistory(host, options.sessionId));
     } catch (error) {
       warnings.push(`读取图片状态失败，已按纯文本交接：${error instanceof Error ? error.message : String(error)}`);
     }
@@ -565,11 +553,11 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
 
     if (unresolved.refs.length) {
       try {
-        const images = await readPromptImages(rpc, options.sessionId, unresolved.refs);
+        const images = await readPromptImages(host, options.sessionId, unresolved.refs);
         const transferNote = lang === 'en'
           ? 'Bridge transfer note: the unresolved source images listed above are attached to this kickoff. Inspect them directly; do not infer details that are not visible.'
           : 'Bridge 搬运说明：上文列出的未解析源图片已附在本次 kickoff 中。请直接检查原图，不得推断看不清的细节。';
-        await rpc('session.prompt', {
+        await host.sessions.prompt({
           sessionId: created.sessionId,
           mode: 'queue',
           content: [...images, { type: 'text', text: `${baseText}\n\n${transferNote}` }],
@@ -581,7 +569,7 @@ export async function executeMigration(rpc: Rpc, options: MigrateOptions): Promi
       }
     }
     if (imagesSent === 0) {
-      await rpc('session.prompt', {
+      await host.sessions.prompt({
         sessionId: created.sessionId,
         mode: 'queue',
         content: [{ type: 'text', text: baseText }],

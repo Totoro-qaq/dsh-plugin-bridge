@@ -88,6 +88,10 @@
       "types": "./lib/migrate.d.ts",
       "default": "./lib/migrate.js"
     },
+    "./host": {
+      "types": "./lib/host.d.ts",
+      "default": "./lib/host.js"
+    },
     "./rpc": {
       "types": "./lib/rpc.d.ts",
       "default": "./lib/rpc.js"

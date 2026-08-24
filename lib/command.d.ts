@@ -14,7 +14,7 @@
  * model.」——所以在官方 WebUI 的输入框里打 `/bridge code` 就能用。
  */
 import { type InjectMode, type Lang, type ModelTier } from './migrate.ts';
-import type { MethodProbe } from './api-rpc.ts';
+import { type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { type Rpc } from './rpc.ts';
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
 export interface BridgeInvocation {
@@ -55,10 +55,12 @@ export interface BridgeCommandConfig {
     previewTimeoutMs: number;
 }
 export interface BridgeCommandDeps {
-    /** 按本次调用的取消信号建一个 Rpc。 */
-    rpcFor: (signal?: AbortSignal) => Rpc;
-    /** 自检：这套 host 的网关面还是不是插件预期的形状。 */
-    probe?: () => MethodProbe[];
+    /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */
+    hostFor?: (signal?: AbortSignal) => BridgeHost;
+    /** @deprecated 0.2.x 兼容入口；会自动包装成 BridgeHost。 */
+    rpcFor?: (signal?: AbortSignal) => Rpc;
+    /** 自检：这套 host adapter 是否提供 Bridge 所需的能力。 */
+    probe?: () => BridgeHostProbe[];
     config: BridgeCommandConfig;
     /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
     writeSummary?: (sessionId: string, summary: string) => string | undefined;

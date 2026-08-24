@@ -31,6 +31,7 @@ import {
   type Lang,
   type ModelTier,
 } from './migrate.ts';
+import { createBridgeHostFromRpc } from './host.ts';
 import { RpcError, createRpc, resolveApiBase } from './rpc.ts';
 
 interface Args {
@@ -178,6 +179,7 @@ async function main(argv: string[]): Promise<number> {
   const quiet = bool(args, 'quiet') || json;
   const api = resolveApiBase(str(args, 'api'));
   const rpc = createRpc({ api, prefix: 'bridge-cli' });
+  const host = createBridgeHostFromRpc(rpc, { id: 'dsh-http-api', transport: 'http' });
   const progress = (message: string): void => {
     if (!quiet) process.stderr.write(`… ${message}\n`);
   };
@@ -189,7 +191,7 @@ async function main(argv: string[]): Promise<number> {
     case 'doctor': {
       const report: Record<string, unknown> = { api, sessionIdFromEnv: process.env.DSH_SESSION_ID ?? null };
       try {
-        const presets = await listPresets(rpc);
+        const presets = await listPresets(host);
         report.gateway = 'ok';
         report.presets = presets.map((p) => p.id);
       } catch (error) {
@@ -197,7 +199,7 @@ async function main(argv: string[]): Promise<number> {
       }
       const sessionId = str(args, 'session') ?? process.env.DSH_SESSION_ID;
       if (sessionId) {
-        const row = await findSession(rpc, sessionId).catch(() => undefined);
+        const row = await findSession(host, sessionId).catch(() => undefined);
         report.session = row ? { sessionId: row.sessionId, agentPreset: row.agentPreset, cwd: row.cwd } : 'not-found';
       }
       out(report, () => {
@@ -212,8 +214,8 @@ async function main(argv: string[]): Promise<number> {
 
     case 'presets': {
       const sessionId = str(args, 'session') ?? process.env.DSH_SESSION_ID;
-      const current = sessionId ? (await findSession(rpc, sessionId).catch(() => undefined))?.agentPreset : undefined;
-      const presets = await listPresets(rpc);
+      const current = sessionId ? (await findSession(host, sessionId).catch(() => undefined))?.agentPreset : undefined;
+      const presets = await listPresets(host);
       const rows = presets.map((p) => ({ ...p, current: p.id === current }));
       out({ current, presets: rows }, () => {
         const lines = rows.map((p) => {
@@ -230,7 +232,7 @@ async function main(argv: string[]): Promise<number> {
     case 'preview': {
       const sessionId = resolveSessionId(args);
       const to = str(args, 'to');
-      const result = await previewMigration(rpc, {
+      const result = await previewMigration(host, {
         sessionId,
         tier: tierOf(args),
         provider: str(args, 'provider'),
@@ -302,8 +304,8 @@ async function main(argv: string[]): Promise<number> {
       } catch (error) {
         throw new UsageError(`读不到摘要文件 ${file}：${error instanceof Error ? error.message : String(error)}`);
       }
-      const source = await findSession(rpc, sessionId).catch(() => undefined);
-      const result = await executeMigration(rpc, {
+      const source = await findSession(host, sessionId).catch(() => undefined);
+      const result = await executeMigration(host, {
         sessionId,
         sourceSession: source,
         to,
@@ -335,7 +337,7 @@ async function main(argv: string[]): Promise<number> {
     case 'run': {
       const sessionId = resolveSessionId(args);
       const to = requireTarget(args);
-      const preview = await previewMigration(rpc, {
+      const preview = await previewMigration(host, {
         sessionId,
         tier: tierOf(args),
         provider: str(args, 'provider'),
@@ -347,7 +349,7 @@ async function main(argv: string[]): Promise<number> {
         ...(num(args, 'worker-timeout') === undefined ? {} : { workerTimeoutMs: num(args, 'worker-timeout') }),
         onProgress: progress,
       });
-      const result = await executeMigration(rpc, {
+      const result = await executeMigration(host, {
         sessionId,
         sourceSession: preview.sourceSession,
         to,
@@ -368,7 +370,7 @@ async function main(argv: string[]): Promise<number> {
     case 'worker-model': {
       // 诊断用：只回答「档位会挑到哪个模型」，不建任何会话。
       const sessionId = resolveSessionId(args);
-      const route = await resolveWorkerModel(rpc, sessionId, tierOf(args), {
+      const route = await resolveWorkerModel(host, sessionId, tierOf(args), {
         provider: str(args, 'provider'),
         model: str(args, 'model'),
       });
