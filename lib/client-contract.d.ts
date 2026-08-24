@@ -35,4 +35,4 @@ export declare function parseBridgeCard(outcome: BridgeOutcome): BridgeCard;
 /** Return a value only when the complete editor document is valid JSON. */
 export declare function parseJsonDocument(text: string): object | unknown[] | undefined;
 /** Build the hidden-input-safe command used by the native editor confirmation. */
-export declare function buildBridgeMigrationCommand(targetPreset: string, summary: string): string;
+export declare function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en'): string;

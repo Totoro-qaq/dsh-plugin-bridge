@@ -128,7 +128,7 @@ function PreviewCard({ card, execute, openSession, sessionId }: {
     setError('')
     setStatus(copy.confirming)
     try {
-      const outcome = await execute(sessionId, buildBridgeMigrationCommand(card.targetPreset, summary))
+      const outcome = await execute(sessionId, buildBridgeMigrationCommand(card.targetPreset, summary, card.lang))
       const result = parseBridgeCard(outcome)
       if (result.phase === 'error') throw new Error(result.text)
       if (result.phase !== 'migrated') throw new Error(card.lang === 'en' ? 'The host returned no target session.' : '宿主没有返回目标会话。')

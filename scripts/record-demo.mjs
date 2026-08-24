@@ -173,6 +173,10 @@ async function openSource(page, lang) {
   await injectSubtitle(page)
   await switchLanguage(page, lang)
   const item = sourceItem(page)
+  if (!(await item.isVisible().catch(() => false))) {
+    const more = page.getByRole('button', { name: /(?:展开其余|Show .*more session)/iu })
+    if (await more.isVisible().catch(() => false)) await moveAndClick(page, more, 'expand remaining sessions', 250)
+  }
   await moveAndClick(page, item, 'source session', 900)
   await ensureVisible(composer(page), 'composer')
 }
@@ -236,19 +240,21 @@ async function record(lang) {
   try {
     await openSource(page, lang)
     beat('source-open')
+    const existingCards = await page.locator('.dsh-bridge-card').count()
+    const sessionsBefore = new Set((await rpc('session.list', {})).items.map((item) => item.sessionId))
     await subtitle(page, lang === 'zh' ? '生成交接预览，原会话保持不动' : 'Generate a handoff preview; keep the source untouched')
     await typeSlowly(page, composer(page), `/bridge code --tier flash --lang ${lang}`, 'bridge command')
     await composer(page).press('Enter')
-    await page.locator('.dsh-bridge-progress').waitFor({ state: 'visible', timeout: 5_000 })
+    const card = page.locator('.dsh-bridge-card').nth(existingCards)
+    await card.locator('.dsh-bridge-progress').waitFor({ state: 'visible', timeout: 5_000 })
     beat('preview-running')
     await subtitle(page, '')
 
-    const confirm = page.getByRole('button', { name: COPY[lang].confirm })
+    const confirm = card.getByRole('button', { name: COPY[lang].confirm })
     await confirm.waitFor({ state: 'visible', timeout: 180_000 })
     beat('preview-ready')
     await page.waitForTimeout(2_000)
 
-    const card = previewCard(page, lang)
     await moveAndClick(page, card.getByRole('tab', { name: COPY[lang].edit }), 'edit tab', 500)
     const editor = card.getByRole('textbox', { name: /Markdown/u })
     await ensureVisible(editor, 'summary editor')
@@ -272,7 +278,15 @@ async function record(lang) {
     await selected.filter({ hasText: '→ code' }).waitFor({ state: 'visible', timeout: 15_000 })
     beat('target-opened')
     await subtitle(page, lang === 'zh' ? '目标会话已自动打开，并在复述后暂停' : 'Target opened automatically and pauses after restating')
-    await page.getByText(COPY[lang].paused).waitFor({ state: 'visible', timeout: 120_000 })
+    let targetSessionId
+    const targetDeadline = Date.now() + 15_000
+    while (!targetSessionId && Date.now() < targetDeadline) {
+      const rows = (await rpc('session.list', {})).items
+      targetSessionId = rows.find((item) => !sessionsBefore.has(item.sessionId) && item.agentPreset === 'code')?.sessionId
+      if (!targetSessionId) await page.waitForTimeout(300)
+    }
+    if (!targetSessionId) throw new Error('created target session was not found')
+    await waitIdle(targetSessionId, 120_000)
     beat('target-paused')
     await page.waitForTimeout(2_400)
     await subtitle(page, '')

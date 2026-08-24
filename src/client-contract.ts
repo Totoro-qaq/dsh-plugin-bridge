@@ -115,12 +115,12 @@ function encodeUtf8Base64Url(text: string): string {
 }
 
 /** Build the hidden-input-safe command used by the native editor confirmation. */
-export function buildBridgeMigrationCommand(targetPreset: string, summary: string): string {
+export function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en'): string {
   if (!/^[A-Za-z0-9._-]+$/u.test(targetPreset)) throw new Error('Unsupported target preset id')
   const edited = summary.trim()
   if (!edited) throw new Error('The handoff summary is empty')
   if (edited.length > MAX_EDITED_SUMMARY_CHARS) {
     throw new Error(`The handoff summary exceeds ${MAX_EDITED_SUMMARY_CHARS} characters`)
   }
-  return `/bridge ${targetPreset} --go --summary64 ${encodeUtf8Base64Url(edited)}`
+  return `/bridge ${targetPreset} --go --lang ${lang} --summary64 ${encodeUtf8Base64Url(edited)}`
 }
