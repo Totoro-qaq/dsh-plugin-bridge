@@ -121,6 +121,8 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.match(client, /conversation\.chat\.commandview/u);
   assert.match(client, /MarkdownText/u);
   assert.match(client, /JsonTree/u);
+  assert.match(client, /["']remote["']\s*,\s*["']remote\.commands["']/u,
+    'rc.2 对父 remote face 与 commands capability 分别做注入校验');
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
