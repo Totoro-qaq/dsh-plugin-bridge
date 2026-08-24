@@ -63,6 +63,15 @@ test('CLI 仍然可用（手动 / 脚本路径），且能直接执行', () => {
   assert.ok(readFileSync(cli, 'utf8').startsWith('#!/usr/bin/env node'), 'CLI 需要 shebang 才能作为 bin 直接执行');
 });
 
+test('BridgeHost 作为独立子路径对 adapter 作者可用', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  assert.equal(manifest.exports['./host'].default, './lib/host.js');
+  const host = await import('../lib/host.js');
+  assert.equal(typeof host.createBridgeHostFromRpc, 'function');
+  assert.equal(typeof host.probeBridgeHost, 'function');
+  assert.equal(host.REQUIRED_BRIDGE_CAPABILITIES.length, 13);
+});
+
 test('Config：空配置给默认值，且与压缩核心常量一致', async () => {
   const { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } = await import('../lib/compression.js');
   const resolved = Config({});

@@ -7,8 +7,8 @@
  * 迁移——不需要端口、不需要 `DSH_WEB_URL`、不需要 bash、也不依赖模型愿不愿意
  * 帮忙调用。
  *
- * `migrate.ts` 只认注入进来的 `Rpc`，于是同一套编排在三个地方复用：
- * `/bridge` 命令（这里）、CLI（走 HTTP）、评测 harness。
+ * 本文件把这个产品表面收敛到 `BridgeHost`；迁移核心不再认识 RPC 路由名。
+ * `/bridge` 命令、CLI（走 HTTP）和评测 harness 仍复用同一套编排。
  */
 import { createBridgeHostFromRpc, type BridgeHost } from './host.ts';
 import { RpcError, type Rpc } from './rpc.ts';

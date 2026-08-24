@@ -75,8 +75,10 @@ Stored tool calls are valid only under the preset composition that produced them
 
 Model and reasoning-effort changes are separate from preset migration and may still happen within one session.
 
-## Upstream coupling
+## Adapter boundary
 
-Bridge deliberately uses a narrow host contract. `/bridge --doctor` checks thirteen required gateway methods and names missing methods after a Harness upgrade. Attachment recovery and `goal.clear` are optional enhancements and do not raise that baseline.
+Bridge's preview, safety, and migration engine depends on the typed `BridgeHost` port, not DSH RPC route names. Product/version-specific mapping is isolated in the in-process `ctx.apiProxy` and HTTP adapters. The legacy `Rpc` function remains accepted through a compatibility wrapper for the 0.2.x line.
+
+`/bridge --doctor` checks thirteen required semantic capabilities and names missing capabilities before mutation. Attachment recovery and goal clearing are optional enhancements and do not raise that baseline. Any future adapter must implement `BridgeHost` and pass the same fail-closed fixtures.
 
 The server-side slash command remains the compatibility core. A native WebUI card is feasible but would depend on prerelease client-module and slot contracts; the current decision is documented in [native-webui-feasibility.md](native-webui-feasibility.md).

@@ -135,10 +135,15 @@ const REQUIRED_ACCESSORS: Record<typeof REQUIRED_BRIDGE_CAPABILITIES[number], (h
 
 /** 只检查端口形状，不执行任何宿主操作。 */
 export function probeBridgeHost(host: BridgeHost | undefined): BridgeHostProbe[] {
-  return REQUIRED_BRIDGE_CAPABILITIES.map(method => ({
-    method,
-    available: host !== undefined && typeof REQUIRED_ACCESSORS[method](host) === 'function',
-  }));
+  return REQUIRED_BRIDGE_CAPABILITIES.map(method => {
+    let available = false;
+    try {
+      available = host !== undefined && typeof REQUIRED_ACCESSORS[method](host) === 'function';
+    } catch {
+      // 外部 adapter 可能只交出部分端口；doctor 必须报告缺失，不能自己先崩。
+    }
+    return { method, available };
+  });
 }
 
 /**

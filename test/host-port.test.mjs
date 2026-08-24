@@ -45,6 +45,14 @@ test('BridgeHost：doctor 探测的是语义能力，不依赖 apiProxy 对象�
   assert.equal(report.every((row) => row.available), true);
 });
 
+test('BridgeHost：不完整的第三方 adapter 被 doctor 报告，而不是让探测器崩溃', () => {
+  const partial = { descriptor: { id: 'partial-adapter' }, sessions: {} };
+  const report = probeBridgeHost(partial);
+
+  assert.equal(report.length, REQUIRED_BRIDGE_CAPABILITIES.length);
+  assert.equal(report.every((row) => row.available === false), true);
+});
+
 test('BridgeCommand：可以只注入 hostFor，现有命令体验保持不变', async () => {
   const fake = createFakeHost();
   const host = createBridgeHostFromRpc(fake.rpc);

@@ -219,6 +219,12 @@ function commandMetadata(lang: Lang): { description: string; hint: string } {
   };
 }
 
+function resolveCommandHost(deps: BridgeCommandDeps, signal?: AbortSignal): BridgeHost {
+  if (deps.hostFor) return deps.hostFor(signal);
+  if (deps.rpcFor) return asBridgeHost(deps.rpcFor(signal));
+  throw missingHostCapability('BridgeHost');
+}
+
 /** 建一个 `/bridge` 命令定义。返回值形状对齐上游 `CommandDefinition`。 */
 export function createBridgeCommand(deps: BridgeCommandDeps): {
   name: string;
@@ -249,9 +255,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
 
       let host: BridgeHost;
       try {
-        host = deps.hostFor?.(invocation.signal)
-          ?? (deps.rpcFor ? asBridgeHost(deps.rpcFor(invocation.signal)) : undefined)
-          ?? (() => { throw missingHostCapability('BridgeHost'); })();
+        host = resolveCommandHost(deps, invocation.signal);
       } catch (error) {
         return { kind: 'error', text: describe(error) };
       }
