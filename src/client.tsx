@@ -43,7 +43,7 @@ interface BridgeInjected {
 }
 
 interface CommandRemote {
-  execute(sessionId: SessionId, line: string): Promise<{
+  execute(sessionId: SessionId, line: string, images: readonly unknown[]): Promise<{
     ok: boolean
     value?: { result: BridgeOutcome }
     error?: { code: string; message: string }
@@ -255,7 +255,7 @@ export function apply(ctx: ClientContext): void {
     key: 'bridge',
     inject: (): BridgeInjected => ({
       execute: async (sessionId, line) => {
-        const result = await commands.execute(sessionId, line)
+        const result = await commands.execute(sessionId, line, [])
         if (!result.ok) throw new Error(`${result.error?.code ?? 'command-failed'}: ${result.error?.message ?? 'The host rejected the command.'}`)
         if (result.value === undefined) throw new Error('The /bridge command was not admitted by the host.')
         return result.value.result
