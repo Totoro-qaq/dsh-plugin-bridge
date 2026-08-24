@@ -24,6 +24,7 @@ import {
   type Lang,
   type ModelTier,
   type PresetRow,
+  type SessionRow,
 } from './migrate.ts';
 import type { MethodProbe } from './api-rpc.ts';
 import { RpcError, type Rpc } from './rpc.ts';
@@ -248,10 +249,12 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       const config = deps.config;
 
       let presets: PresetRow[];
+      let sourceSession: SessionRow | undefined;
       let current: string | undefined;
       try {
         presets = await listPresets(rpc);
-        current = (await findSession(rpc, sessionId))?.agentPreset;
+        sourceSession = await findSession(rpc, sessionId);
+        current = sourceSession?.agentPreset;
       } catch (error) {
         return { kind: 'error', text: describe(error) };
       }
@@ -334,11 +337,11 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           };
         }
         try {
-          const row = await findSession(rpc, sessionId).catch(() => undefined);
-          const sourceTitle = titleOf(row);
+          const sourceTitle = titleOf(sourceSession);
           const targetTitle = sourceTitle ? migratedTitle(sourceTitle, target) : (runLang === 'en' ? `Migrated to ${target}` : migratedTitle(sourceTitle, target));
           const result = await executeMigration(rpc, {
             sessionId,
+            sourceSession,
             to: target,
             summary,
             goalRounds: parsed.goalRounds ?? config.goalRounds,
@@ -386,6 +389,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       try {
         const preview = await previewMigration(rpc, {
           sessionId,
+          sourceSession,
           tier: parsed.tier ?? config.modelTier,
           sourceCharBudget: config.sourceCharBudget,
           summaryCharBudget: config.summaryCharBudget,

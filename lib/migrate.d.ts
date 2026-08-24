@@ -69,16 +69,18 @@ export declare function resolveWorkerModel(rpc: Rpc, sessionId: string, tier: Mo
 export declare function resolveWorkerPreset(rpc: Rpc): Promise<string | undefined>;
 export interface WaitOptions {
     timeoutMs?: number;
-    /** 等「开始跑」的宽限期；超过还没 running 就当它已经跑完了。 */
+    /** 等待新 `turn/start` 的宽限期；超过仍未出现就按未启动处理。 */
     startGraceMs?: number;
     pollMs?: number;
+    /** 只观察这个事件序号之后的新一轮；worker 新建后通常为 0。 */
+    afterSeq?: number;
 }
 /**
- * 等一个会话回到空闲。
+ * 等一个会话的新一轮写入 `turn/end`。
  *
- * 旧实现是「先 sleep 2s，再看 running 是不是 false」——host 排队稍慢一点，
- * 第一次轮询就会把「还没开始」误判成「已经跑完」，取到的是上一轮的回答。
- * 这里先等它真的 running 起来（有宽限期），再等它落回 false。
+ * `session.list` 是全局列表，拿它每两秒轮询一个 worker 会把会话总量放大成
+ * O(会话数 × 轮询次数)。`session.history` 则只读目标会话；用 prompt 前的事件
+ * 水位隔开旧轮次后，`turn/start` / `turn/end` 也比易过期的 running 快照更可靠。
  */
 export declare function waitIdle(rpc: Rpc, sessionId: string, options?: WaitOptions): Promise<{
     idle: boolean;
@@ -93,6 +95,8 @@ export declare function foldedHistory(rpc: Rpc, sessionId: string, options?: {
 export declare function lastAssistantText(rpc: Rpc, sessionId: string): Promise<string>;
 export interface PreviewOptions {
     sessionId: string;
+    /** 同一命令已经读取过的源会话行，避免重复扫描全局列表。 */
+    sourceSession?: SessionRow;
     tier?: ModelTier;
     provider?: string;
     model?: string;
@@ -125,6 +129,8 @@ export interface PreviewResult {
 export declare function previewMigration(rpc: Rpc, options: PreviewOptions): Promise<PreviewResult>;
 export interface MigrateOptions {
     sessionId: string;
+    /** 同一流程已经读取过的源会话行，避免重复扫描全局列表。 */
+    sourceSession?: SessionRow;
     to: string;
     summary: string;
     lang?: 'zh' | 'en';

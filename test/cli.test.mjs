@@ -136,6 +136,11 @@ test('run：预览 + 迁移一步到位', async (t) => {
     { DSH_API: api, DSH_SESSION_ID: host.sourceSessionId });
   assert.equal(res.code, 0, res.stderr);
   assert.equal(JSON.parse(res.stdout).agentPreset, 'standard');
+  assert.equal(
+    host.state.calls.filter((call) => call.method === 'session.list').length,
+    1,
+    'run 应在 preview 与 migrate 之间复用源会话快照',
+  );
 });
 
 test('拿不到会话 id 时给出可执行的提示，退出码 2', async (t) => {

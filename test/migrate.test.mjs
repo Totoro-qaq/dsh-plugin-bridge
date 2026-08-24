@@ -286,6 +286,25 @@ test('waitIdle：会话排队慢也不会被误判成已跑完', async () => {
   assert.equal(settled.started, true, '必须等到它真的跑起来再等它结束');
 });
 
+test('preview + execute：worker 轮询不应把 session.list 放大成全局扫描', async () => {
+  const host = createFakeHost({ replyAfterPolls: 30 });
+  const preview = await previewMigration(host.rpc, {
+    sessionId: host.sourceSessionId,
+    pollMs: 1,
+    workerTimeoutMs: 5_000,
+  });
+  await executeMigration(host.rpc, {
+    sessionId: host.sourceSessionId,
+    sourceSession: preview.sourceSession,
+    to: 'code',
+    summary: preview.summary,
+    lang: preview.lang,
+  });
+
+  const listCalls = host.state.calls.filter((call) => call.method === 'session.list');
+  assert.equal(listCalls.length, 1, '一次迁移只需读取一次源会话列表，worker 状态必须按会话查询');
+});
+
 test('档位推断不写死 provider/model', async () => {
   const host = createFakeHost();
   const pro = await resolveWorkerModel(host.rpc, host.sourceSessionId, 'pro');
