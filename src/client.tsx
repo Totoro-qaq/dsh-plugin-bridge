@@ -234,7 +234,9 @@ async function openWhenVisible(ctx: ClientContext, sessionId: SessionId): Promis
 }
 
 /** Client services are supplied by the official WebUI module table. */
-export const inject = ['slots', 'sessions', 'remote.commands']
+// rc.2 guards the parent `remote` face separately from its `remote.commands`
+// capability; older compatible builds tolerate the redundant parent seat.
+export const inject = ['slots', 'sessions', 'remote', 'remote.commands']
 
 export function apply(ctx: ClientContext): void {
   const commands = (ctx as unknown as { remote: { commands: CommandRemote } }).remote.commands
