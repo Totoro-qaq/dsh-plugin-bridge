@@ -77,6 +77,7 @@ interface ParsedInput {
     inject?: InjectMode;
     goalRounds?: number;
     file?: string;
+    summary64?: string;
     help: boolean;
     error?: string;
 }
@@ -89,6 +90,7 @@ export declare function createBridgeCommand(deps: BridgeCommandDeps): {
     input: {
         hint: string;
     };
+    recordInput: false;
     handler: (invocation: BridgeInvocation) => Promise<BridgeResult>;
 };
 export {};
