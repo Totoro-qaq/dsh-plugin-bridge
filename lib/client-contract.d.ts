@@ -30,6 +30,8 @@ export type BridgeCard = {
     text: string;
     lang: 'zh' | 'en';
 };
+/** Map the official WebUI document language onto Bridge's supported UI copy. */
+export declare function uiLanguageOf(documentLang: string | undefined): 'zh' | 'en';
 /** Convert one durable `/bridge` outcome into the native card's view model. */
 export declare function parseBridgeCard(outcome: BridgeOutcome): BridgeCard;
 /** Return a value only when the complete editor document is valid JSON. */
