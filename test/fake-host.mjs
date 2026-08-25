@@ -18,6 +18,8 @@ export function createFakeHost(options = {}) {
     failGoal = false,
     failPause = false,
     failClear = false,
+    failTargetCreateOnce = undefined,
+    failTargetPromptOnce = undefined,
     sourceImage = undefined,
     targetSupportsImages = false,
     presets = [
@@ -50,6 +52,8 @@ export function createFakeHost(options = {}) {
   const renames = [];
   const selected = [];
   const attachments = new Map();
+  let targetCreateFailures = 0;
+  let targetPromptFailures = 0;
 
   const newSession = (agentPreset, extra = {}) => {
     const sessionId = `s-${(nextId += 1)}`;
@@ -149,6 +153,10 @@ export function createFakeHost(options = {}) {
         };
       }
       case 'session.create': {
+        if (payload.agentPreset === failTargetCreateOnce && targetCreateFailures === 0) {
+          targetCreateFailures += 1;
+          fail('unreachable', `临时无法创建 ${payload.agentPreset} 会话`);
+        }
         if (payload.agentPreset && !presets.some((p) => p.id === payload.agentPreset)) {
           fail('agent-preset-not-found', `未知 preset ${payload.agentPreset}`);
         }
@@ -178,6 +186,10 @@ export function createFakeHost(options = {}) {
       }
       case 'session.prompt': {
         const session = sessions.get(payload.sessionId) ?? fail('session-not-found', '没有这个会话');
+        if (session.agentPreset === failTargetPromptOnce && targetPromptFailures === 0) {
+          targetPromptFailures += 1;
+          fail('unreachable', `临时无法确认 ${session.agentPreset} kickoff`);
+        }
         if (session !== source && payload.content.some((part) => part.type === 'image') && !targetSupportsImages) {
           fail('attachment-error', '当前模型不支持图片', { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' });
         }

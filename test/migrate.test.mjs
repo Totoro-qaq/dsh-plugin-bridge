@@ -266,6 +266,19 @@ test('migrate：空摘要被拒绝', async () => {
   );
 });
 
+test('migrate：只用 trim 判空，不改写用户编辑稿的首尾字节', async () => {
+  const host = createFakeHost();
+  const summary = ' \r\n## 目标\r\n保留结尾的两个空格。  \r\n ';
+  const result = await executeMigration(host.rpc, {
+    sessionId: host.sourceSessionId, to: 'code', summary, lang: 'zh',
+  });
+  assert.equal(host.state.goals[0].objective, summary);
+  const kickoff = host.state.calls.find(
+    (call) => call.method === 'session.prompt' && call.payload.sessionId === result.sessionId,
+  );
+  assert.ok(kickoff.payload.content[0].text.includes(summary), 'kickoff 也必须携带同一份未裁剪编辑稿');
+});
+
 test('migrate：新会话标题能看出来源', async () => {
   const host = createFakeHost();
   await host.handle('session.rename', { sessionId: host.sourceSessionId, title: '电商后端' });

@@ -45,6 +45,12 @@ function setup(hostOptions = {}, overrides = {}) {
   return { host, command, invoke, files };
 }
 
+function previewIdFrom(text) {
+  const id = /(?:Preview ID:|预览 ID：)\s*(\S+)/u.exec(text)?.[1];
+  assert.ok(id, `missing preview ID in:\n${text}`);
+  return id;
+}
+
 test('命令定义形状符合上游 CommandDefinition', () => {
   const { command } = setup();
   assert.equal(command.name, 'bridge');
@@ -159,11 +165,16 @@ test('预览过期后 --go 会被拦住', async () => {
     now: () => clock,
   });
   const invoke = (raw) => command.handler({ agent: { session: { id: host.sourceSessionId } }, rawInput: raw });
-  await invoke('code');
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
   clock += 31 * 60_000;
   const result = await invoke('code --go');
   assert.equal(result.kind, 'error');
   assert.match(result.text, /过期/);
+  const payload = Buffer.from('## 目标\n过期编辑稿', 'utf8').toString('base64url');
+  const webUiResult = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  assert.equal(webUiResult.kind, 'error');
+  assert.match(webUiResult.text, /有效预览|valid preview/i);
 });
 
 test('改过的摘要文件优先于暂存的预览', async () => {
@@ -178,26 +189,99 @@ test('改过的摘要文件优先于暂存的预览', async () => {
 
 test('WebUI 编辑后的 base64url 摘要优先于暂存预览，且不会落盘', async () => {
   const { host, invoke, files } = setup();
-  await invoke('code');
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
   const edited = '## 目标\nWebUI 人工改过：端口其实是 8118\n\n```json\n{"owner":"human"}\n```';
   const payload = Buffer.from(edited, 'utf8').toString('base64url');
-  const result = await invoke(`code --go --summary64 ${payload}`);
+  const result = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
   assert.equal(result.kind, 'success', result.text);
   assert.ok(host.state.goals[0].objective.includes('8118'), '浏览器编辑稿必须成为迁移唯一事实源');
   assert.match(result.text, /WebUI 里编辑后的预览/);
   assert.equal(files.size, 1, '确认动作不得再写一个摘要文件');
 });
 
+test('WebUI summary64 必须绑定有效预览，重复确认返回同一个目标', async () => {
+  const { host, invoke } = setup();
+  const edited = '## 目标\n用户校对后的唯一摘要';
+  const payload = Buffer.from(edited, 'utf8').toString('base64url');
+
+  const withoutPreview = await invoke(`code --go --preview-id preview-missing --summary64 ${payload}`);
+  assert.equal(withoutPreview.kind, 'error');
+  assert.match(withoutPreview.text, /预览|preview/i);
+
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
+  const first = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  const second = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  assert.equal(first.kind, 'success', first.text);
+  assert.deepEqual(second, first, '同一编辑载荷重试必须返回第一次结果');
+  assert.equal(host.state.goals.length, 1, '重复确认不得创建第二个目标 goal');
+});
+
+test('新预览不会让旧 WebUI 卡片重放成第二次迁移', async () => {
+  const { host, invoke } = setup();
+  const edited = '## 目标\n旧卡片只允许指向第一次迁移';
+  const payload = Buffer.from(edited, 'utf8').toString('base64url');
+  const firstPreview = await invoke('code');
+  const firstPreviewId = previewIdFrom(firstPreview.text);
+  const first = await invoke(`code --go --preview-id ${firstPreviewId} --summary64 ${payload}`);
+  assert.equal(first.kind, 'success', first.text);
+
+  const secondPreview = await invoke('code');
+  const secondPreviewId = previewIdFrom(secondPreview.text);
+  assert.notEqual(secondPreviewId, firstPreviewId);
+  const replay = await invoke(`code --go --preview-id ${firstPreviewId} --summary64 ${payload}`);
+  assert.deepEqual(replay, first, '旧卡片只能取回它自己的已完成结果');
+  assert.equal(host.state.goals.length, 1, '生成新预览后重放旧卡片也不能新建第二个 goal');
+});
+
+test('目标 session.create 暂时失败后可重试同一份 WebUI 编辑稿', async () => {
+  const { host, invoke } = setup({ failTargetCreateOnce: 'code' });
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
+  const edited = '## 目标\n失败后仍保留这份人工校对稿';
+  const payload = Buffer.from(edited, 'utf8').toString('base64url');
+
+  const failed = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  assert.equal(failed.kind, 'error');
+  assert.match(failed.text, /session\.create|临时无法创建/u);
+
+  const retried = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  assert.equal(retried.kind, 'success', retried.text);
+  assert.equal(host.state.goals.length, 1);
+});
+
+test('目标 kickoff 失败时返回并缓存同一个部分目标，不允许重试建第二个会话', async () => {
+  const { host, invoke } = setup({ failTargetPromptOnce: 'code' });
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
+  const edited = '## 目标\n目标建好后即使 kickoff 失败也不能重复创建';
+  const payload = Buffer.from(edited, 'utf8').toString('base64url');
+
+  const first = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  assert.equal(first.kind, 'success', first.text);
+  assert.match(first.text, /目标会话：.+ · s-/u);
+  assert.match(first.text, /没有自动启动/u);
+  assert.match(first.text, /kickoff 是否送达无法确认/u);
+  assert.equal(host.state.goals.length, 1);
+  assert.equal(host.state.pausedGoals.length, 1);
+
+  const second = await invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  assert.deepEqual(second, first, '重复确认必须返回同一个可导航的部分目标');
+  assert.equal(host.state.goals.length, 1, 'kickoff 失败后的重试不得创建第二个目标');
+});
+
 test('WebUI 摘要载荷损坏或过大时 fail closed', async () => {
   const { invoke } = setup();
-  await invoke('code');
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
 
-  const malformed = await invoke('code --go --summary64 !!!');
+  const malformed = await invoke(`code --go --preview-id ${previewId} --summary64 !!!`);
   assert.equal(malformed.kind, 'error');
   assert.match(malformed.text, /摘要载荷/);
 
   const oversized = Buffer.from('x'.repeat(24_001), 'utf8').toString('base64url');
-  const tooLarge = await invoke(`code --go --summary64 ${oversized}`);
+  const tooLarge = await invoke(`code --go --preview-id ${previewId} --summary64 ${oversized}`);
   assert.equal(tooLarge.kind, 'error');
   assert.match(tooLarge.text, /过长/);
 });
@@ -259,7 +343,9 @@ test('参数解析', () => {
   assert.equal(parseBridgeInput('code --go').go, true);
   assert.equal(parseBridgeInput('code --go --continue').autoContinue, true);
   assert.equal(parseBridgeInput('code --tier=flash').tier, 'flash');
-  assert.equal(parseBridgeInput('code --go --summary64 eyJvayI6dHJ1ZX0').summary64, 'eyJvayI6dHJ1ZX0');
+  const webUi = parseBridgeInput('code --go --preview-id preview-12345678 --summary64 eyJvayI6dHJ1ZX0');
+  assert.equal(webUi.previewId, 'preview-12345678');
+  assert.equal(webUi.summary64, 'eyJvayI6dHJ1ZX0');
   assert.equal(parseBridgeInput('  code   --goal-rounds 3 ').goalRounds, 3);
   assert.match(parseBridgeInput('code --nope').error, /不认识的参数/);
   assert.match(parseBridgeInput('code extra').error, /多余的参数/);

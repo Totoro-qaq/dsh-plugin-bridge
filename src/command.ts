@@ -13,6 +13,8 @@
  * through the command registry (mode-agnostic) and it is never sent to the
  * model.」——所以在官方 WebUI 的输入框里打 `/bridge code` 就能用。
  */
+import { randomUUID } from 'node:crypto';
+
 import {
   executeMigration,
   findSession,
@@ -76,11 +78,20 @@ export interface BridgeCommandDeps {
 
 /** 预览与执行之间暂存的摘要。 */
 interface Pending {
+  id: string;
   preset: string;
   summary: string;
   lang: 'zh' | 'en';
   file?: string;
   at: number;
+}
+
+interface CompletedWebUiConfirmation {
+  previewId: string;
+  preset: string;
+  payload: string;
+  at: number;
+  result: BridgeResult;
 }
 
 /** 暂存有效期：超过就要求重新预览，免得拿一份很旧的摘要迁过去。 */
@@ -97,6 +108,7 @@ interface ParsedInput {
   goalRounds?: number;
   file?: string;
   summary64?: string;
+  previewId?: string;
   help: boolean;
   error?: string;
 }
@@ -163,6 +175,12 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
         const value = take();
         if (!value) return { ...out, error: '--summary64 需要 WebUI 生成的摘要载荷' };
         out.summary64 = value;
+        break;
+      }
+      case 'preview-id': {
+        const value = take();
+        if (!value || !/^[A-Za-z0-9-]{8,}$/u.test(value)) return { ...out, error: '--preview-id 无效' };
+        out.previewId = value;
         break;
       }
       default:
@@ -242,6 +260,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   handler: (invocation: BridgeInvocation) => Promise<BridgeResult>;
 } {
   const pending = new Map<string, Pending>();
+  const completedWebUi = new Map<string, CompletedWebUiConfirmation>();
+  const inFlightWebUi = new Set<string>();
   const now = deps.now ?? (() => Date.now());
   const metadata = commandMetadata(deps.config.lang);
 
@@ -338,7 +358,32 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       if (parsed.go) {
         let summary: string | undefined;
         let pendingLang: DisplayLang | undefined;
+        let webUiConfirmationKey: string | undefined;
+        let consumedPending: Pending | undefined;
+        const stashed = pending.get(sessionId);
+        const validStashed = stashed && stashed.preset === target && now() - stashed.at < PENDING_TTL_MS
+          ? stashed
+          : undefined;
         if (parsed.summary64) {
+          if (!parsed.previewId) {
+            return { kind: 'error', text: initialLang === 'en' ? 'The WebUI handoff has no preview ID; generate a new preview.' : 'WebUI 编辑稿缺少预览 ID，请重新生成预览。' };
+          }
+          webUiConfirmationKey = `${sessionId}:${parsed.previewId}`;
+          const completed = completedWebUi.get(webUiConfirmationKey);
+          if (completed && completed.preset === target && completed.previewId === parsed.previewId
+            && completed.payload === parsed.summary64 && now() - completed.at < PENDING_TTL_MS) return completed.result;
+          if (inFlightWebUi.has(webUiConfirmationKey)) {
+            return { kind: 'error', text: initialLang === 'en' ? 'This WebUI confirmation is already running.' : '这次 WebUI 确认正在执行，请勿重复提交。' };
+          }
+          if (!validStashed || validStashed.id !== parsed.previewId) {
+            return {
+              kind: 'error',
+              text: initialLang === 'en'
+                ? `No valid preview is bound to this WebUI edit. Run /bridge ${target} again, review it, then confirm.`
+                : `这份 WebUI 编辑稿没有绑定有效预览。请重新运行 /bridge ${target}，校对后再确认。`,
+            };
+          }
+          pendingLang = validStashed.lang;
           try {
             if (!/^[A-Za-z0-9_-]+$/u.test(parsed.summary64)) throw new Error('invalid base64url');
             summary = Buffer.from(parsed.summary64, 'base64url').toString('utf8');
@@ -358,6 +403,10 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               text: initialLang === 'en' ? 'The edited WebUI handoff payload is invalid.' : 'WebUI 编辑后的摘要载荷无效。',
             };
           }
+          // Consume before the first await below so concurrent confirmations cannot create duplicates.
+          consumedPending = validStashed;
+          pending.delete(sessionId);
+          inFlightWebUi.add(webUiConfirmationKey);
         } else if (parsed.file) {
           try {
             summary = deps.readSummary?.(parsed.file);
@@ -365,10 +414,9 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             return { kind: 'error', text: initialLang === 'en' ? `Cannot read ${parsed.file}: ${describe(error)}` : `读不到 ${parsed.file}：${describe(error)}` };
           }
         } else {
-          const stashed = pending.get(sessionId);
-          if (stashed && stashed.preset === target && now() - stashed.at < PENDING_TTL_MS) {
-            summary = stashed.summary;
-            pendingLang = stashed.lang;
+          if (validStashed) {
+            summary = validStashed.summary;
+            pendingLang = validStashed.lang;
           }
         }
         const runLang = parsed.lang === 'en' || parsed.lang === 'zh' ? parsed.lang : pendingLang ?? initialLang;
@@ -397,7 +445,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             autoContinue: parsed.autoContinue,
             lang: runLang,
           });
-          pending.delete(sessionId);
+          if (validStashed && pending.get(sessionId)?.id === validStashed.id) pending.delete(sessionId);
           const lines = runLang === 'en'
             ? [
                 `Created a new session in the ${result.agentPreset} preset from ${source}.`,
@@ -425,8 +473,23 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               : `图片：${result.imagesSent} 张尚未解析的原图已随 kickoff 搬到视觉目标。`);
           }
           for (const warning of result.warnings) lines.push(`⚠ ${warning}`);
-          return { kind: 'success', text: lines.join('\n') };
+          const commandResult: BridgeResult = { kind: 'success', text: lines.join('\n') };
+          if (parsed.summary64 && parsed.previewId && webUiConfirmationKey) {
+            completedWebUi.set(webUiConfirmationKey, {
+              previewId: parsed.previewId,
+              preset: target,
+              payload: parsed.summary64,
+              at: now(),
+              result: commandResult,
+            });
+            inFlightWebUi.delete(webUiConfirmationKey);
+          }
+          return commandResult;
         } catch (error) {
+          if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
+          if (consumedPending && error instanceof RpcError && error.method === 'session.create' && !pending.has(sessionId)) {
+            pending.set(sessionId, consumedPending);
+          }
           return { kind: 'error', text: describe(error) };
         }
       }
@@ -446,8 +509,19 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           ...(config.workerProvider ? { provider: config.workerProvider } : {}),
           ...(config.workerModel ? { model: config.workerModel } : {}),
         });
+        const previewId = randomUUID();
         const file = deps.writeSummary?.(sessionId, preview.summary);
-        pending.set(sessionId, { preset: target, summary: preview.summary, lang: preview.lang, at: now(), ...(file ? { file } : {}) });
+        pending.set(sessionId, {
+          id: previewId,
+          preset: target,
+          summary: preview.summary,
+          lang: preview.lang,
+          at: now(),
+          ...(file ? { file } : {}),
+        });
+        for (const [key, completed] of completedWebUi) {
+          if (now() - completed.at >= PENDING_TTL_MS) completedWebUi.delete(key);
+        }
 
         const s = preview.source;
         const outputLang = preview.lang;
@@ -459,6 +533,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               `Source ${s.text.length} chars · user messages ${s.userMessagesUsed}/${s.userMessagesTotal}`
               + `${s.reusedCompaction ? ' · reused compaction' : ''}`
               + ` · worker ${preview.worker.model || '(session default)'} · ${Math.round((now() - startedAt) / 1000)}s`,
+              `Preview ID: ${previewId}`,
             ]
           : [
               `─── 交接摘要 · ${current ?? '当前模式'} → ${target}（请过目，重点看数字与路径）───`,
@@ -467,6 +542,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               `取材 ${s.text.length} 字符 · 用户消息 ${s.userMessagesUsed}/${s.userMessagesTotal} 条`
               + `${s.reusedCompaction ? ' · 复用了 compaction 底稿' : ''}`
               + ` · 压缩模型 ${preview.worker.model || '（会话默认）'} · 用时 ${Math.round((now() - startedAt) / 1000)}s`,
+              `预览 ID：${previewId}`,
             ];
         if (s.visualEvidence.images) {
           lines.push(outputLang === 'en'
