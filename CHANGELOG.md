@@ -8,6 +8,7 @@
 
 - 同一个包新增可选 `dsh.client` half，在官方 `conversation.chat.commandview` slot 中渲染 `/bridge`。
 - 预览执行期间立即显示经过时间；完成后使用官方 `MarkdownText`，完整 JSON 使用 `JsonTree`。
+- 生成中卡片跟随官方 WebUI 的文档语言；英文界面不再混入中文，中文界面也不再混入英文。
 - 用户可以在卡片内编辑摘要；确认时将有界 base64url 载荷交回服务端命令，载荷不写进持久会话日志。
 - 目标创建后通过官方 Session runtime 自动打开；旧客户端继续使用完整服务端文本、文件编辑与标题/ID 回退。
 - 隔离的官方 DSH `0.1.1-rc.2` 三次真实重复验收中，预览与目标复述均保留 5/5 固定事实；worker 用时 7.4–12.8 秒。

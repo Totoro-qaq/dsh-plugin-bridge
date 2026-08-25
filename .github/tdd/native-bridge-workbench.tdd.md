@@ -19,6 +19,7 @@ No plan file was supplied. The journeys came from the requested product scope:
 | rc.2 parent Remote guard | `9c9991d`: installed official WebUI failed with `cannot get property "remote" without inject` | `cd9cf6b`: both `remote` and `remote.commands` are declared; installed WebUI loaded |
 | rc.2 command wire | `2e45901`: generated command Remote requires the image-array argument | `354013c`: native confirmation sends an explicit empty image batch |
 | Running-state language | `2c6aa56`: private command input means `--lang` is unavailable before settlement | `ba7f501`: progress copy is short bilingual text; settled cards still follow the summary language |
+| WebUI-locale running copy | `d3f5088`: unit and bundle assertions reject mixed running copy and require `en` / `zh-*` document-language mapping | `43ded74`: the running card reads the official `<html lang>` and renders one language only |
 | Persisted-preview confirmation language | `7e804ee`: confirmation omitted `--lang`, so an English persisted preview could produce a Chinese kickoff after restart | `4208b11`: the edited confirmation command carries the card's explicit language |
 | Untrusted command-output parsing | GitHub CodeQL check `97607559158`: two high-severity polynomial-regex alerts in preview/target parsing | Replaced both patterns with bounded `startsWith` / `indexOf` / `slice` scans and added a 120K-character adversarial regression fixture |
 
@@ -33,14 +34,14 @@ No plan file was supplied. The journeys came from the requested product scope:
 | Edited WebUI text becomes the goal's exact source of truth and is not written as command input | `test/command.test.mjs` | PASS |
 | Package manifest, optional client graph, module-table wrapper, official primitives, parent Remote guard, and image wire are present | `test/load.test.mjs` | PASS |
 | Built tarball contains both halves and the native acceptance report, installs, and imports | `npm run package:smoke` | PASS, 41 packed files |
-| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 141/141 |
+| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 142/142 |
 
 ## Installed official-WebUI evidence
 
 An isolated `@deepseek-ai/dsh@0.1.1-rc.2` profile loaded the locally packed tarball and exercised the real browser module graph.
 
 - `/bridge --doctor`: 13/13.
-- Immediate running card: visible with elapsed time and source-untouched copy.
+- Immediate running card: visible with elapsed time and source-untouched copy, following the WebUI document language.
 - Markdown: rendered with the official primitive.
 - JSON: complete document rendered as the official expandable tree.
 - Editing: `8118（用户在 WebUI 校对）` appeared exactly in the target goal and first target response.
@@ -48,13 +49,13 @@ An isolated `@deepseek-ai/dsh@0.1.1-rc.2` profile loaded the locally packed tarb
 - Safety: target goal visibly paused; source remained selectable and unchanged.
 - Repeat gate: three fixed real-model runs preserved 5/5 facts in preview and 5/5 in the target; worker time 7.421–12.846 seconds.
 - Responsive check at 430×900: document `scrollWidth` equaled 430; card width 302 and editor width 272, with all controls reachable.
-- Bilingual demo recording followed Discover → Rehearse → Record; both final GIFs were reviewed at progress, edit, confirm, target-open, and target-restated frames.
+- English and Chinese demo recordings followed Discover → Rehearse → Record; both final GIFs were reviewed at progress, edit, confirm, target-open, and target-restated frames.
 
 Detailed counters: [`reports/native-workbench-2026-08-25.md`](../../reports/native-workbench-2026-08-25.md).
 
 ## Coverage and known gaps
 
-`node --experimental-strip-types --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test test/*.test.mjs` passed with 93.72% lines, 75.66% branches, and 87.32% functions.
+`node --experimental-strip-types --experimental-test-coverage --test-coverage-include='src/**/*.ts' --test test/*.test.mjs` passed with 93.92% lines, 77.08% branches, and 88.04% functions.
 
 - Branch coverage remains below 80% because legacy CLI/display and adapter error branches are integration-only; this pre-existing repository-wide gap is not hidden.
 - `src/client.tsx` is a browser-only React entry and is not executed by Node's coverage collector. Its user-visible branches were exercised in the installed official WebUI at wide and narrow sizes.
