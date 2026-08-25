@@ -273,6 +273,7 @@ test('nested lists and every supported Markdown block family fail closed to the 
   const invalid = [
     EN_SUMMARY.replace('- Preserve the source session', '- Preserve the source session\n  - nested decision'),
     EN_SUMMARY.replace('Routes and tests exist.', 'Routes exist.\n<!-- hidden -->'),
+    EN_SUMMARY.replace('Routes and tests exist.', 'Routes exist.\n--!>'),
     EN_SUMMARY.replace('Run the complete verification.', '> quoted next step'),
     EN_SUMMARY.replace('Run the complete verification.', '<?processing instruction?>'),
     EN_SUMMARY.replace('Run the complete verification.', '---'),
@@ -340,6 +341,13 @@ test('card parser stays linear on adversarial host output', () => {
   assert.equal(parseBridgeCard({ kind: 'success', text: hostilePreview }).phase, 'message');
   assert.equal(parseBridgeCard({ kind: 'success', text: `已在 code 模式下建好新会话\n${hostileTarget}` }).phase, 'message');
   assert.ok(performance.now() - started < 250, '超长宿主输出必须在线性时间内被拒绝');
+});
+
+test('text projection heading scan stays linear on adversarial whitespace', () => {
+  const hostile = `##\t${'\t'.repeat(80_000)}x\n${EN_SUMMARY}`;
+  const started = performance.now();
+  assert.equal(parseBridgeTextProjection(hostile), undefined);
+  assert.ok(performance.now() - started < 250, 'heading parsing must not backtrack over host-controlled whitespace');
 });
 
 test('running card follows the official WebUI document language', () => {

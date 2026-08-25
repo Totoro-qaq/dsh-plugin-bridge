@@ -41,7 +41,7 @@ No plan file was supplied. The journeys came from the requested product scope:
 | Edited WebUI text becomes the goal's exact source of truth and is not written as command input | `test/command.test.mjs` | PASS |
 | Package manifest, optional client graph, module-table wrapper, official primitives, parent Remote guard, and image wire are present | `test/load.test.mjs` | PASS |
 | Built tarball contains both halves and the native acceptance report, installs, and imports | `npm run package:smoke` | PASS, 41 packed files |
-| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 159/159 |
+| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 160/160 |
 
 ## Installed official-WebUI evidence
 

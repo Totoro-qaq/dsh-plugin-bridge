@@ -144,8 +144,14 @@ function markdownHeadings(markdown: string, lineEnding: '\n' | '\r\n'): Markdown
       fence = { marker: token[0] as '`' | '~', length: token.length }
       continue
     }
-    const heading = /^##[\t ]+(.+?)[\t ]*$/u.exec(line.text)
-    if (heading?.[1]) headings.push({ label: heading[1], start: line.start, lineEnd: line.end })
+    if (!line.text.startsWith('##')) continue
+    const rest = line.text.slice(2)
+    if (rest[0] !== ' ' && rest[0] !== '\t') continue
+    let labelStart = 0
+    while (labelStart < rest.length && (rest[labelStart] === ' ' || rest[labelStart] === '\t')) labelStart += 1
+    let labelEnd = rest.length
+    while (labelEnd > labelStart && (rest[labelEnd - 1] === ' ' || rest[labelEnd - 1] === '\t')) labelEnd -= 1
+    if (labelEnd > labelStart) headings.push({ label: rest.slice(labelStart, labelEnd), start: line.start, lineEnd: line.end })
   }
   return fence ? undefined : headings
 }
@@ -170,7 +176,9 @@ function hasUnsafeBlock(line: string): boolean {
     || TABLE_DELIMITER.test(line)
     || LINK_DEFINITION.test(line)
     || /^(?: {4}|\t)/u.test(line)
-    || /<!--|-->/u.test(line)
+    || line.includes('<!--')
+    || line.includes('-->')
+    || line.includes('--!>')
     || HTML_BLOCK_START.test(line)
 }
 
@@ -287,7 +295,7 @@ export function parseBridgeTextProjection(markdown: string): BridgeTextProjectio
 
   const firstAppendix = appendixIndex < 0 ? undefined : headings[appendixIndex]
   const editableMarkdown = markdown.slice(0, firstAppendix?.start ?? markdown.length)
-  if (/<!--|-->/u.test(editableMarkdown)) return undefined
+  if (editableMarkdown.includes('<!--') || editableMarkdown.includes('-->') || editableMarkdown.includes('--!>')) return undefined
   const sections: BridgeTextSection[] = []
   for (const [index, heading] of schemaHeadings.entries()) {
     const [key, label, kind] = TEXT_SCHEMAS[lang][index] as typeof TEXT_SCHEMAS[typeof lang][number]
