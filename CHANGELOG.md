@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.0 — 2026-08-26
+
 ### 官方 WebUI 原生迁移卡片
 
 - 同一个包新增可选 `dsh.client` half，在官方 `conversation.chat.commandview` slot 中渲染 `/bridge`。
