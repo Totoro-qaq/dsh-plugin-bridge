@@ -67,6 +67,11 @@ function languageOf(text: string): 'zh' | 'en' {
   return /[\u3400-\u9fff]/u.test(text) ? 'zh' : 'en'
 }
 
+/** Map the official WebUI document language onto Bridge's supported UI copy. */
+export function uiLanguageOf(documentLang: string | undefined): 'zh' | 'en' {
+  return documentLang?.toLowerCase().startsWith('zh') === true ? 'zh' : 'en'
+}
+
 function parsePreview(text: string): BridgeCard | undefined {
   const lines = text.split('\n')
   const header = previewHeaderOf(lines[0] ?? '')

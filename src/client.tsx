@@ -11,6 +11,7 @@ import {
   buildBridgeMigrationCommand,
   parseBridgeCard,
   parseJsonDocument,
+  uiLanguageOf,
   type BridgeCard,
   type BridgeOutcome,
 } from './client-contract.ts'
@@ -76,6 +77,8 @@ function Header({ lang, route }: { lang: 'zh' | 'en'; route?: string }) {
 }
 
 function RunningCard() {
+  const lang = uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
+  const copy = COPY[lang]
   const [seconds, setSeconds] = useState(0)
   useEffect(() => {
     const started = Date.now()
@@ -83,13 +86,10 @@ function RunningCard() {
     return () => { window.clearInterval(timer) }
   }, [])
   return <div className="dsh-bridge-card" aria-live="polite">
-    <div className="dsh-bridge-head">
-      <span className="dsh-bridge-mark" aria-hidden>B</span>
-      <span className="dsh-bridge-title">Bridge · 会话迁移</span>
-    </div>
+    <Header lang={lang} />
     <div className="dsh-bridge-body">
-      <div className="dsh-bridge-copy">Preparing editable handoff · 正在生成可编辑交接 · {seconds}s</div>
-      <div className="dsh-bridge-status">Source stays untouched · 原会话保持不动</div>
+      <div className="dsh-bridge-copy">{copy.preparing} · {seconds}s</div>
+      <div className="dsh-bridge-status">{copy.safe}</div>
       <div className="dsh-bridge-progress" aria-hidden />
     </div>
   </div>
