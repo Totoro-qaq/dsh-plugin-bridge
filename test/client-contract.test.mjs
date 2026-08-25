@@ -5,6 +5,7 @@ import {
   buildBridgeMigrationCommand,
   parseBridgeCard,
   parseJsonDocument,
+  uiLanguageOf,
 } from '../src/client-contract.ts';
 
 const ZH_PREVIEW = `─── 交接摘要 · minimal → code（请过目，重点看数字与路径）───
@@ -93,4 +94,13 @@ test('card parser stays linear on adversarial host output', () => {
   assert.equal(parseBridgeCard({ kind: 'success', text: hostilePreview }).phase, 'message');
   assert.equal(parseBridgeCard({ kind: 'success', text: `已在 code 模式下建好新会话\n${hostileTarget}` }).phase, 'message');
   assert.ok(performance.now() - started < 250, '超长宿主输出必须在线性时间内被拒绝');
+});
+
+test('running card follows the official WebUI document language', () => {
+  assert.equal(uiLanguageOf('en'), 'en');
+  assert.equal(uiLanguageOf('en-US'), 'en');
+  assert.equal(uiLanguageOf('zh-CN'), 'zh');
+  assert.equal(uiLanguageOf('zh-Hans'), 'zh');
+  assert.equal(uiLanguageOf(''), 'en');
+  assert.equal(uiLanguageOf(undefined), 'en');
 });

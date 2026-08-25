@@ -125,8 +125,9 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
     'rc.2 对父 remote face 与 commands capability 分别做注入校验');
   assert.match(client, /commands\.execute\(sessionId,\s*line,\s*\[\]\)/u,
     'rc.2 的 command.execute wire contract 要求显式传空图片数组');
-  assert.match(client, /Preparing editable handoff · 正在生成可编辑交接/u,
-    '执行中拿不到未记录的 --lang 参数，进度文案必须对中英文用户都可读');
+  assert.match(client, /document\.documentElement\.lang/u,
+    '执行中应读取官方 WebUI 文档语言，而不是把中英文硬拼在一起');
+  assert.doesNotMatch(client, /Preparing editable handoff · 正在生成可编辑交接/u);
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
