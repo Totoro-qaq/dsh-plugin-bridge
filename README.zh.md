@@ -47,7 +47,9 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.2.11
 /bridge code --go --continue  在同一次目标请求里复述并开始工作
 ```
 
-DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`：Markdown 和完整 JSON 都能直接读，点「编辑」修改准确交接，点「确认迁移」后自动打开目标会话。服务端命令仍是回退；旧客户端可修改输出里打印的摘要文件，再执行：
+DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本编辑」把固定五段变成普通文本框和逐条列表；「Markdown」保留完整源码自由；「预览」渲染 Markdown 或完整 JSON 树。长内容只在卡片正文内滚动，操作按钮保持可达；点「确认迁移」后自动打开目标会话。
+
+实现官方 `conversation.chat.commandview` slot 的第三方 UI 会自动得到同一张卡片。其他自定义 UI 仍保留完整服务端结果、摘要文件流程和目标标题/session ID 回退；UI 作者还可以复用无 React 的 `dsh-plugin-bridge/client-contract` 导出，而无需重写协议。旧客户端可修改输出里打印的摘要文件，再执行：
 
 ```text
 /bridge code --go --file <路径>
@@ -140,7 +142,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 142 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 159 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
