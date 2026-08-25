@@ -7,8 +7,8 @@ interface BridgeInjected {
     readonly openSession: (sessionId: SessionId) => Promise<void>;
 }
 type BridgeCommandCardProps = PropsRuntime<'conversation.chat.commandview'> & BridgeInjected;
-/** Rich renderer for the durable command lifecycle keyed by command name. */
-export declare function BridgeCommandCard({ node, execute, openSession, sessionId }: BridgeCommandCardProps): import("react").JSX.Element;
+/** Rich renderer for the durable command lifecycle keyed by name and isolated from every other plugin. */
+export declare function BridgeCommandCard(props: BridgeCommandCardProps): import("react").JSX.Element;
 /** Client services are supplied by the official WebUI module table. */
 export declare const inject: string[];
 export declare function apply(ctx: ClientContext): void;

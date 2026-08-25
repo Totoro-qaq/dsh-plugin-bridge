@@ -141,6 +141,10 @@
       "types": "./lib/client.d.ts",
       "default": "./lib/client.js"
     },
+    "./client-contract": {
+      "types": "./lib/client-contract.d.ts",
+      "default": "./lib/client-contract.js"
+    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   }

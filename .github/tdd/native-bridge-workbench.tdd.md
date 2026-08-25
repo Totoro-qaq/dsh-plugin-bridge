@@ -9,6 +9,8 @@ No plan file was supplied. The journeys came from the requested product scope:
 3. As a Bridge user, I land in the created target session after confirmation while the source remains untouched and the target goal remains paused.
 4. As a maintainer, I have repeated installed-WebUI release evidence and regenerated demos/docs that describe the current behavior.
 5. As an older-client user, the server command, file editor, title, and session-ID fallback remain complete when the optional client half is unavailable.
+6. As a non-developer, I edit ordinary five-section text and list rows without Markdown syntax; as a developer, I can still switch to exact Markdown source.
+7. As a custom-UI user, Bridge either occupies the compatible keyed slot, exposes a reusable React-free contract, or falls back to complete server text without blocking other plugins.
 
 ## RED → GREEN evidence
 
@@ -22,6 +24,9 @@ No plan file was supplied. The journeys came from the requested product scope:
 | WebUI-locale running copy | `d3f5088`: unit and bundle assertions reject mixed running copy and require `en` / `zh-*` document-language mapping | `43ded74`: the running card reads the official `<html lang>` and renders one language only |
 | Persisted-preview confirmation language | `7e804ee`: confirmation omitted `--lang`, so an English persisted preview could produce a Chinese kickoff after restart | `4208b11`: the edited confirmation command carries the card's explicit language |
 | Untrusted command-output parsing | GitHub CodeQL check `97607559158`: two high-severity polynomial-regex alerts in preview/target parsing | Replaced both patterns with bounded `startsWith` / `indexOf` / `slice` scans and added a 120K-character adversarial regression fixture |
+| Plain-text five-section editor | New contract tests failed because no strict bilingual projection or one-section replacement existed | `parseBridgeTextProjection` and `replaceBridgeTextSection` now preserve unedited bytes, CRLF, appendices, fenced pseudo-headings, and exact summary64 input |
+| Long-form native interaction | Installed WebUI exposed split wrapped list items, a disappearing blank “Add item” row, and white Bridge cards in dark mode | Wrapped continuations stay one item; blank rows remain local until typed; the panel scrolls independently; `light-dark()` fallbacks follow the official page color scheme |
+| Preview-bound WebUI confirmation | Focused test proved a valid `summary64` could run without a preview and repeated confirmation could create another target | WebUI edits now require an unexpired pending preview; the pending entry is consumed before migration and a same-payload retry returns the first result |
 
 ## Automated guarantees
 
@@ -30,11 +35,13 @@ No plan file was supplied. The journeys came from the requested product scope:
 | Chinese/English preview parsing removes transport chrome while retaining exact summary text, route, warnings, and stats | `test/client-contract.test.mjs` | PASS |
 | Complete JSON is claimed by the JSON renderer; Markdown containing a JSON fence is not misclassified | `test/client-contract.test.mjs` | PASS |
 | Edited summaries are bounded, base64url-safe, language-preserving, and contain no shell quoting | `test/client-contract.test.mjs` | PASS |
+| Strict Chinese/English five-section text projection fails closed on unknown structure and edits only one original body span | `test/client-contract.test.mjs` | PASS |
+| Migration emptiness checks preserve the exact user-edited summary bytes in goal and kickoff | `test/migrate.test.mjs` | PASS |
 | Invalid or oversized WebUI payloads create no target and fail closed | `test/command.test.mjs` | PASS |
 | Edited WebUI text becomes the goal's exact source of truth and is not written as command input | `test/command.test.mjs` | PASS |
 | Package manifest, optional client graph, module-table wrapper, official primitives, parent Remote guard, and image wire are present | `test/load.test.mjs` | PASS |
 | Built tarball contains both halves and the native acceptance report, installs, and imports | `npm run package:smoke` | PASS, 41 packed files |
-| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 142/142 |
+| Full fake-host, CLI, contract, package, and dataset gate | `npm run verify` | PASS, 160/160 |
 
 ## Installed official-WebUI evidence
 
@@ -45,11 +52,18 @@ An isolated `@deepseek-ai/dsh@0.1.1-rc.2` profile loaded the locally packed tarb
 - Markdown: rendered with the official primitive.
 - JSON: complete document rendered as the official expandable tree.
 - Editing: `8118（用户在 WebUI 校对）` appeared exactly in the target goal and first target response.
+- Three-mode editing: Preview/Text/Markdown switched bidirectionally; custom Markdown failed closed without losing the draft; list rows added and removed without creating empty bullets.
+- Long content: the 401px card panel had 805px of content with `overflow: auto`; scrolling it left Copy/Confirm visible outside the panel.
+- Responsive layout: at 375px and 768px the document had no horizontal overflow; narrow action buttons shared the available width and remained reachable.
+- Dark mode: official `color-scheme: dark` is honored even when prerelease `--dsw-*` theme tokens are absent.
+- Exactness: a paid Chinese migration put the reviewed string byte-for-byte into the paused target goal (`roundsStarted: 0`).
+- Coexistence: the isolated official profile loaded Bridge beside the standard conversation, tool, goal, settings, and session plugins; no Bridge-specific console error was emitted.
 - Navigation: target selected automatically after confirmation.
 - Safety: target goal visibly paused; source remained selectable and unchanged.
 - Repeat gate: three fixed real-model runs preserved 5/5 facts in preview and 5/5 in the target; worker time 7.421–12.846 seconds.
 - Responsive check at 430×900: document `scrollWidth` equaled 430; card width 302 and editor width 272, with all controls reachable.
-- English and Chinese demo recordings followed Discover → Rehearse → Record; both final GIFs were reviewed at progress, edit, confirm, target-open, and target-restated frames.
+- English and Chinese demo recordings followed Discover → Rehearse → Record; both final GIFs were reviewed at progress, Text edit, Markdown source, Preview, confirm, target-open, and target-restated frames.
+- Final GIF delivery: 880×550 at 10 FPS; English 27.9s / 2.8MB, Chinese 30.1s / 2.9MB. Only waiting animations are continuously accelerated; interactive motion stays real-time and no discontinuous frame splice is used.
 
 Detailed counters: [`reports/native-workbench-2026-08-25.md`](../../reports/native-workbench-2026-08-25.md).
 

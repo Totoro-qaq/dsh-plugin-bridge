@@ -47,7 +47,9 @@ Then type in the official WebUI:
 /bridge code --go --continue  restate and start work in the same target request
 ```
 
-On DSH rc.7 and later, the official WebUI renders `/bridge` as a native card: Markdown and complete JSON documents are readable, **Edit** changes the exact handoff, and **Confirm migration** opens the created target session. The server command remains the fallback; on older clients, correct the printed summary file and run:
+On DSH rc.7 and later, the official WebUI renders `/bridge` as a native card. **Text** exposes the fixed five sections as ordinary fields and list rows; **Markdown** preserves full source freedom; **Preview** renders Markdown or a complete JSON tree. Long content scrolls inside the card while the action bar stays reachable. **Confirm migration** opens the created target session.
+
+UIs that implement the official `conversation.chat.commandview` slot receive the same card automatically. Other custom UIs retain the complete server result, summary-file workflow, and target title/session-ID fallback; UI authors can reuse the framework-free `dsh-plugin-bridge/client-contract` export instead of reimplementing the wire. On an older or non-slot client, correct the printed summary file and run:
 
 ```text
 /bridge code --go --file <path>
@@ -140,7 +142,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 142 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 160 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

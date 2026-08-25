@@ -115,12 +115,22 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.equal(manifest.dsh?.client?.platform, 'web');
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-conversation'));
   assert.equal(manifest.exports['./client'].default, './lib/client.js');
+  assert.deepEqual(manifest.exports['./client-contract'], {
+    types: './lib/client-contract.d.ts',
+    default: './lib/client-contract.js',
+  }, '自研 UI 应能复用无 React 的 Bridge 编辑 contract');
 
   const client = await readFile(join(packageRoot, 'lib', 'client.js'), 'utf8');
   assert.match(client, /window\.__ModuleLoader__\.load\(\{\s*id:\s*["']dsh-plugin-bridge["']/u);
   assert.match(client, /conversation\.chat\.commandview/u);
   assert.match(client, /MarkdownText/u);
   assert.match(client, /JsonTree/u);
+  assert.match(client, /TextHandoffEditor/u, '普通用户应获得分段文本编辑器');
+  assert.match(client, /BridgeCardBoundary/u, 'Bridge 卡片异常必须隔离在自身边界内');
+  assert.match(client, /opaqueSuffix/u, '文本模式必须只读保留五段之后的附录');
+  assert.match(client, /dsh-bridge-panel/u, '长内容必须在 Bridge 卡片内部滚动');
+  assert.match(client, /dsh-bridge-markdown-editor/u, 'Markdown 高级编辑入口必须保留');
+  assert.match(client, /light-dark\(/u, '官方主题 token 缺席时也必须跟随页面 color-scheme');
   assert.match(client, /["']remote["']\s*,\s*["']remote\.commands["']/u,
     'rc.2 对父 remote face 与 commands capability 分别做注入校验');
   assert.match(client, /commands\.execute\(sessionId,\s*line,\s*\[\]\)/u,

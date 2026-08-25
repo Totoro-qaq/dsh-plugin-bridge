@@ -56,6 +56,8 @@ try {
     'lib/host.d.ts',
     'lib/client.js',
     'lib/client.d.ts',
+    'lib/client-contract.js',
+    'lib/client-contract.d.ts',
     'cordis.patch.yml',
     'docs/design.md',
     'reports/v0.2.3-e2e-report.md',
@@ -72,6 +74,12 @@ try {
   const host = await import(pathToFileURL(join(packageRoot, 'lib/host.js')).href);
   if (typeof host.createBridgeHostFromRpc !== 'function' || host.REQUIRED_BRIDGE_CAPABILITIES?.length !== 13) {
     throw new Error('installed artifact does not expose the BridgeHost adapter entrypoint');
+  }
+  const clientContract = await import(pathToFileURL(join(packageRoot, 'lib/client-contract.js')).href);
+  if (typeof clientContract.parseBridgeCard !== 'function'
+    || typeof clientContract.parseBridgeTextProjection !== 'function'
+    || typeof clientContract.buildBridgeMigrationCommand !== 'function') {
+    throw new Error('installed artifact does not expose the framework-free custom-UI contract');
   }
 
   console.log(`package smoke ok: ${manifest.name}@${manifest.version} (${packed.entryCount} files)`);
