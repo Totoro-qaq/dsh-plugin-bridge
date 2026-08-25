@@ -144,6 +144,8 @@ npm run verify
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
+Ecosystem discovery: [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI). Bridge remains a standard DSH plugin; TUI/std conformance is tracked separately.
+
 ## License
 
 MIT

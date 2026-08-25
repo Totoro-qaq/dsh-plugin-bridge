@@ -144,6 +144,8 @@ npm run verify
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
+生态发现入口：[dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI)。Bridge 仍按标准 DSH 插件安装；TUI/std 一致性适配另行跟踪。
+
 ## License
 
 MIT
