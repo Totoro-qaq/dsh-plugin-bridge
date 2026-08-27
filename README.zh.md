@@ -11,6 +11,7 @@
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
 [![dsh rc.6 → 0.1.1-rc.2](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.1--rc.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+[![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=zh)](https://dshfind.com/zh/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
 [English](README.md) | 中文
 
