@@ -56,6 +56,8 @@ UIs that implement the official `conversation.chat.commandview` slot receive the
 /bridge code --go --file <path>
 ```
 
+Preview edits are temporary until migration is confirmed. Restarting the client or system may discard them; the source session remains untouched, and you can regenerate the preview.
+
 Uninstall with `dsh plugin --profile web remove dsh-plugin-bridge`, then restart `dsh web`.
 
 ## Why Bridge

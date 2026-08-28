@@ -56,6 +56,8 @@ DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本
 /bridge code --go --file <路径>
 ```
 
+预览中的修改在确认迁移前只是临时草稿。重启客户端或系统可能使其丢失；源会话始终不受影响，重新运行预览即可生成新的草稿。
+
 卸载：`dsh plugin --profile web remove dsh-plugin-bridge`，然后重启 `dsh web`。
 
 ## 为什么是 Bridge
