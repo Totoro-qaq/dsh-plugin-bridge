@@ -293,6 +293,22 @@ test('迁到自己当前的模式会被拒绝', async () => {
   assert.match(result.text, /已经在 minimal 模式/);
 });
 
+test('alpha 的 ptc 与 rc.2 的 code 是双向兼容别名', async () => {
+  const alpha = setup({ presets: [
+    { id: 'standard', trust: 'system', isDefault: true },
+    { id: 'ptc', trust: 'system' },
+    { id: 'minimal', trust: 'system' },
+  ] });
+  const alphaPreview = await alpha.invoke('code');
+  assert.equal(alphaPreview.kind, 'success', alphaPreview.text);
+  assert.match(alphaPreview.text, /\/bridge ptc --go/);
+
+  const rc2 = setup();
+  const rc2Preview = await rc2.invoke('ptc');
+  assert.equal(rc2Preview.kind, 'success', rc2Preview.text);
+  assert.match(rc2Preview.text, /\/bridge code --go/);
+});
+
 test('未知或坏掉的 preset 给出可用列表', async () => {
   const { invoke } = setup();
   for (const target of ['nope', 'broken-one']) {

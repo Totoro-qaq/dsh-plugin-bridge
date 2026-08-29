@@ -39,10 +39,8 @@ test('入口导出形状符合 cordis 插件约定', () => {
   );
 });
 
-test('inject 声明入口与引擎：commands + apiProxy', () => {
-  // commands 是入口（UI 直接派发），apiProxy 是引擎（进程内网关）。
-  // 官方 web profile 里 base 挂 commands、web-app 挂 api-gateway，两者都在。
-  assert.deepEqual([...inject].sort(), ['apiProxy', 'commands']);
+test('inject 只锁定跨版本入口，host adapter 在调用时选择', () => {
+  assert.deepEqual([...inject], ['commands']);
 });
 
 test('注册的是一个 /bridge 命令，不是技能', () => {
@@ -114,6 +112,8 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.dsh?.client?.platform, 'web');
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-conversation'));
+  assert.equal(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-runtime'), false,
+    'alpha 已删除 client-runtime；WebUI 自己提供 sessions 服务，插件不应锁死旧包名');
   assert.equal(manifest.exports['./client'].default, './lib/client.js');
   assert.deepEqual(manifest.exports['./client-contract'], {
     types: './lib/client-contract.d.ts',
@@ -165,13 +165,13 @@ test('真实 cordis Context：inject 满足后完成加载并注册命令', asyn
   await fiber.dispose();
 });
 
-test('真实 cordis Context：缺 apiProxy 时挂起而不是半挂', async () => {
+test('真实 cordis Context：没有 apiProxy 时仍注册命令，交给 alpha adapter 在调用时解析', async () => {
   const registered = [];
   const ctx = new Context();
   ctx.provide('commands', { register: (definition) => { registered.push(definition); return () => {}; } });
   const fiber = ctx.plugin(plugin, {});
   await new Promise((r) => setTimeout(r, 50));
-  assert.equal(registered.length, 0, '依赖未满足时 apply 不应执行');
+  assert.equal(registered.length, 1);
   await fiber.dispose();
 });
 
