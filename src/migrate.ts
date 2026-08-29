@@ -86,6 +86,14 @@ export async function listPresets(input: BridgeHostInput): Promise<PresetRow[]> 
   return (res.presets ?? []).filter((preset) => preset.broken === undefined);
 }
 
+/** Map the one upstream internal rename without making either generation mandatory. */
+export function resolvePresetTarget(requested: string, presets: readonly PresetRow[]): string {
+  if (presets.some(preset => preset.id === requested)) return requested;
+  if (requested === 'code' && presets.some(preset => preset.id === 'ptc')) return 'ptc';
+  if (requested === 'ptc' && presets.some(preset => preset.id === 'code')) return 'code';
+  return requested;
+}
+
 /** 新会话的落点：优先同工作区，否则同 cwd，再否则交给 host 默认。 */
 async function placement(host: BridgeHost, source: SessionRow | undefined, sessionId: string): Promise<Record<string, string>> {
   const workspaceId = await findWorkspaceId(host, sessionId).catch(() => undefined);

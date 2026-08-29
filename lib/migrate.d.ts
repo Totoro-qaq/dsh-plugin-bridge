@@ -31,6 +31,8 @@ export declare function findSession(host: BridgeHostInput, sessionId: string): P
 export declare function findWorkspaceId(input: BridgeHostInput, sessionId: string): Promise<string | undefined>;
 /** 可作为迁移目标的 preset（去掉 broken 的）。 */
 export declare function listPresets(input: BridgeHostInput): Promise<PresetRow[]>;
+/** Map the one upstream internal rename without making either generation mandatory. */
+export declare function resolvePresetTarget(requested: string, presets: readonly PresetRow[]): string;
 /**
  * 选压缩工人的模型。
  *
