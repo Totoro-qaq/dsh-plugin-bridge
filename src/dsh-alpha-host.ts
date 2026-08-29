@@ -72,10 +72,18 @@ const ALPHA_METHODS: Record<string, (services: AlphaServices) => unknown> = {
 }
 
 function service<T>(ctx: ContextLike, name: keyof AlphaServices): T | undefined {
-  const direct = ctx[name]
-  if (direct !== undefined) return direct as T
   try {
-    return ctx.get?.(name) as T | undefined
+    const getter = ctx.get
+    if (typeof getter === 'function') {
+      const found = getter.call(ctx, name)
+      if (found !== undefined) return found as T
+    }
+  } catch {
+    // Cordis returns undefined for an unavailable optional service; custom
+    // Context implementations may throw instead, so fall through to fixtures.
+  }
+  try {
+    return ctx[name] as T | undefined
   } catch {
     return undefined
   }

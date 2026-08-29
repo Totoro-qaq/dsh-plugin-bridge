@@ -123,3 +123,18 @@ test('alpha probe fails closed when one required controller is missing', () => {
   const report = probeDshAlphaHost(services);
   assert.equal(report.find((row) => row.method === 'session.prompt').available, false);
 });
+
+test('optional service discovery never touches Cordis properties without inject', () => {
+  const { services } = fixture();
+  const cordis = new Proxy({
+    get: (name) => services[name],
+  }, {
+    get(target, key) {
+      if (key === 'get') return target.get;
+      throw new Error(`cannot get property "${String(key)}" without inject`);
+    },
+  });
+
+  assert.equal(resolveDshHost(cordis).descriptor.id, 'dsh-typed-controllers');
+  assert.equal(probeDshAlphaHost(cordis).every((row) => row.available), true);
+});
