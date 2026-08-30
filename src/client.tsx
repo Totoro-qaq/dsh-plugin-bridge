@@ -1,11 +1,15 @@
 /** Official WebUI half: one native `/bridge` command card, not a second WebUI. */
 
 import { Component, useEffect, useId, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { JsonTree, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonTreeLabels, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { CommandRowProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 
 import {
   appendBridgeTextListItem,
@@ -64,7 +68,7 @@ interface CommandRemote {
   }>
 }
 
-type BridgeCommandCardProps = PropsRuntime<'conversation.chat.commandview'> & BridgeInjected
+type BridgeCommandCardProps = CommandRowProps & BridgeInjected
 
 const COPY = {
   zh: {
@@ -94,6 +98,35 @@ const COPY = {
     fileFallback: 'Summary file', stalePreview: 'This older preview has no secure confirmation ID. Run /bridge again or use the summary-file workflow.',
   },
 } as const
+
+const PRIMITIVE_LABELS = {
+  zh: {
+    markdown: {
+      code: { copyLabel: '复制', copiedLabel: '已复制' },
+      footnotes: '脚注',
+    },
+    json: {
+      copyValue: '复制值', copyJson: '复制 JSON', copyPath: '复制属性路径',
+      copyPrettyJson: '复制格式化 JSON', copyCompactJson: '复制紧凑 JSON',
+      copied: '已复制', copyFailed: '复制失败',
+      collapseNode: '折叠 JSON 节点', expandNode: '展开 JSON 节点',
+      copyButtonTitle: (action: string) => `${action}；右键查看更多复制选项`,
+    },
+  },
+  en: {
+    markdown: {
+      code: { copyLabel: 'Copy', copiedLabel: 'Copied' },
+      footnotes: 'Footnotes',
+    },
+    json: {
+      copyValue: 'Copy value', copyJson: 'Copy JSON', copyPath: 'Copy property path',
+      copyPrettyJson: 'Copy pretty JSON', copyCompactJson: 'Copy compact JSON',
+      copied: 'Copied', copyFailed: 'Copy failed',
+      collapseNode: 'Collapse JSON node', expandNode: 'Expand JSON node',
+      copyButtonTitle: (action: string) => `${action}; right-click for copy options`,
+    },
+  },
+} satisfies Record<'zh' | 'en', { markdown: MarkdownLabels; json: JsonTreeLabels }>
 
 function Header({ lang, route }: { lang: 'zh' | 'en'; route?: string }) {
   return <div className="dsh-bridge-head">
@@ -125,7 +158,9 @@ function RunningCard() {
 function SummaryView({ summary, lang }: { summary: string; lang: 'zh' | 'en' }) {
   const json = useMemo(() => parseJsonDocument(summary), [summary])
   return <div className="dsh-bridge-preview" aria-label={json === undefined ? COPY[lang].markdownPreview : COPY[lang].json}>
-    {json === undefined ? <MarkdownText text={summary} /> : <JsonTree data={json} label={COPY[lang].json} />}
+    {json === undefined
+      ? <MarkdownText text={summary} labels={PRIMITIVE_LABELS[lang].markdown} />
+      : <JsonTree data={json} label={COPY[lang].json} labels={PRIMITIVE_LABELS[lang].json} />}
   </div>
 }
 
