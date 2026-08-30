@@ -428,7 +428,7 @@ async function readPromptImages(host: BridgeHost, sourceSessionId: string, refs:
 function imageFallbackAllowed(error: unknown): boolean {
   if (!(error instanceof RpcError)) return false;
   if (error.code === 'unavailable' || error.code === 'empty-image') return true;
-  if (error.code !== 'attachment-error') return false;
+  if (error.code !== 'attachment-error' && error.code !== 'session/attachment-invalid') return false;
   const reason = error.details && typeof error.details === 'object' && 'reason' in error.details
     ? String((error.details as { reason?: unknown }).reason)
     : '';
