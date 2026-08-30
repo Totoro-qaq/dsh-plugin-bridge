@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.1 — 2026-08-31
+
 ### DSH 0.1.2-alpha.2 compatibility
 
 - Add the typed-controller alpha path to the published dependency contract and remove the deleted `dsh-client-runtime` peer/import.

@@ -13,7 +13,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 需要固定 GitHub tag 或 npm 暂时不可用时：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.0
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.1
 ```
 
 发生了什么（不用手动干预）：
