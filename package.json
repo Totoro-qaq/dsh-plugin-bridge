@@ -67,6 +67,7 @@
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
     "@deepseek-ai/dsh-api-remotes": { "optional": true },
     "@deepseek-ai/dsh-client-ui-chat": { "optional": true },
     "@deepseek-ai/dsh-client-ui-conversation": { "optional": true },
