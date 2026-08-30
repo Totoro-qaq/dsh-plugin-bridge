@@ -141,6 +141,41 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
+test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  const alphaClientPackages = [
+    '@deepseek-ai/dsh-api-remotes',
+    '@deepseek-ai/dsh-client-ui-conversation',
+    '@deepseek-ai/dsh-client-ui-primitives',
+    '@deepseek-ai/dsh-client-ui-slots',
+  ];
+
+  for (const packageName of alphaClientPackages) {
+    assert.match(
+      manifest.peerDependencies[packageName],
+      /\^0\.1\.2-alpha\.1/u,
+      `${packageName} 的 peer range 必须覆盖已验证的 0.1.2 alpha 系列`,
+    );
+    assert.equal(
+      manifest.devDependencies[packageName],
+      '^0.1.2-alpha.2',
+      `${packageName} 的本地构建应锁定当前官方 alpha.2`,
+    );
+  }
+  assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2');
+
+  const [clientSource, bundlerConfig] = await Promise.all([
+    readFile(join(packageRoot, 'src', 'client.tsx'), 'utf8'),
+    readFile(join(packageRoot, 'tsdown.config.ts'), 'utf8'),
+  ]);
+  assert.doesNotMatch(clientSource, /dsh-client-runtime/u);
+  assert.match(clientSource, /SessionId[^\n]+dsh-api-remotes\/client/u);
+  assert.doesNotMatch(bundlerConfig, /dsh-client-runtime/u);
+});
+
 test('cordis.patch.yml 的 insert 行指向本包，且配置键与 Config schema 一一对应', async () => {
   const text = await readFile(join(packageRoot, 'cordis.patch.yml'), 'utf8');
   assert.match(text, /^- insert:/m, 'patch 必须含 insert 列表');
