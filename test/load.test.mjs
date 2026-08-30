@@ -166,6 +166,11 @@ test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => 
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.deepEqual(
+    manifest.peerDependenciesMeta['@deepseek-ai/cordis'],
+    { optional: true },
+    'Cordis 由 DSH bundle 提供，profile 不应收到缺失 peer 假警告',
+  );
   assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2');
   for (const packageName of [
     '@deepseek-ai/dsh-api-session-controller',
