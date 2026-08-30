@@ -145,6 +145,7 @@ test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => 
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   const alphaClientPackages = [
     '@deepseek-ai/dsh-api-remotes',
+    '@deepseek-ai/dsh-client-ui-chat',
     '@deepseek-ai/dsh-client-ui-conversation',
     '@deepseek-ai/dsh-client-ui-primitives',
     '@deepseek-ai/dsh-client-ui-slots',
@@ -166,6 +167,18 @@ test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => 
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2');
+  for (const packageName of [
+    '@deepseek-ai/dsh-api-session-controller',
+    '@deepseek-ai/dsh-client-ui-renderer',
+    '@deepseek-ai/dsh-client-ui-session',
+  ]) {
+    assert.equal(
+      manifest.devDependencies[packageName],
+      '^0.1.2-alpha.2',
+      `${packageName} 必须提供 alpha.2 拆分后的客户端类型契约`,
+    );
+  }
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-chat'));
 
   const [clientSource, bundlerConfig] = await Promise.all([
     readFile(join(packageRoot, 'src', 'client.tsx'), 'utf8'),
@@ -173,6 +186,7 @@ test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => 
   ]);
   assert.doesNotMatch(clientSource, /dsh-client-runtime/u);
   assert.match(clientSource, /SessionId[^\n]+dsh-api-remotes\/client/u);
+  assert.match(clientSource, /CommandRowProps[^\n]+dsh-client-ui-chat\/client/u);
   assert.doesNotMatch(bundlerConfig, /dsh-client-runtime/u);
 });
 
