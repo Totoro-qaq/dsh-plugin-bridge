@@ -2,9 +2,8 @@ import type { Context } from '@deepseek-ai/cordis';
 import Schema from '@deepseek-ai/schemastery';
 export declare const name = "dsh-plugin-bridge";
 /**
- * `commands` 是入口，`apiProxy` 是引擎——两个都是硬依赖：
- * 缺哪个这个插件都无事可做，与其静默半挂，不如让 cordis 挂起等待。
- * 两者在官方 `web` profile 里都在（base 挂 commands，web-app 挂 api-gateway）。
+ * `commands` 是跨版本入口，唯一硬依赖。执行时优先使用 rc.2 的 `apiProxy`，
+ * alpha 则改走 typed controllers；doctor 探测实际选中的那一面并 fail closed。
  */
 export declare const inject: string[];
 export interface Config {

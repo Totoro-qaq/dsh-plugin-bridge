@@ -4,9 +4,9 @@ Status: **implemented on main; the server command remains the compatibility fall
 
 ## Verified extension path
 
-The official rc.7 through `0.1.1-rc.2` WebUI contract supports third-party browser modules through a package-level `dsh.client` manifest. Its client runtime exposes a slot registry, and official plugins register occupants such as conversation views, input docks, settings items, and command renderers. Bridge uses that path; it does not patch the DOM or fork the WebUI.
+The official rc.7 through `0.1.1-rc.2` WebUI and the split `0.1.2-alpha.2` client packages support third-party browser modules through a package-level `dsh.client` manifest. The renderer exposes a slot registry, and official plugins register occupants such as conversation views, input docks, settings items, and command renderers. Bridge uses that path; it does not patch the DOM or fork the WebUI.
 
-The host half still injects `commands` and `apiProxy`. The client half registers the `bridge` key in `conversation.chat.commandview`, parses only the host result, renders Markdown or complete JSON, offers lossless five-section Text/Markdown editing, and sends the reviewed summary back through `/bridge --go --summary64`. `recordInput: false` keeps that encoded payload out of the durable command log.
+The host half hard-injects only `commands`: it prefers rc.2's `apiProxy` when present and otherwise maps alpha's typed Session, Workspace, Preset, and Goal controllers into `BridgeHost`. The client half registers the `bridge` key in `conversation.chat.commandview`, parses only the host result, renders Markdown or complete JSON, offers lossless five-section Text/Markdown editing, and sends the reviewed summary back through `/bridge --go --summary64`. `recordInput: false` keeps that encoded payload out of the durable command log.
 
 ## Product shape
 
@@ -54,7 +54,7 @@ if (card.phase === 'preview') {
 - Edited summaries are bounded to 24,000 characters and base64url-encoded for one command invocation. Malformed or oversized payloads fail closed before target creation; emptiness checks do not trim the transmitted Markdown.
 - A WebUI payload is accepted only while the exact preview ID for the matching source session and target preset is pending and unexpired. The preview is consumed before migration; retrying the same completed payload returns the first target result instead of creating another session, even if a newer preview has since been generated.
 - Once a target session exists, an unconfirmed kickoff is returned as that same navigable target with a warning and cached result. Bridge does not restore the preview and create a second target when prompt delivery is ambiguous.
-- The client contract shapes for rc.7, rc.8, `0.1.1-rc.1`, and `0.1.1-rc.2` were compared; `0.1.1-rc.2` has installed official-WebUI evidence.
+- The client contract shapes for rc.7, rc.8, `0.1.1-rc.1`, `0.1.1-rc.2`, and `0.1.2-alpha.2` were compared. Both rc.2 and alpha.2 have installed official-WebUI evidence; alpha.2 uses the split `ui-chat`, Session Controller, renderer, and Session UI declarations.
 
 ## Acceptance evidence
 
@@ -68,3 +68,5 @@ The 2026-08-25 installed-WebUI gate covered:
 - reviewed-payload migration, paused goal, and automatic target navigation.
 
 Three fixed real-model runs preserved five facts in both preview and target, with worker times from 7.4 to 12.8 seconds. See the [native workbench report](../reports/native-workbench-2026-08-25.md). This is release evidence, not a statistical guarantee.
+
+The 2026-08-31 npm-installed alpha.2 gate additionally covered typed-controller doctor 13/13, split-client compilation, localized primitive labels, Text-to-Markdown review, PTC auto-open, paused goal, and clean removal. See the [alpha.2 compatibility report](../reports/dsh-0.1.2-alpha.2-compat-2026-08-31.md).

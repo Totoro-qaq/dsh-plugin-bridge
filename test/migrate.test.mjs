@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc } from '../src/api-rpc.ts';
+import { RpcError } from '../src/rpc.ts';
 import {
   executeMigration,
   findWorkspaceId,
@@ -173,6 +174,40 @@ test('migrate：文本目标拒绝图片时无 token 请求地降级到文本 ki
     (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
   );
   assert.equal(targetPrompts.length, 2, '第一次图片准入失败，第二次才提交纯文本；两次都没有重复模型回答');
+  assert.equal(targetPrompts.at(-1).payload.content[0].type, 'text');
+});
+
+test('migrate：alpha.2 的 namespaced 图片错误仍降级到文本 kickoff', async () => {
+  const host = createFakeHost({ sourceImage: {}, targetSupportsImages: false });
+  const alpha2Rpc = async (method, payload) => {
+    try {
+      return await host.rpc(method, payload);
+    } catch (error) {
+      if (method === 'session.prompt' && error?.code === 'attachment-error') {
+        throw new RpcError(
+          method,
+          'session/attachment-invalid',
+          '当前模型不支持图片',
+          { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
+        );
+      }
+      throw error;
+    }
+  };
+
+  const result = await executeMigration(alpha2Rpc, {
+    sessionId: host.sourceSessionId,
+    to: 'code',
+    summary: '## 目标\n检查未解析截图\n\n## 未解析图片\n- 不得猜测',
+    lang: 'zh',
+  });
+
+  assert.equal(result.imagesSent, 0);
+  assert.match(result.warnings.join('\n'), /不能接收原图/);
+  const targetPrompts = host.state.calls.filter(
+    (call) => call.method === 'session.prompt' && call.payload.sessionId === result.sessionId,
+  );
+  assert.equal(targetPrompts.length, 2, 'alpha.2 的图片准入失败后必须补发一次纯文本 kickoff');
   assert.equal(targetPrompts.at(-1).payload.content[0].type, 'text');
 });
 

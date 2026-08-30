@@ -19,6 +19,7 @@ import {
   executeMigration,
   findSession,
   listPresets,
+  resolvePresetTarget,
   migratedTitle,
   previewMigration,
   titleOf,
@@ -341,7 +342,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
 
       if (parsed.help || !parsed.preset) return { kind: 'success', text: usage(presets, current, initialLang) };
 
-      const target = parsed.preset;
+      const target = resolvePresetTarget(parsed.preset, presets);
       if (!presets.some((p) => p.id === target)) {
         return {
           kind: 'error',

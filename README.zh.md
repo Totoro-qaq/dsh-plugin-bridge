@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh rc.6 → 0.1.1-rc.2](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.1--rc.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh rc.6 → 0.1.2-alpha.2](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.2--alpha.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=zh)](https://dshfind.com/zh/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.0
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.1
 ```
 
 然后在官方 WebUI 输入：
@@ -84,6 +84,7 @@ DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本
 | Confirm 相对 `--continue` 的 nominal 配对中位额外成本 | **+8.1%** |
 | 摘要 worker 在干净验收组件中的 nominal 占比 | **20.74%** |
 | 原生 WebUI 重复门禁（预览 / 目标事实） | **3/3 · 3/3**，每次五项 |
+| DSH 0.1.2-alpha.2 npm 安装 / doctor / 目标 | **干净 · 13/13 · PTC 已暂停** |
 
 token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 占比是组成，不是相对“无 Bridge”的因果开销。稳定结论是默认确认多一个请求。边界和原始证据见[设计与证据说明](docs/design.md)、[完整 release report](reports/v0.2.3-e2e-report.md)和[视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)。
 
@@ -116,6 +117,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.0-rc.6 | 支持 | 不支持 | 窄 RPC 契约与文本兼容测试 |
 | 0.1.0-rc.7 / rc.8 | 支持 | 契约核对 | client module / command slot 契约与服务端回退 |
 | 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI 实装：doctor 13/13、编辑/确认/自动跳转、三次重复门禁 |
+| 0.1.2-alpha.2 | 支持 | 支持 | 官方 npm 实装：typed controllers 13/13、拆分 client 构建、编辑/确认/PTC 自动跳转、干净卸载 |
 
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
@@ -136,6 +138,7 @@ CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；�
 - [完整 release acceptance](reports/v0.2.3-e2e-report.md)
 - [视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)
 - [原生 WebUI 重复验收](reports/native-workbench-2026-08-25.md)
+- [DSH 0.1.2-alpha.2 兼容性验收](reports/dsh-0.1.2-alpha.2-compat-2026-08-31.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
@@ -145,7 +148,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 160 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 167 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

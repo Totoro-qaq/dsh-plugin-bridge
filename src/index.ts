@@ -16,18 +16,17 @@ import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 
-import { createApiProxyHost, probeApiProxy, type ApiProxyLike } from './api-rpc.ts'
 import { createBridgeCommand } from './command.ts'
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } from './compression.ts'
+import { probeDshHost, resolveDshHost } from './dsh-alpha-host.ts'
 
 export const name = 'dsh-plugin-bridge'
 
 /**
- * `commands` 是入口，`apiProxy` 是引擎——两个都是硬依赖：
- * 缺哪个这个插件都无事可做，与其静默半挂，不如让 cordis 挂起等待。
- * 两者在官方 `web` profile 里都在（base 挂 commands，web-app 挂 api-gateway）。
+ * `commands` 是跨版本入口，唯一硬依赖。执行时优先使用 rc.2 的 `apiProxy`，
+ * alpha 则改走 typed controllers；doctor 探测实际选中的那一面并 fail closed。
  */
-export const inject = ['commands', 'apiProxy']
+export const inject = ['commands']
 
 /** 命令是同步返回的，等压缩工人不能等太久。 */
 const DEFAULT_PREVIEW_TIMEOUT_MS = 180_000
@@ -98,10 +97,9 @@ export function commandConfigOf(config: Config = {}) {
 }
 
 export function apply(ctx: Context, config: Config = {}): void {
-  const apiProxyOf = (): ApiProxyLike => (ctx as unknown as { apiProxy: ApiProxyLike }).apiProxy
   const command = createBridgeCommand({
-    hostFor: (signal) => createApiProxyHost(apiProxyOf(), signal),
-    probe: () => probeApiProxy(apiProxyOf()),
+    hostFor: (signal) => resolveDshHost(ctx as unknown as Parameters<typeof resolveDshHost>[0], signal),
+    probe: () => probeDshHost(ctx as unknown as Parameters<typeof probeDshHost>[0]),
     config: commandConfigOf(config),
     writeSummary: writeSummaryFile,
     readSummary: (path) => readFileSync(path, 'utf8'),

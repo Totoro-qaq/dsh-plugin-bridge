@@ -4,6 +4,16 @@
 
 ## Unreleased
 
+## 0.3.1 — 2026-08-31
+
+### DSH 0.1.2-alpha.2 compatibility
+
+- Add the typed-controller alpha path to the published dependency contract and remove the deleted `dsh-client-runtime` peer/import.
+- Consume alpha.2's split Chat, Session Controller, renderer, Session UI, primitive, and slot declarations; provide the newly required localized Markdown/JSON labels.
+- Treat both rc.2 `attachment-error` and alpha.2 `session/attachment-invalid` as deterministic image-admission failures when their reason permits a safe text fallback.
+- Mark Cordis as host-provided so a clean DSH profile passes `pnpm peers check` without hiding its supported version range.
+- Validate the official npm alpha.2 WebUI: doctor 13/13, Preview/Text/Markdown editing, `code` to `ptc`, paused target, auto-open, source preservation, and residue-free removal.
+
 ## 0.3.0 — 2026-08-26
 
 ### 官方 WebUI 原生迁移卡片

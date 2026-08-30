@@ -39,10 +39,8 @@ test('入口导出形状符合 cordis 插件约定', () => {
   );
 });
 
-test('inject 声明入口与引擎：commands + apiProxy', () => {
-  // commands 是入口（UI 直接派发），apiProxy 是引擎（进程内网关）。
-  // 官方 web profile 里 base 挂 commands、web-app 挂 api-gateway，两者都在。
-  assert.deepEqual([...inject].sort(), ['apiProxy', 'commands']);
+test('inject 只锁定跨版本入口，host adapter 在调用时选择', () => {
+  assert.deepEqual([...inject], ['commands']);
 });
 
 test('注册的是一个 /bridge 命令，不是技能', () => {
@@ -114,6 +112,8 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   assert.equal(manifest.dsh?.client?.platform, 'web');
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-conversation'));
+  assert.equal(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-runtime'), false,
+    'alpha 已删除 client-runtime；WebUI 自己提供 sessions 服务，插件不应锁死旧包名');
   assert.equal(manifest.exports['./client'].default, './lib/client.js');
   assert.deepEqual(manifest.exports['./client-contract'], {
     types: './lib/client-contract.d.ts',
@@ -141,6 +141,60 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
+test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  const alphaClientPackages = [
+    '@deepseek-ai/dsh-api-remotes',
+    '@deepseek-ai/dsh-client-ui-chat',
+    '@deepseek-ai/dsh-client-ui-conversation',
+    '@deepseek-ai/dsh-client-ui-primitives',
+    '@deepseek-ai/dsh-client-ui-slots',
+  ];
+
+  for (const packageName of alphaClientPackages) {
+    assert.match(
+      manifest.peerDependencies[packageName],
+      /\^0\.1\.2-alpha\.1/u,
+      `${packageName} 的 peer range 必须覆盖已验证的 0.1.2 alpha 系列`,
+    );
+    assert.equal(
+      manifest.devDependencies[packageName],
+      '^0.1.2-alpha.2',
+      `${packageName} 的本地构建应锁定当前官方 alpha.2`,
+    );
+  }
+  assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
+  assert.deepEqual(
+    manifest.peerDependenciesMeta['@deepseek-ai/cordis'],
+    { optional: true },
+    'Cordis 由 DSH bundle 提供，profile 不应收到缺失 peer 假警告',
+  );
+  assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2');
+  for (const packageName of [
+    '@deepseek-ai/dsh-api-session-controller',
+    '@deepseek-ai/dsh-client-ui-renderer',
+    '@deepseek-ai/dsh-client-ui-session',
+  ]) {
+    assert.equal(
+      manifest.devDependencies[packageName],
+      '^0.1.2-alpha.2',
+      `${packageName} 必须提供 alpha.2 拆分后的客户端类型契约`,
+    );
+  }
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-chat'));
+
+  const [clientSource, bundlerConfig] = await Promise.all([
+    readFile(join(packageRoot, 'src', 'client.tsx'), 'utf8'),
+    readFile(join(packageRoot, 'tsdown.config.ts'), 'utf8'),
+  ]);
+  assert.doesNotMatch(clientSource, /dsh-client-runtime/u);
+  assert.match(clientSource, /SessionId[^\n]+dsh-api-remotes\/client/u);
+  assert.match(clientSource, /CommandRowProps[^\n]+dsh-client-ui-chat\/client/u);
+  assert.doesNotMatch(bundlerConfig, /dsh-client-runtime/u);
+});
+
 test('cordis.patch.yml 的 insert 行指向本包，且配置键与 Config schema 一一对应', async () => {
   const text = await readFile(join(packageRoot, 'cordis.patch.yml'), 'utf8');
   assert.match(text, /^- insert:/m, 'patch 必须含 insert 列表');
@@ -165,13 +219,13 @@ test('真实 cordis Context：inject 满足后完成加载并注册命令', asyn
   await fiber.dispose();
 });
 
-test('真实 cordis Context：缺 apiProxy 时挂起而不是半挂', async () => {
+test('真实 cordis Context：没有 apiProxy 时仍注册命令，交给 alpha adapter 在调用时解析', async () => {
   const registered = [];
   const ctx = new Context();
   ctx.provide('commands', { register: (definition) => { registered.push(definition); return () => {}; } });
   const fiber = ctx.plugin(plugin, {});
   await new Promise((r) => setTimeout(r, 50));
-  assert.equal(registered.length, 0, '依赖未满足时 apply 不应执行');
+  assert.equal(registered.length, 1);
   await fiber.dispose();
 });
 

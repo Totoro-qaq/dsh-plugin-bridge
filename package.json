@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Previewable cross-preset session migration for DeepSeek Harness with bounded, fixed-schema handoffs",
   "type": "module",
   "main": "lib/index.js",
@@ -13,6 +13,7 @@
     "reports/v0.2.6-rc11-vision-report.md",
     "reports/native-workbench-2026-08-25.md",
     "reports/native-workbench-2026-08-25.raw.json",
+    "reports/dsh-0.1.2-alpha.2-compat-2026-08-31.md",
     "cordis.patch.yml",
     "README.md",
     "README.zh.md"
@@ -48,8 +49,8 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-conversation"
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat"
       ],
       "platform": "web"
     }
@@ -59,16 +60,17 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-api-remotes": "^0.1.0-rc.7 || ^0.1.1-rc.1",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.7 || ^0.1.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.7 || ^0.1.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.7 || ^0.1.1-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.7 || ^0.1.1-rc.1",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.0-rc.7 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
+    "@deepseek-ai/dsh-client-ui-chat": "^0.1.0-rc.7 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.0-rc.7 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.7 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.0-rc.7 || ^0.1.1-rc.1 || ^0.1.2-alpha.1",
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
     "@deepseek-ai/dsh-api-remotes": { "optional": true },
-    "@deepseek-ai/dsh-client-runtime": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-chat": { "optional": true },
     "@deepseek-ai/dsh-client-ui-conversation": { "optional": true },
     "@deepseek-ai/dsh-client-ui-primitives": { "optional": true },
     "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
@@ -78,12 +80,15 @@
     "@deepseek-ai/schemastery": "^3.18.1"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "4.0.1",
-    "@deepseek-ai/dsh-api-remotes": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.1-rc.2",
+    "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-api-remotes": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-api-session-controller": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-chat": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-session": "^0.1.2-alpha.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.2-alpha.2",
     "@types/node": "^26.2.0",
     "@types/react": "~18.3.1",
     "react": "^18.3.1",
