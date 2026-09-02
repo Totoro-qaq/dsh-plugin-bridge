@@ -256,6 +256,23 @@ test('ordered list item edits preserve markers and append the next ordinal', () 
   assert.equal(removeBridgeTextListItem(appendedProjection, 'keyDecisions', 2), ordered);
 });
 
+test('ordered list continuations keep the model-produced unindented value line', () => {
+  const ordered = ZH_SUMMARY.replace(
+    '- 保留原会话\n- 确认后才迁移',
+    '1. 保留原会话\n2. 服务端口固定为：\n8118\n3. 确认后才迁移',
+  );
+  const projection = parseBridgeTextProjection(ordered);
+  assert.ok(projection);
+  const decisions = field(projection, 'keyDecisions');
+  assert.deepEqual(decisions.items.map((item) => item.text), [
+    '保留原会话',
+    '服务端口固定为：\n8118',
+    '确认后才迁移',
+  ]);
+  const edited = replaceBridgeTextListItem(projection, 'keyDecisions', 1, '服务端口保持：\n8118');
+  assert.equal(edited, ordered.replace('2. 服务端口固定为：\n8118', '2. 服务端口保持：\n8118'));
+});
+
 test('wrapped Markdown list continuations stay in one item and other edits preserve them byte-for-byte', () => {
   const wrapped = EN_SUMMARY.replace(
     '- Preserve the source session',
