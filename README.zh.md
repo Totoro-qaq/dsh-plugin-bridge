@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh rc.6 → 0.1.2-alpha.3](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.2--alpha.3-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh rc.6 → 0.1.2-alpha.5](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.2--alpha.5-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=zh)](https://dshfind.com/zh/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -48,7 +48,7 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.1
 /bridge code --go --continue  在同一次目标请求里复述并开始工作
 ```
 
-DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本编辑」把固定五段变成普通文本框和逐条列表；「Markdown」保留完整源码自由；「预览」渲染 Markdown 或完整 JSON 树。长内容只在卡片正文内滚动，操作按钮保持可达；点「确认迁移」后自动打开目标会话。
+DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本编辑」把固定五段变成普通文本框，并无损支持平坦的项目符号或编号列表；「Markdown」保留完整源码自由；「预览」渲染 Markdown 或完整 JSON 树。长内容只在卡片正文内滚动，操作按钮保持可达；点「确认迁移」后自动打开目标会话。
 
 实现官方 `conversation.chat.commandview` slot 的第三方 UI 会自动得到同一张卡片。其他自定义 UI 仍保留完整服务端结果、摘要文件流程和目标标题/session ID 回退；UI 作者还可以复用无 React 的 `dsh-plugin-bridge/client-contract` 导出，而无需重写协议。旧客户端可修改输出里打印的摘要文件，再执行：
 
@@ -84,7 +84,7 @@ DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本
 | Confirm 相对 `--continue` 的 nominal 配对中位额外成本 | **+8.1%** |
 | 摘要 worker 在干净验收组件中的 nominal 占比 | **20.74%** |
 | 原生 WebUI 重复门禁（预览 / 目标事实） | **3/3 · 3/3**，每次五项 |
-| DSH 0.1.2 alpha.2 / alpha.3 官方 WebUI 实装 | **13/13 · PTC 已暂停 · 图片转文本降级** |
+| DSH 0.1.2 alpha.2 / alpha.3 / alpha.5 官方 WebUI 实装 | **13/13 · 编号列表编辑 · PTC 已暂停 · 图片转文本降级** |
 
 token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 占比是组成，不是相对“无 Bridge”的因果开销。稳定结论是默认确认多一个请求。边界和原始证据见[设计与证据说明](docs/design.md)、[完整 release report](reports/v0.2.3-e2e-report.md)和[视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)。
 
@@ -117,7 +117,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.0-rc.6 | 支持 | 不支持 | 窄 RPC 契约与文本兼容测试 |
 | 0.1.0-rc.7 / rc.8 | 支持 | 契约核对 | client module / command slot 契约与服务端回退 |
 | 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI 实装：doctor 13/13、编辑/确认/自动跳转、三次重复门禁 |
-| 0.1.2-alpha.2 / alpha.3 | 支持 | 支持 | 官方 npm 实装：typed controllers 13/13、编辑/确认/PTC 自动跳转；alpha.3 未解析图片转文本降级与干净卸载 |
+| 0.1.2-alpha.2 / alpha.3 / alpha.5 | 支持 | 支持 | 官方 DSH npm 宿主：typed controllers 13/13 与 PTC 自动跳转；alpha.5 门禁安装分支 tarball，保留 alpha.3 标题，编号列表可编辑，未解析图片降级为文本，卸载干净 |
 
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
@@ -148,7 +148,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 167 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 170 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
