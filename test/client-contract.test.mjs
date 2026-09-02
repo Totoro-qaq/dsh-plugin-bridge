@@ -214,6 +214,48 @@ test('CRLF and every unedited section remain intact while edited list text regen
   assert.equal(edited.includes('\n') && !edited.includes('\r\n'), false);
 });
 
+test('model-produced ordered decision lists remain losslessly editable in text mode', () => {
+  const ordered = ZH_SUMMARY.replace(
+    '- 保留原会话\n- 确认后才迁移',
+    '1. 保留原会话\n2. 确认后才迁移',
+  );
+  const projection = parseBridgeTextProjection(ordered);
+  assert.ok(projection, 'a flat ordered list is still the standard five-section schema');
+  const decisions = field(projection, 'keyDecisions');
+  assert.equal(decisions.listStyle, 'ordered');
+  assert.equal(decisions.text, '保留原会话\n确认后才迁移');
+  assert.equal(replaceBridgeTextSection(projection, 'nextStep', '运行 alpha.5 验证。'), ordered.replace(
+    '运行完整验证。',
+    '运行 alpha.5 验证。',
+  ));
+});
+
+test('ordered list item edits preserve markers and append the next ordinal', () => {
+  const ordered = EN_SUMMARY.replace(
+    '- Preserve the source session\n- Migrate only after confirmation',
+    '7) Preserve the source session\n8) Migrate only after confirmation',
+  );
+  const projection = parseBridgeTextProjection(ordered);
+  assert.ok(projection);
+
+  const edited = replaceBridgeTextListItem(
+    projection,
+    'keyDecisions',
+    1,
+    'Migrate only after explicit confirmation',
+  );
+  assert.equal(edited, ordered.replace(
+    '8) Migrate only after confirmation',
+    '8) Migrate only after explicit confirmation',
+  ));
+
+  const appended = appendBridgeTextListItem(projection, 'keyDecisions', 'Keep the target paused');
+  assert.match(appended, /8\) Migrate only after confirmation\n9\) Keep the target paused/u);
+  const appendedProjection = parseBridgeTextProjection(appended);
+  assert.ok(appendedProjection);
+  assert.equal(removeBridgeTextListItem(appendedProjection, 'keyDecisions', 2), ordered);
+});
+
 test('wrapped Markdown list continuations stay in one item and other edits preserve them byte-for-byte', () => {
   const wrapped = EN_SUMMARY.replace(
     '- Preserve the source session',
