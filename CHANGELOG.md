@@ -4,6 +4,20 @@
 
 ## Unreleased
 
+## 0.3.2 — 2026-09-03
+
+### Native text editor
+
+- Accept flat ordered Markdown lists such as `1.` and `7)` in the five-section Text editor instead of forcing users back to raw Markdown.
+- Preserve each original list marker and continuation prefix when editing rows; newly added rows continue the final ordinal and delimiter.
+- Keep nested lists, mixed block structures, and other non-lossless Markdown fail-closed in the source editor.
+
+### DSH 0.1.2-alpha.5 compatibility
+
+- Upgrade a titled official alpha.3 profile in place to alpha.5 without losing its v4 projection-cache title.
+- Validate the packed client on the official alpha.5 WebUI: typed controllers 13/13, ordered-list Text/Markdown round trip, edited `ptc` target with paused goal, and automatic target opening.
+- Validate a Web-created `standard` source with an unresolved image falling back visibly on a text-only target, followed by residue-free removal and restart.
+
 ## 0.3.1 — 2026-08-31
 
 ### DSH 0.1.2-alpha.2 compatibility
