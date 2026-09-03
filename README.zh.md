@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.1
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.2
 ```
 
 然后在官方 WebUI 输入：

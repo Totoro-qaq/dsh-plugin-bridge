@@ -49,7 +49,7 @@ The compatibility gate also required an existing titled alpha.3 profile to survi
 ## Boundaries
 
 - The runtime used isolated temporary profiles and a temporary credentials copy; both were deleted after verification.
-- This validates the branch tarball, not the currently published npm `0.3.1`; users need a subsequent release to receive the ordered-list fix.
+- This validates the branch tarball that became the `0.3.2` release candidate; npm `0.3.1` does not contain the ordered-list fix.
 - Alpha.4 was not tested as a standalone target; the verified upgrade path was alpha.3 directly to alpha.5.
 - No screenshot baseline was committed, so visual regression outside the exercised interaction states remains inconclusive.
 
