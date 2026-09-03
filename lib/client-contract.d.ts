@@ -43,15 +43,18 @@ export interface BridgeTextSection {
     bodyStart: number;
     bodyEnd: number;
     items?: BridgeTextListItem[];
-    listStyle?: 'bullet' | 'plain';
+    listStyle?: BridgeListStyle;
     textStyle?: 'plain' | 'bullets';
 }
+type BridgeListStyle = 'bullet' | 'ordered' | 'plain';
 export interface BridgeTextListItem {
     text: string;
     contentStart: number;
     contentEnd: number;
     itemStart: number;
     itemEnd: number;
+    /** Exact Markdown marker retained when this item is edited. */
+    marker?: string;
     /** Original indentation for wrapped lines, kept when that item is edited. */
     continuationPrefixes?: string[];
 }
@@ -75,7 +78,7 @@ export declare function replaceBridgeTextSection(projection: BridgeTextProjectio
 export declare function replaceBridgeTextListItem(projection: BridgeTextProjection, key: BridgeTextSectionKey, index: number, plainText: string): string;
 /** Remove exactly one original list-item span. */
 export declare function removeBridgeTextListItem(projection: BridgeTextProjection, key: BridgeTextSectionKey, index: number): string;
-/** Append one item using the section's existing bullet/plain convention. */
+/** Append one item using the section's existing Markdown list convention. */
 export declare function appendBridgeTextListItem(projection: BridgeTextProjection, key: BridgeTextSectionKey, plainText: string): string;
 /** Map the official WebUI document language onto Bridge's supported UI copy. */
 export declare function uiLanguageOf(documentLang: string | undefined): 'zh' | 'en';
@@ -85,3 +88,4 @@ export declare function parseBridgeCard(outcome: BridgeOutcome): BridgeCard;
 export declare function parseJsonDocument(text: string): object | unknown[] | undefined;
 /** Build the hidden-input-safe command used by the native editor confirmation. */
 export declare function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en', previewId: string): string;
+export {};

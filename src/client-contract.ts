@@ -46,9 +46,11 @@ export interface BridgeTextSection {
   bodyStart: number
   bodyEnd: number
   items?: BridgeTextListItem[]
-  listStyle?: 'bullet' | 'plain'
+  listStyle?: BridgeListStyle
   textStyle?: 'plain' | 'bullets'
 }
+
+type BridgeListStyle = 'bullet' | 'ordered' | 'plain'
 
 export interface BridgeTextListItem {
   text: string
@@ -56,6 +58,8 @@ export interface BridgeTextListItem {
   contentEnd: number
   itemStart: number
   itemEnd: number
+  /** Exact Markdown marker retained when this item is edited. */
+  marker?: string
   /** Original indentation for wrapped lines, kept when that item is edited. */
   continuationPrefixes?: string[]
 }
@@ -169,6 +173,8 @@ const THEMATIC_OR_SETEXT = /^ {0,3}(?:(?:\*[\t ]*){3,}|(?:-[\t ]*){3,}|(?:_[\t ]
 const TABLE_DELIMITER = /^ {0,3}\|?[\t ]*:?-{3,}:?[\t ]*(?:\|[\t ]*:?-{3,}:?[\t ]*)+\|?[\t ]*$/u
 const LINK_DEFINITION = /^ {0,3}\[[^\]]+\]:[\t ]*\S/u
 const HTML_BLOCK_START = /^ {0,3}<[/!?A-Za-z]/u
+const BULLET_LIST_ITEM = /^(- )(.+)$/u
+const ORDERED_LIST_ITEM = /^(\d{1,9}[.)] )(.+)$/u
 
 function hasUnsafeBlock(line: string): boolean {
   return MARKDOWN_BLOCK_START.test(line)
@@ -187,12 +193,18 @@ function parseListItems(
   lineEnding: '\n' | '\r\n',
   bodyStart: number,
   allowPlain: boolean,
-): { items: BridgeTextListItem[]; style: 'bullet' | 'plain'; text: string } | undefined {
+): { items: BridgeTextListItem[]; style: BridgeListStyle; text: string } | undefined {
   if (!markdownBody) return { items: [], style: 'bullet', text: '' }
   const lines = sourceLines(markdownBody, lineEnding)
   if (lines.some((line) => !line.text.trim())) return undefined
-  const bullet = /^- (.+)$/u.exec(lines[0]?.text ?? '')
-  const style = bullet ? 'bullet' : allowPlain ? 'plain' : undefined
+  const firstLine = lines[0]?.text ?? ''
+  const style = BULLET_LIST_ITEM.test(firstLine)
+    ? 'bullet'
+    : ORDERED_LIST_ITEM.test(firstLine)
+      ? 'ordered'
+      : allowPlain
+        ? 'plain'
+        : undefined
   if (!style) return undefined
 
   const items: BridgeTextListItem[] = []
@@ -208,9 +220,10 @@ function parseListItems(
       })
     }
   } else {
+    const itemPattern = style === 'ordered' ? ORDERED_LIST_ITEM : BULLET_LIST_ITEM
     const starts: number[] = []
     for (const [index, line] of lines.entries()) {
-      if (/^- (.+)$/u.test(line.text)) {
+      if (itemPattern.test(line.text)) {
         starts.push(index)
         continue
       }
@@ -221,17 +234,20 @@ function parseListItems(
       const first = lines[lineIndex] as SourceLine
       const nextLineIndex = starts[itemIndex + 1] ?? lines.length
       const last = lines[nextLineIndex - 1] as SourceLine
-      const firstText = /^- (.+)$/u.exec(first.text)?.[1]
-      if (!firstText) return undefined
+      const itemMatch = itemPattern.exec(first.text)
+      const marker = itemMatch?.[1]
+      const firstText = itemMatch?.[2]
+      if (!marker || !firstText) return undefined
       const continuationLines = lines.slice(lineIndex + 1, nextLineIndex)
       const continuationPrefixes = continuationLines.map((line) => /^[\t ]*/u.exec(line.text)?.[0] ?? '')
       const continuation = continuationLines.map((line, index) => line.text.slice(continuationPrefixes[index]?.length ?? 0))
       items.push({
         text: [firstText, ...continuation].join(lineEnding),
-        contentStart: bodyStart + first.start + 2,
+        contentStart: bodyStart + first.start + marker.length,
         contentEnd: bodyStart + last.contentEnd,
         itemStart: bodyStart + first.start,
         itemEnd: bodyStart + (lines[nextLineIndex]?.start ?? markdownBody.length),
+        marker,
         continuationPrefixes,
       })
     }
@@ -354,7 +370,7 @@ export function replaceBridgeTextSection(
     }
     markdownBody = section.listStyle === 'plain'
       ? values.join(projection.lineEnding)
-      : values.map((line) => `- ${line}`).join(projection.lineEnding)
+      : values.map((line, index) => `${section.items?.[index]?.marker ?? '- '}${line}`).join(projection.lineEnding)
   } else {
     markdownBody = section.textStyle === 'bullets'
       ? normalized.split(projection.lineEnding).map((line) => `- ${line}`).join(projection.lineEnding)
@@ -375,7 +391,7 @@ function listSection(projection: BridgeTextProjection, key: BridgeTextSectionKey
 
 function editedListItem(
   text: string,
-  style: 'bullet' | 'plain',
+  style: BridgeListStyle,
   lineEnding: '\n' | '\r\n',
   original?: BridgeTextListItem,
 ): string {
@@ -384,7 +400,7 @@ function editedListItem(
   const lines = normalized.split(lineEnding)
   if (lines.some((line) => hasUnsafeBlock(line))) throw new Error('Bridge list item contains Markdown block structure')
   if (style === 'plain' && lines.length > 1) throw new Error('Plain path rows must stay on one line')
-  return style === 'bullet'
+  return style !== 'plain'
     ? [
         lines[0],
         ...lines.slice(1).map((line, index) => `${original?.continuationPrefixes?.[index] ?? '  '}${line}`),
@@ -403,7 +419,7 @@ export function replaceBridgeTextListItem(
   const item = section.items?.[index]
   if (!item) throw new Error(`Unknown Bridge list item: ${key}[${index}]`)
   if (plainText === item.text) return projection.markdown
-  const edited = editedListItem(plainText, section.listStyle as 'bullet' | 'plain', projection.lineEnding, item)
+  const edited = editedListItem(plainText, section.listStyle as BridgeListStyle, projection.lineEnding, item)
   return projection.markdown.slice(0, item.contentStart) + edited + projection.markdown.slice(item.contentEnd)
 }
 
@@ -423,16 +439,27 @@ export function removeBridgeTextListItem(
   return projection.markdown.slice(0, removeStart) + projection.markdown.slice(item.itemEnd)
 }
 
-/** Append one item using the section's existing bullet/plain convention. */
+/** Append one item using the section's existing Markdown list convention. */
 export function appendBridgeTextListItem(
   projection: BridgeTextProjection,
   key: BridgeTextSectionKey,
   plainText: string,
 ): string {
   const section = listSection(projection, key)
-  const edited = editedListItem(plainText, section.listStyle as 'bullet' | 'plain', projection.lineEnding)
+  const edited = editedListItem(plainText, section.listStyle as BridgeListStyle, projection.lineEnding)
   const prefix = section.bodyStart === section.bodyEnd ? '' : projection.lineEnding
-  const item = section.listStyle === 'bullet' ? `- ${edited}` : edited
+  let marker = ''
+  if (section.listStyle === 'bullet') marker = '- '
+  if (section.listStyle === 'ordered') {
+    const previous = section.items?.at(-1)?.marker
+    const match = /^(\d{1,9})([.)]) $/u.exec(previous ?? '')
+    const next = match ? Number(match[1]) + 1 : (section.items?.length ?? 0) + 1
+    if (!Number.isSafeInteger(next) || next > 999_999_999) {
+      throw new Error('Bridge ordered list marker is out of range')
+    }
+    marker = `${String(next)}${match?.[2] ?? '.'} `
+  }
+  const item = `${marker}${edited}`
   return projection.markdown.slice(0, section.bodyEnd) + prefix + item + projection.markdown.slice(section.bodyEnd)
 }
 
