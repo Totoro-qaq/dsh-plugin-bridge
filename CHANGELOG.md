@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+### DSH 0.1.3-alpha.2 and bounded history reads
+
+- Extend the optional DSH peers to `^0.1.3-alpha.2`, retain older host ranges, and build against the exact alpha.2 client SDK.
+- Read a bounded source-history window from one fresh typed-controller snapshot instead of materializing the full Session once per page. Legacy RPC adapters retain their paged path; worker polling still reads fresh events without a TTL cache.
+- Avoid copying the complete event prefix during local pagination; locate a backward cursor by binary search.
+- Validate an official npm `0.1.2-rc.1` profile upgraded to `0.1.3-alpha.2`: old log bytes and titles, folded content, native Text/Markdown edits, paused PTC targets, image-to-text fallback, and clean removal after restart.
+- Record the 6,000-message history comparison and real-install boundaries in [the compatibility report](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md).
+
 ## 0.3.2 — 2026-09-03
 
 ### Native text editor

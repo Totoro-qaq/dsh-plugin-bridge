@@ -118,6 +118,9 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | 0.1.0-rc.7 / rc.8 | Yes | Contract-checked | Client-module/command-slot contract plus server fallback |
 | 0.1.1-rc.2 | Yes | Yes | Installed official WebUI: doctor 13/13, edit/confirm/auto-open, three-run repeat gate |
 | 0.1.2-alpha.2 / alpha.3 / alpha.5 | Yes | Yes | Official DSH npm hosts: typed controllers 13/13 and PTC auto-open; the alpha.5 gate installed the branch tarball, retained alpha.3 titles, edited ordered lists, fell back from unresolved image to text, and removed cleanly |
+| 0.1.2-rc.1 → 0.1.3-alpha.2 | Unreleased candidate | Unreleased candidate | Real npm-host upgrade, preserved v2 history/title, exact edited payload, PTC paused goal, image fallback and clean removal; see [acceptance report](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
+
+The new 0.1.3 compatibility changes are not included in published Bridge 0.3.2. The candidate's typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility.
 
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 
@@ -148,7 +151,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 170 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 174 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

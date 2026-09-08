@@ -6,6 +6,7 @@ import {
   probeDshAlphaHost,
   resolveDshHost,
 } from '../src/dsh-alpha-host.ts';
+import { foldedHistory, waitIdle } from '../src/migrate.ts';
 
 function fixture() {
   const calls = [];
@@ -137,4 +138,77 @@ test('optional service discovery never touches Cordis properties without inject'
 
   assert.equal(resolveDshHost(cordis).descriptor.id, 'dsh-typed-controllers');
   assert.equal(probeDshAlphaHost(cordis).every((row) => row.available), true);
+});
+
+test('a long alpha history is inspected once and preserves the same bounded message window', async () => {
+  const { services } = fixture();
+  const events = Array.from({ length: 240 }, (_, seq) => ({
+    type: seq % 2 === 0 ? 'user/message' : 'assistant/message', seq, time: seq + 1,
+    data: { content: [{ type: 'text', text: `fact-${seq}` }] },
+  }));
+  let inspections = 0;
+  services.sessionController.inspect = async () => {
+    inspections++;
+    return { meta: {}, events };
+  };
+  const host = createDshAlphaHost(services);
+  const messages = await foldedHistory(host, 's-source', { pageMessages: 20, maxPages: 6 });
+  assert.equal(inspections, 1, 'pagination must not repeatedly materialize the whole history');
+  assert.deepEqual(messages.map(message => message.content), events.slice(-120).map(event => event.data.content[0].text));
+
+  events.push({ type: 'user/message', seq: 240, time: 241, data: { content: [{ type: 'text', text: 'new fact' }] } });
+  const next = await foldedHistory(host, 's-source', { pageMessages: 20, maxPages: 6 });
+  assert.equal(inspections, 2, 'a new read must observe a new snapshot, not a TTL cache');
+  assert.equal(next.at(-1).content, 'new fact');
+});
+
+test('alpha worker polling still observes newly appended turn events after a snapshot read', async () => {
+  const { services } = fixture();
+  let inspections = 0;
+  services.sessionController.inspect = async () => ({ meta: {}, events: ++inspections < 3
+    ? [{ type: 'turn/start', seq: 2, time: 1, data: {} }]
+    : [{ type: 'turn/start', seq: 2, time: 1, data: {} }, { type: 'turn/end', seq: 3, time: 2, data: {} }],
+  });
+  const host = createDshAlphaHost(services);
+  await foldedHistory(host, 's-source');
+  assert.deepEqual(await waitIdle(host, 's-source', { afterSeq: 1, pollMs: 1, timeoutMs: 1000 }), { idle: true, started: true });
+  assert.equal(inspections, 3);
+});
+
+test('single-read and legacy paged histories agree with interleaved tool and compaction events', async () => {
+  const { services } = fixture();
+  const events = [];
+  const append = (type, data) => events.push({ type, seq: events.length, time: events.length + 1, data });
+  for (let i = 0; i < 40; i++) {
+    append('turn/start', {});
+    append('user/message', { content: [{ type: 'text', text: i === 28 ? '<compacted-summary>current port 7813</compacted-summary>' : `question-${i}` }] });
+    append('tool/call', { tool: 'read', callId: `c${i}`, input: { path: `src/${i}.ts` } });
+    append('tool/result', { callId: `c${i}`, output: `result-${i}` });
+    append('assistant/message', { message: { content: [{ type: 'text', text: `answer-${i}` }] } });
+    append('turn/end', {});
+  }
+  services.sessionController.inspect = async () => ({ meta: {}, events });
+  const host = createDshAlphaHost(services);
+  const { historyWindow: unused, ...sessions } = host.sessions;
+  const legacy = { ...host, sessions };
+  for (const pageMessages of [1, 3, 20, 60]) {
+    assert.deepEqual(
+      await foldedHistory(host, 's-source', { pageMessages, maxPages: 3 }),
+      await foldedHistory(legacy, 's-source', { pageMessages, maxPages: 3 }),
+    );
+  }
+});
+
+test('snapshot failures and cancellation propagate without returning stale or empty history', async () => {
+  const { services } = fixture();
+  const abort = new AbortController();
+  services.sessionController.inspect = async (_id, signal) => {
+    assert.equal(signal, abort.signal);
+    signal.throwIfAborted();
+    throw new Error('history read failed');
+  };
+  const host = createDshAlphaHost(services, abort.signal);
+  await assert.rejects(foldedHistory(host, 's-source'), /history read failed/);
+  abort.abort(new Error('cancelled read'));
+  await assert.rejects(foldedHistory(host, 's-source'), /cancelled read/);
 });
