@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh rc.6 → 0.1.2-alpha.5](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.2--alpha.5-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.3-alpha.2](https://img.shields.io/badge/dsh-0.1.3--alpha.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=zh)](https://dshfind.com/zh/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.2
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.3
 ```
 
 然后在官方 WebUI 输入：
@@ -118,9 +118,9 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.0-rc.7 / rc.8 | 支持 | 契约核对 | client module / command slot 契约与服务端回退 |
 | 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI 实装：doctor 13/13、编辑/确认/自动跳转、三次重复门禁 |
 | 0.1.2-alpha.2 / alpha.3 / alpha.5 | 支持 | 支持 | 官方 DSH npm 宿主：typed controllers 13/13 与 PTC 自动跳转；alpha.5 门禁安装分支 tarball，保留 alpha.3 标题，编号列表可编辑，未解析图片降级为文本，卸载干净 |
-| 0.1.2-rc.1 → 0.1.3-alpha.2 | 未发布候选版 | 未发布候选版 | 官方 npm 宿主真实升级、v2 历史与标题保留、编辑内容逐字交接、PTC goal 暂停、图片回退及卸载；见[验收记录](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
+| 0.1.2-rc.1 → 0.1.3-alpha.2 | 支持（Bridge 0.3.3+） | 支持（Bridge 0.3.3+） | 官方 npm 宿主真实升级、v2 历史与标题保留、编辑内容逐字交接、PTC goal 暂停、图片回退及卸载；见[验收记录](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
 
-新的 0.1.3 兼容改动尚未包含在已发布的 Bridge 0.3.2 中。候选版的 typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。
+DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含这些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。
 
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 

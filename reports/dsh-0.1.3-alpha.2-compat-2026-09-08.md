@@ -1,6 +1,6 @@
 # DSH 0.1.3-alpha.2 compatibility and history-window acceptance
 
-Date: 2026-09-08 (Asia/Shanghai). Status: **local unreleased candidate**, based on Bridge `d2b9be2` (0.3.2). These results do not apply to the unchanged registry 0.3.2 package.
+Date: 2026-09-08 (Asia/Shanghai). **Bridge 0.3.3 release acceptance**. The runtime tests used the implementation candidate based on `d2b9be2`, before its package version was bumped from 0.3.2 to 0.3.3. These results do not apply to the unchanged registry 0.3.2 package.
 
 ## Environments and artifact
 
