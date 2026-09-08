@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.3 — 2026-09-08
+
 ### DSH 0.1.3-alpha.2 and bounded history reads
 
 - Extend the optional DSH peers to `^0.1.3-alpha.2`, retain older host ranges, and build against the exact alpha.2 client SDK.

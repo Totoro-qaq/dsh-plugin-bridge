@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh rc.6 → 0.1.2-alpha.5](https://img.shields.io/badge/dsh-rc.6%20%E2%86%92%200.1.2--alpha.5-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.3-alpha.2](https://img.shields.io/badge/dsh-0.1.3--alpha.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=en)](https://dshfind.com/en/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.2
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.3
 ```
 
 Then type in the official WebUI:
@@ -118,9 +118,9 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | 0.1.0-rc.7 / rc.8 | Yes | Contract-checked | Client-module/command-slot contract plus server fallback |
 | 0.1.1-rc.2 | Yes | Yes | Installed official WebUI: doctor 13/13, edit/confirm/auto-open, three-run repeat gate |
 | 0.1.2-alpha.2 / alpha.3 / alpha.5 | Yes | Yes | Official DSH npm hosts: typed controllers 13/13 and PTC auto-open; the alpha.5 gate installed the branch tarball, retained alpha.3 titles, edited ordered lists, fell back from unresolved image to text, and removed cleanly |
-| 0.1.2-rc.1 → 0.1.3-alpha.2 | Unreleased candidate | Unreleased candidate | Real npm-host upgrade, preserved v2 history/title, exact edited payload, PTC paused goal, image fallback and clean removal; see [acceptance report](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
+| 0.1.2-rc.1 → 0.1.3-alpha.2 | Yes (Bridge 0.3.3+) | Yes (Bridge 0.3.3+) | Real npm-host upgrade, preserved v2 history/title, exact edited payload, PTC paused goal, image fallback and clean removal; see [acceptance report](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
 
-The new 0.1.3 compatibility changes are not included in published Bridge 0.3.2. The candidate's typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility.
+Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include these compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility.
 
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 
