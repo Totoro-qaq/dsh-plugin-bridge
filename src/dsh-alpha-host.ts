@@ -1,10 +1,10 @@
 /**
- * DSH v0.1.2 alpha typed-controller adapter.
+ * DSH v0.1.2/v0.1.3 typed-controller adapter.
  *
  * The alpha removed the legacy ApiProxy service.  Keep that product change at
  * this boundary: migration code continues to consume BridgeHost, while this
- * adapter talks to the Host controllers structurally so the package can still
- * be built against the current rc.2 SDK.
+ * adapter talks to the Host controllers structurally while the browser half
+ * builds against the current client SDK.
  */
 import { randomUUID } from 'node:crypto'
 
@@ -177,11 +177,21 @@ function paginateHistory(
   beforeSeq: number | undefined,
   maxMessages: number,
 ): { events: { event: SessionEvent }[]; hasMore: boolean } {
-  const visible = beforeSeq === undefined ? [...events] : events.filter(event => (event.seq ?? -1) < beforeSeq)
+  // Snapshot events are ordered. Locate the cursor without copying/scanning
+  // the entire prefix on every page; only allocate the returned window.
+  let end = events.length
+  if (beforeSeq !== undefined) {
+    let low = 0
+    while (low < end) {
+      const middle = Math.floor((low + end) / 2)
+      if ((events[middle]?.seq ?? -1) < beforeSeq) low = middle + 1
+      else end = middle
+    }
+  }
   let count = 0
   let cut = 0
-  for (let index = visible.length - 1; index >= 0; index -= 1) {
-    const type = visible[index]?.type
+  for (let index = end - 1; index >= 0; index -= 1) {
+    const type = events[index]?.type
     if (type !== 'user/message' && type !== 'assistant/message') continue
     count += 1
     if (count >= maxMessages) {
@@ -190,7 +200,7 @@ function paginateHistory(
     }
   }
   return {
-    events: visible.slice(cut).map(event => ({ event })),
+    events: events.slice(cut, end).map(event => ({ event })),
     hasMore: cut > 0,
   }
 }
@@ -218,14 +228,14 @@ export function probeDshAlphaHost(input: ContextLike): BridgeHostProbe[] {
   }))
 }
 
-/** Create the semantic BridgeHost over DSH v0.1.2 typed Host controllers. */
+/** Create the semantic BridgeHost over DSH typed Host controllers. */
 export function createDshAlphaHost(input: ContextLike, signal?: AbortSignal): BridgeHost {
   const services = servicesOf(input)
   const controller = services.sessionController
   const abort = signal ?? new AbortController().signal
 
   const host: BridgeHost = {
-    descriptor: Object.freeze({ id: 'dsh-typed-controllers', version: '0.1.2-alpha', transport: 'in-process' }),
+    descriptor: Object.freeze({ id: 'dsh-typed-controllers', transport: 'in-process' }),
     sessions: Object.freeze({
       list: async (request = {}) => {
         const list = required('session.list', controller?.list)
@@ -240,6 +250,11 @@ export function createDshAlphaHost(input: ContextLike, signal?: AbortSignal): Br
         const inspect = required('session.history', controller?.inspect)
         const value = await invoke('session.history', () => inspect.call(controller, request.sessionId, abort))
         return paginateHistory(value.events, request.beforeSeq, request.maxMessages ?? 60)
+      },
+      historyWindow: async request => {
+        const inspect = required('session.history', controller?.inspect)
+        const value = await invoke('session.history', () => inspect.call(controller, request.sessionId, abort))
+        return paginateHistory(value.events, undefined, request.maxMessages)
       },
       models: async ({ sessionId }) => {
         const list = required('session.list', controller?.list)

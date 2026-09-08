@@ -141,7 +141,7 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
-test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => {
+test('0.1.3-alpha.2 构建保留旧宿主 peer 范围且不引用已移除的 client-runtime', async () => {
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   const alphaClientPackages = [
     '@deepseek-ai/dsh-api-remotes',
@@ -159,9 +159,10 @@ test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => 
     );
     assert.equal(
       manifest.devDependencies[packageName],
-      '^0.1.2-alpha.2',
-      `${packageName} 的本地构建应锁定当前官方 alpha.2`,
+      '0.1.3-alpha.2',
+      `${packageName} 的本地构建应锁定当前官方 0.1.3-alpha.2`,
     );
+    assert.match(manifest.peerDependencies[packageName], /\^0\.1\.3-alpha\.2/u);
   }
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
@@ -179,7 +180,7 @@ test('alpha.2 依赖声明不再引用已移除的 client-runtime', async () => 
   ]) {
     assert.equal(
       manifest.devDependencies[packageName],
-      '^0.1.2-alpha.2',
+      '0.1.3-alpha.2',
       `${packageName} 必须提供 alpha.2 拆分后的客户端类型契约`,
     );
   }

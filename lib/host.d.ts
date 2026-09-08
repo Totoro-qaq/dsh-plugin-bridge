@@ -85,6 +85,20 @@ export interface BridgeHost {
             }[];
             hasMore?: boolean;
         }>;
+        /** Optional single-read window for hosts that already materialize a complete
+         * snapshot. Each invocation reads fresh state; readers must not cache it
+         * across commands or worker polls. The budget counts user/assistant message events. */
+        historyWindow?(input: {
+            sessionId: string;
+            maxMessages: number;
+        }, options?: {
+            timeoutMs?: number;
+        }): Promise<{
+            events?: {
+                event: SessionEvent;
+            }[];
+            hasMore?: boolean;
+        }>;
         models(input: {
             sessionId: string;
         }): Promise<SessionModels>;

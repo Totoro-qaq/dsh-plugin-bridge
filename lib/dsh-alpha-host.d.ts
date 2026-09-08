@@ -58,7 +58,7 @@ type ContextLike = AlphaServices & {
 };
 /** Probe the real alpha services instead of the adapter's always-present closures. */
 export declare function probeDshAlphaHost(input: ContextLike): BridgeHostProbe[];
-/** Create the semantic BridgeHost over DSH v0.1.2 typed Host controllers. */
+/** Create the semantic BridgeHost over DSH typed Host controllers. */
 export declare function createDshAlphaHost(input: ContextLike, signal?: AbortSignal): BridgeHost;
 /** Prefer the stable rc.2 path when present; otherwise use alpha controllers. */
 export declare function resolveDshHost(input: ContextLike, signal?: AbortSignal): BridgeHost;

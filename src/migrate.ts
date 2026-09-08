@@ -207,6 +207,14 @@ export async function foldedHistory(
   const host = asBridgeHost(input);
   const pageMessages = options.pageMessages ?? HISTORY_PAGE_MESSAGES;
   const maxPages = options.maxPages ?? HISTORY_MAX_PAGES;
+  if (maxPages <= 0) return [];
+  if (host.sessions.historyWindow) {
+    const window = await host.sessions.historyWindow(
+      { sessionId, maxMessages: pageMessages * maxPages },
+      { timeoutMs: 60_000 },
+    );
+    return foldSessionEvents((window.events ?? []).map(entry => entry.event));
+  }
   let events: SessionEvent[] = [];
   let beforeSeq: number | undefined;
   for (let page = 0; page < maxPages; page += 1) {
