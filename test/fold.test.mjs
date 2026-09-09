@@ -160,3 +160,29 @@ test('think 标签：恶意输入线性时间（ReDoS 回归）', () => {
   assert.ok(ms < 200, `折叠耗时 ${ms.toFixed(0)}ms，疑似回溯爆炸`);
   assert.ok(out.at(-1).content.includes('<think>'), '未闭合内容应原样保留');
 });
+
+test('DSH 0.1.5 V3：system/message 与 surface 替换记录不进折叠结果', () => {
+  // V3 把系统提示词记成 surface node 0（`system/message`），后续可用
+  // `{ op: 'replace' }` 原位替换。它们是模型请求的一部分，不是会话事实。
+  const head = ev('system/message', { turn: 0, step: 0, message: { role: 'system', content: 'SECRET SYSTEM PROMPT' } });
+  head.surfaceOp = 'append';
+  const update = ev('system/message', { turn: 1, step: 0, message: { role: 'system', content: 'UPDATED SYSTEM PROMPT' } });
+  update.surfaceOp = { op: 'replace', startSeq: head.seq, endSeq: head.seq };
+  update.sourceEventSeqs = [head.seq];
+  const out = foldSessionEvents([
+    ev('request/header', { turn: 0, step: 0, header: { config: {} } }),
+    head,
+    { ...userMsg('项目 BRIDGE-V3，端口 7813'), surfaceOp: 'append' },
+    { ...asstMsg('收到：7813。'), surfaceOp: 'append' },
+    ev('turn/end', {}),
+    update,
+    { ...userMsg('禁止 MongoDB'), surfaceOp: 'append' },
+    { ...asstMsg('明白，不用 MongoDB。', 2, 1), surfaceOp: 'append' },
+    ev('turn/end', {}),
+  ]);
+  assert.deepEqual(out.map((m) => [m.role, m.content]), [
+    ['user', '项目 BRIDGE-V3，端口 7813'], ['assistant', '收到：7813。'],
+    ['user', '禁止 MongoDB'], ['assistant', '明白，不用 MongoDB。'],
+  ]);
+  assert.doesNotMatch(JSON.stringify(out), /SYSTEM PROMPT/u, '系统提示词不是会话事实，不能被搬进交接摘要');
+});

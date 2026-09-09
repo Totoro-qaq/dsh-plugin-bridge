@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### DSH 0.1.5-alpha.1
+
+- Extend the optional DSH peers to `^0.1.5-alpha.1` (DSH published no 0.1.4, and a caret prerelease range never matches the next prerelease minor), keep every older host range, and build against the exact 0.1.5-alpha.1 client SDK; the generated `lib/` is byte-identical to the 0.3.3 build.
+- Cover DSH session format V3 with fixtures: `system/message` surface nodes and positional replacements never enter the fold or the bounded history budget, and the single-read and paged adapters still agree.
+- Smoke-test the packed tarball on an official npm `0.1.5-alpha.1` web profile: plugin add, served native-card bundle, `/bridge --doctor` 13/13 and preset listing on a V3 session. Model-backed preview, migration and image fallback were not re-run; see [the compatibility report](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md).
+
 ## 0.3.3 — 2026-09-08
 
 ### DSH 0.1.3-alpha.2 and bounded history reads
