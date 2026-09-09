@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.3
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.4
 ```
 
 Then type in the official WebUI:
@@ -119,9 +119,9 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | 0.1.1-rc.2 | Yes | Yes | Installed official WebUI: doctor 13/13, edit/confirm/auto-open, three-run repeat gate |
 | 0.1.2-alpha.2 / alpha.3 / alpha.5 | Yes | Yes | Official DSH npm hosts: typed controllers 13/13 and PTC auto-open; the alpha.5 gate installed the branch tarball, retained alpha.3 titles, edited ordered lists, fell back from unresolved image to text, and removed cleanly |
 | 0.1.2-rc.1 → 0.1.3-alpha.2 | Yes (Bridge 0.3.3+) | Yes (Bridge 0.3.3+) | Real npm-host upgrade, preserved v2 history/title, exact edited payload, PTC paused goal, image fallback and clean removal; see [acceptance report](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
-| 0.1.5-alpha.1 | Unreleased candidate | Unreleased candidate | Official npm host with session format V3: tarball install, served native-card bundle, doctor 13/13 and preset listing on a V3 session; SDK type diff and V3 fold fixtures. Model-backed preview, migration and image fallback were not re-run; see [smoke report](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
+| 0.1.5-alpha.1 | Yes (Bridge 0.3.4+) | Yes (Bridge 0.3.4+) | Official npm host with session format V3: tarball install, served native-card bundle, doctor 13/13 and preset listing on a V3 session; SDK type diff and V3 fold fixtures. Model-backed preview, migration and image fallback were not re-run; see [smoke report](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
 
-The 0.1.5-alpha.1 compatibility changes are not included in published Bridge 0.3.3: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so the candidate adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility.
+Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility.
 
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 

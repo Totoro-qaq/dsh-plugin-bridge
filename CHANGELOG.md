@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.4 — 2026-09-10
+
 ### DSH 0.1.5-alpha.1
 
 - Extend the optional DSH peers to `^0.1.5-alpha.1` (DSH published no 0.1.4, and a caret prerelease range never matches the next prerelease minor), keep every older host range, and build against the exact 0.1.5-alpha.1 client SDK; the generated `lib/` is byte-identical to the 0.3.3 build.

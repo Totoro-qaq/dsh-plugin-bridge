@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.3
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.4
 ```
 
 然后在官方 WebUI 输入：
@@ -119,9 +119,9 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI 实装：doctor 13/13、编辑/确认/自动跳转、三次重复门禁 |
 | 0.1.2-alpha.2 / alpha.3 / alpha.5 | 支持 | 支持 | 官方 DSH npm 宿主：typed controllers 13/13 与 PTC 自动跳转；alpha.5 门禁安装分支 tarball，保留 alpha.3 标题，编号列表可编辑，未解析图片降级为文本，卸载干净 |
 | 0.1.2-rc.1 → 0.1.3-alpha.2 | 支持（Bridge 0.3.3+） | 支持（Bridge 0.3.3+） | 官方 npm 宿主真实升级、v2 历史与标题保留、编辑内容逐字交接、PTC goal 暂停、图片回退及卸载；见[验收记录](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
-| 0.1.5-alpha.1 | 未发布候选版 | 未发布候选版 | 官方 npm 宿主（会话格式 V3）：tarball 安装、原生卡片 bundle 已下发、V3 会话上 doctor 13/13 与预设列表；SDK 类型 diff 与 V3 折叠 fixture。未重跑需要模型的预览、迁移与图片回退；见[smoke 记录](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
+| 0.1.5-alpha.1 | 支持（Bridge 0.3.4+） | 支持（Bridge 0.3.4+） | 官方 npm 宿主（会话格式 V3）：tarball 安装、原生卡片 bundle 已下发、V3 会话上 doctor 13/13 与预设列表；SDK 类型 diff 与 V3 折叠 fixture。未重跑需要模型的预览、迁移与图片回退；见[smoke 记录](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
 
-0.1.5-alpha.1 的兼容改动尚未包含在已发布的 Bridge 0.3.3 中：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以候选版追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。
+DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。
 
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
