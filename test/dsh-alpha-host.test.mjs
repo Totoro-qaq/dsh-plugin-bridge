@@ -212,3 +212,42 @@ test('snapshot failures and cancellation propagate without returning stale or em
   abort.abort(new Error('cancelled read'));
   await assert.rejects(foldedHistory(host, 's-source'), /cancelled read/);
 });
+
+test('V3 snapshots keep system/message nodes out of the bounded message budget', async () => {
+  // DSH 0.1.5 session format V3: the system prompt is surface node 0 and later
+  // in-history updates replace it positionally. Neither may consume the
+  // user/assistant budget or reach the fold.
+  const { services } = fixture();
+  const events = [];
+  const append = (type, data, extra = {}) => events.push({ type, seq: events.length, time: events.length + 1, data, ...extra });
+  append('request/header', { turn: 0, step: 0, header: { config: {} } });
+  append('system/message', { turn: 0, step: 0, message: { role: 'system', content: 'system prompt v1' } }, { surfaceOp: 'append' });
+  for (let i = 0; i < 30; i++) {
+    append('turn/start', {});
+    if (i % 10 === 5) {
+      append('system/message', { turn: i, step: 0, message: { role: 'system', content: `system prompt v${i}` } }, {
+        surfaceOp: { op: 'replace', startSeq: 1, endSeq: 1 }, sourceEventSeqs: [1],
+      });
+    }
+    append('user/message', { content: [{ type: 'text', text: `question-${i}` }] }, { surfaceOp: 'append' });
+    append('assistant/message', { message: { content: [{ type: 'text', text: `answer-${i}` }] } }, { surfaceOp: 'append' });
+    append('turn/end', {});
+  }
+  services.sessionController.inspect = async () => ({ meta: { format: 3 }, events });
+  const host = createDshAlphaHost(services);
+
+  const window = await host.sessions.historyWindow({ sessionId: 's-source', maxMessages: 10 });
+  const counted = window.events.map(({ event }) => event.type).filter(type => type === 'user/message' || type === 'assistant/message');
+  assert.equal(counted.length, 10, 'the budget counts user/assistant messages only');
+  assert.equal(window.hasMore, true);
+
+  const folded = await foldedHistory(host, 's-source', { pageMessages: 10, maxPages: 2 });
+  assert.deepEqual(
+    folded.map(message => message.content),
+    Array.from({ length: 10 }, (_, k) => 20 + k).flatMap(i => [`question-${i}`, `answer-${i}`]),
+  );
+  assert.doesNotMatch(JSON.stringify(folded), /system prompt/u);
+
+  const { historyWindow: unused, ...sessions } = host.sessions;
+  assert.deepEqual(folded, await foldedHistory({ ...host, sessions }, 's-source', { pageMessages: 10, maxPages: 2 }));
+});
