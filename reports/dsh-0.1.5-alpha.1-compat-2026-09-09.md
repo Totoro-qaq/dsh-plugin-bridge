@@ -1,6 +1,6 @@
 # DSH 0.1.5-alpha.1 compatibility smoke
 
-Date: 2026-09-09 (Asia/Shanghai). **Bridge 0.3.4 candidate**, built from the `compat/dsh-0.1.5-alpha.1` branch on top of `f2d0fba` (v0.3.3). These results do not apply to the registry 0.3.3 package, whose peer ranges stop at `^0.1.3-alpha.2`.
+Date: 2026-09-09 (Asia/Shanghai). **Bridge 0.3.4 release smoke**. The runtime checks used the candidate built from the `compat/dsh-0.1.5-alpha.1` branch on top of `f2d0fba`, before its package version was bumped from 0.3.3 to 0.3.4. These results do not apply to the registry 0.3.3 package, whose peer ranges stop at `^0.1.3-alpha.2`.
 
 This is a smaller gate than the [0.1.3-alpha.2 acceptance](dsh-0.1.3-alpha.2-compat-2026-09-08.md): it proves install, load, host probing and the command path on the new host, and it audits the SDK contract by type diff. It does not repeat the model-backed preview, edit, migration or image-fallback runs; see [Not covered](#not-covered).
 
