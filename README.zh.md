@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh 0.1.5-alpha.1](https://img.shields.io/badge/dsh-0.1.5--alpha.1-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.5-rc.1](https://img.shields.io/badge/dsh-0.1.5--rc.1-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=zh)](https://dshfind.com/zh/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -85,6 +85,7 @@ DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本
 | 摘要 worker 在干净验收组件中的 nominal 占比 | **20.74%** |
 | 原生 WebUI 重复门禁（预览 / 目标事实） | **3/3 · 3/3**，每次五项 |
 | DSH 0.1.2 alpha.2 / alpha.3 / alpha.5 官方 WebUI 实装 | **13/13 · 编号列表编辑 · PTC 已暂停 · 图片转文本降级** |
+| DSH 0.1.5-rc.1 官方 WebUI 实装，npm Bridge 0.3.4 | **13/13 · 3/3 次迁移 · 编辑逐字送达 · PTC 已暂停 · 原图直达视觉目标** |
 
 token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 占比是组成，不是相对“无 Bridge”的因果开销。稳定结论是默认确认多一个请求。边界和原始证据见[设计与证据说明](docs/design.md)、[完整 release report](reports/v0.2.3-e2e-report.md)和[视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)。
 
@@ -120,8 +121,9 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.2-alpha.2 / alpha.3 / alpha.5 | 支持 | 支持 | 官方 DSH npm 宿主：typed controllers 13/13 与 PTC 自动跳转；alpha.5 门禁安装分支 tarball，保留 alpha.3 标题，编号列表可编辑，未解析图片降级为文本，卸载干净 |
 | 0.1.2-rc.1 → 0.1.3-alpha.2 | 支持（Bridge 0.3.3+） | 支持（Bridge 0.3.3+） | 官方 npm 宿主真实升级、v2 历史与标题保留、编辑内容逐字交接、PTC goal 暂停、图片回退及卸载；见[验收记录](reports/dsh-0.1.3-alpha.2-compat-2026-09-08.md) |
 | 0.1.5-alpha.1 | 支持（Bridge 0.3.4+） | 支持（Bridge 0.3.4+） | 官方 npm 宿主（会话格式 V3）：tarball 安装、原生卡片 bundle 已下发、V3 会话上 doctor 13/13 与预设列表；SDK 类型 diff 与 V3 折叠 fixture。未重跑需要模型的预览、迁移与图片回退；见[smoke 记录](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
+| 0.1.5-rc.1 | 支持（Bridge 0.3.4+） | 支持（Bridge 0.3.4+） | 官方 npm 宿主，已发布的 0.3.4 未改动：doctor 13/13，原生卡片实际渲染，三次真实模型迁移到 PTC，编辑内容逐字交接且 goal 保持暂停，未解析图片以原图交给支持图片的默认模型；见[验收记录](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md) |
 
-DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。
+DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
@@ -143,6 +145,7 @@ CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；�
 - [视觉迁移报告](reports/v0.2.6-rc11-vision-report.md)
 - [原生 WebUI 重复验收](reports/native-workbench-2026-08-25.md)
 - [DSH 0.1.2-alpha.2 兼容性验收](reports/dsh-0.1.2-alpha.2-compat-2026-08-31.md)
+- [DSH 0.1.5-rc.1 兼容性验收](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
