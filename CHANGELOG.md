@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Image kickoff
+
+- Tell the target that unresolved source images are already attached to the kickoff message as images and must be checked visually without calling tools. On DSH 0.1.5-rc.1 a PTC target otherwise spent an extra read-image tool step before restating, roughly doubling that turn's tokens.
+
 ## 0.3.4 — 2026-09-10
 
 ### DSH 0.1.5-alpha.1
