@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+## 0.3.5 — 2026-09-10
+
+### DSH 0.1.5-rc.1
+
+- Verified on DSH 0.1.5-rc.1, now DSH's npm `latest`: doctor 13/13, native card, three model-backed migrations to PTC with exact edited handoffs and paused goals, and an unresolved image carried to the image-capable default model ([report](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md)).
+
 ### Image kickoff
 
 - Tell the target that unresolved source images are already attached to the kickoff message as images and must be checked visually without calling tools. On DSH 0.1.5-rc.1 a PTC target otherwise spent an extra read-image tool step before restating, roughly doubling that turn's tokens.
