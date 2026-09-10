@@ -368,6 +368,15 @@ test('档位推断不写死 provider/model', async () => {
   assert.deepEqual([forced.provider, forced.model, forced.reason], ['x', 'y', 'configured']);
 });
 
+test('默认档位跟随源会话：不传 tier 时压缩工人用源会话当前模型', async () => {
+  const host = createFakeHost();
+  await previewMigration(host.rpc, { sessionId: host.sourceSessionId, ...fast });
+  const workerSelect = host.state.calls.find(
+    (call) => call.method === 'session.selectModel' && call.payload.sessionId !== host.sourceSessionId,
+  );
+  assert.equal(workerSelect?.payload.model, 'deepseek-v4', '默认不应再切到 pro 模型');
+});
+
 test('目录里没有对应档位的模型时退回会话当前模型', async () => {
   const host = createFakeHost({
     models: {

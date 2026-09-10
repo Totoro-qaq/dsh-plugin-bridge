@@ -125,6 +125,8 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
+Since 0.3.5 the summary worker follows the conversation's model by default (`modelTier: current`). On DSH 0.1.5-rc.1 that is V4.1-Flash, which matched V4-Pro in the [tier comparison](reports/worker-tier-rc1-2026-09-10.md) at about half the summary time. DSH releases before 0.1.5-rc.1 have no V4.1-Flash, so set `DSH_BRIDGE_TIER=pro` or pass `--tier pro` there.
+
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 
 Current limits:
@@ -146,6 +148,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [Native WebUI repeat acceptance](reports/native-workbench-2026-08-25.md)
 - [DSH 0.1.2-alpha.2 compatibility acceptance](reports/dsh-0.1.2-alpha.2-compat-2026-08-31.md)
 - [DSH 0.1.5-rc.1 compatibility acceptance](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md)
+- [Summary worker tier comparison on DSH 0.1.5-rc.1](reports/worker-tier-rc1-2026-09-10.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development

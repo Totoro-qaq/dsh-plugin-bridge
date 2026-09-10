@@ -58,7 +58,7 @@ export interface Config {
 }
 
 export const Config: Schema<Config> = Schema.object({
-  modelTier: Schema.union(['flash', 'current', 'pro']).default('pro'),
+  modelTier: Schema.union(['flash', 'current', 'pro']).default('current'),
   sourceCharBudget: Schema.number().default(SOURCE_CHAR_BUDGET),
   summaryCharBudget: Schema.number().default(SUMMARY_CHAR_BUDGET),
   goalRounds: Schema.number().default(1),
@@ -84,7 +84,7 @@ function writeSummaryFile(sessionId: string, summary: string): string | undefine
 /** 把 Config 解析成命令层要的形状（Schema 已经填过默认值，这里只兜底）。 */
 export function commandConfigOf(config: Config = {}) {
   return {
-    modelTier: config.modelTier ?? 'pro',
+    modelTier: config.modelTier ?? 'current',
     sourceCharBudget: config.sourceCharBudget ?? SOURCE_CHAR_BUDGET,
     summaryCharBudget: config.summaryCharBudget ?? SUMMARY_CHAR_BUDGET,
     goalRounds: config.goalRounds ?? 1,

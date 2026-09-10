@@ -125,6 +125,8 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
+0.3.5 起压缩工人默认跟随会话当前模型（`modelTier: current`）。在 DSH 0.1.5-rc.1 上这就是 V4.1-Flash，它在[档位对比](reports/worker-tier-rc1-2026-09-10.md)里与 V4-Pro 打平，摘要用时约减半。DSH 0.1.5-rc.1 之前的版本没有 V4.1-Flash，请设 `DSH_BRIDGE_TIER=pro` 或用 `--tier pro`。
+
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
 当前边界：
@@ -146,6 +148,7 @@ CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；�
 - [原生 WebUI 重复验收](reports/native-workbench-2026-08-25.md)
 - [DSH 0.1.2-alpha.2 兼容性验收](reports/dsh-0.1.2-alpha.2-compat-2026-08-31.md)
 - [DSH 0.1.5-rc.1 兼容性验收](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md)
+- [DSH 0.1.5-rc.1 压缩档位对比](reports/worker-tier-rc1-2026-09-10.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
