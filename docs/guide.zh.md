@@ -114,7 +114,7 @@ dsh-bridge migrate --to code --summary-file <path>
 
 | 配置 | 环境变量 | 默认 | 说明 |
 |---|---|---|---|
-| `modelTier` | `DSH_BRIDGE_TIER` | `pro` | 压缩工人档位。实验结论：pro 与 flash 几乎同价（~2K tokens），但 flash 在 8 次里出现过 1 次全灭，离散度大一个数量级；**不要用 flash 迁 minimal**（三次两次全灭） |
+| `modelTier` | `DSH_BRIDGE_TIER` | `current` | 压缩工人档位，0.3.5 起默认跟随源会话当前模型。DSH 0.1.5-rc.1 的默认模型 V4.1-Flash 在迁移后探针测试里与 V4-Pro 打平（各 50/50、零全灭），摘要用时约减半，见[档位对比](../reports/worker-tier-rc1-2026-09-10.md)。DSH 0.1.5-rc.1 之前没有 V4.1-Flash，会话默认是 V4-Flash，它在 2026-08 的基准里迁入 minimal 时出现过全灭；这类宿主请设 `pro`。`flash` 取同 provider 目录里第一个 flash 类模型 |
 | `sourceCharBudget` | `DSH_BRIDGE_SOURCE_BUDGET` | `60000` | 取材总字符预算（≈30K tokens 输入） |
 | `summaryCharBudget` | `DSH_BRIDGE_SUMMARY_BUDGET` | `2400` | 摘要正文字符预算（≈900 tokens，注入侧成本上限） |
 | `goalRounds` | `DSH_BRIDGE_GOAL_ROUNDS` | `1` | 新会话的自主 goal 轮次上限，见下 |

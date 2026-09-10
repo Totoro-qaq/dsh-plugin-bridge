@@ -56,7 +56,7 @@ const HELP = `dsh-bridge · 跨 preset 会话迁移
   --quiet               不打印进度
 
 preview / run：
-  --tier <flash|current|pro>   压缩档位（默认 pro）
+  --tier <flash|current|pro>   压缩档位（默认 current，跟随源会话模型）
   --provider <id> --model <id> 直接指定压缩模型，跳过档位推断
   --lang <zh|en|auto>          摘要语言（默认 auto，跟着会话内容走）
   --source-budget <n>          取材字符预算（默认 ${SOURCE_CHAR_BUDGET}）
@@ -130,7 +130,7 @@ function resolveSessionId(args: Args): string {
 }
 
 function tierOf(args: Args): ModelTier {
-  const value = str(args, 'tier') ?? 'pro';
+  const value = str(args, 'tier') ?? 'current';
   if (value !== 'flash' && value !== 'current' && value !== 'pro') {
     throw new UsageError(`--tier 只能是 flash / current / pro，收到 "${value}"`);
   }

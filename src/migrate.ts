@@ -283,7 +283,7 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
   }
   const lang = options.lang && options.lang !== 'auto' ? options.lang : detectLang(source.text);
 
-  const tier = options.tier ?? 'pro';
+  const tier = options.tier ?? 'current';
   const route = await resolveWorkerModel(host, options.sessionId, tier, options);
   if (options.dryRun) {
     return { summary: '', source, lang, worker: { ...route }, capped: false, sourceSession };
@@ -488,9 +488,9 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
     agentPreset: options.to,
   });
 
-  // rc.2 的 session.selectModel 会同时保存 host 默认模型。预览 worker 通常
-  // 选择 pro 档位，因此如果这里依赖新会话默认值，目标会被 worker 悄悄改成
-  // pro，视觉源会话也会失去 VLM。显式复制源选择既保持用户模型意图，也让
+  // rc.2 的 session.selectModel 会同时保存 host 默认模型。预览 worker 可能
+  // 用了与源会话不同的档位模型（例如 --tier pro），因此如果这里依赖新会话
+  // 默认值，目标会被 worker 悄悄改成那个模型，视觉源会话也会失去 VLM。显式复制源选择既保持用户模型意图，也让
   // 未解析原图能在 kickoff 前通过目标模型的图片准入。
   let modelTransferred = false;
   if (sourceModel) {

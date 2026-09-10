@@ -5,7 +5,8 @@
     - id: bridge
       name: dsh-plugin-bridge
       config:
-        modelTier: !!js process.env.DSH_BRIDGE_TIER ?? 'pro'
+        # 默认跟随源会话模型。DSH 0.1.5-rc.1 之前没有 V4.1-Flash，这类宿主建议设 pro。
+        modelTier: !!js process.env.DSH_BRIDGE_TIER ?? 'current'
         sourceCharBudget: !!js Number(process.env.DSH_BRIDGE_SOURCE_BUDGET ?? 60000)
         summaryCharBudget: !!js Number(process.env.DSH_BRIDGE_SUMMARY_BUDGET ?? 2400)
         # 上游 goal.create 的部署默认是 256 轮自主循环；交接只需要一轮。

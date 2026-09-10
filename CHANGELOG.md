@@ -8,6 +8,11 @@
 
 - Tell the target that unresolved source images are already attached to the kickoff message as images and must be checked visually without calling tools. On DSH 0.1.5-rc.1 a PTC target otherwise spent an extra read-image tool step before restating, roughly doubling that turn's tokens.
 
+### Summary worker model
+
+- Default `modelTier` is now `current`: the summary worker uses the source conversation's model instead of the provider's `pro`-like model. On DSH 0.1.5-rc.1 that is DeepSeek-V41-Flash, which matched V4-Pro on summary facts and on probing migrated `minimal` targets, with no wipeouts, at about half the summary time ([tier comparison](reports/worker-tier-rc1-2026-09-10.md)).
+- DSH releases before 0.1.5-rc.1 have no V4.1-Flash; set `DSH_BRIDGE_TIER=pro` or pass `--tier pro` to keep the previous behavior. `--tier`, `DSH_BRIDGE_TIER` and `workerModel` still override the default.
+
 ## 0.3.4 — 2026-09-10
 
 ### DSH 0.1.5-alpha.1

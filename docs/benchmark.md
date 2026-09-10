@@ -1,5 +1,7 @@
 # Bridge 跨模式迁移 · 准确率实验报告
 
+> 0.3.5 更新：DSH 0.1.5-rc.1 的 V4.1-Flash 在同样的迁入 minimal 探针条件下与 V4-Pro 打平，默认档位已改为 `current`，见[档位对比](../reports/worker-tier-rc1-2026-09-10.md)。下文仍是 2026-08 基于 V4-Flash 的原始结论。
+
 日期：2026-08-17 ｜ 宿主：本地 `dsh web`（默认 127.0.0.1:3080） ｜ 模型：deepseek-v4-flash / deepseek-v4-pro
 脚本：`eval/run.mjs` ｜ 原始数据：`reports/benchmark-2026-08-17.raw.json`（含逐 run token 记账）
 

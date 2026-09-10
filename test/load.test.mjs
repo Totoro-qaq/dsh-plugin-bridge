@@ -73,7 +73,8 @@ test('BridgeHost 作为独立子路径对 adapter 作者可用', async () => {
 test('Config：空配置给默认值，且与压缩核心常量一致', async () => {
   const { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } = await import('../lib/compression.js');
   const resolved = Config({});
-  assert.equal(resolved.modelTier, 'pro', '默认档位必须是 pro');
+  assert.equal(resolved.modelTier, 'current', '0.3.5 起默认档位跟随源会话模型');
+  assert.equal(commandConfigOf().modelTier, 'current');
   assert.equal(resolved.sourceCharBudget, SOURCE_CHAR_BUDGET);
   assert.equal(resolved.summaryCharBudget, SUMMARY_CHAR_BUDGET);
   assert.equal(resolved.goalRounds, 1, '上游 goal.create 默认 256 轮自主循环，交接只需要一轮');
