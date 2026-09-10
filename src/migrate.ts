@@ -572,8 +572,8 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
       try {
         const images = await readPromptImages(host, options.sessionId, unresolved.refs);
         const transferNote = lang === 'en'
-          ? 'Bridge transfer note: the unresolved source images listed above are attached to this kickoff. Inspect them directly; do not infer details that are not visible.'
-          : 'Bridge 搬运说明：上文列出的未解析源图片已附在本次 kickoff 中。请直接检查原图，不得推断看不清的细节。';
+          ? 'Bridge transfer note: the unresolved source images listed above are attached to this message as images, and you can already see them. Check them by looking at them; do not call any tool to read, open or locate them, and do not infer details that are not visible.'
+          : 'Bridge 搬运说明：上文列出的未解析源图片已作为图片附在本条消息里，你现在就能看到。请直接看图核对，不要调用任何工具去读取、打开或查找这些图片，也不得推断看不清的细节。';
         await host.sessions.prompt({
           sessionId: created.sessionId,
           mode: 'queue',

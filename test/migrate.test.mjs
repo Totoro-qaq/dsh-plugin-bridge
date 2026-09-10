@@ -157,7 +157,10 @@ test('migrate：未解析原图在视觉目标上自动随 kickoff 搬运', asyn
     (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
   );
   assert.equal(kickoff.payload.content[0].type, 'image');
-  assert.match(kickoff.payload.content.at(-1).text, /已附在本次 kickoff/);
+  const note = kickoff.payload.content.find((block) => block.type === 'text')?.text ?? '';
+  assert.match(note, /不要调用任何工具|do not call any tool/u, '原图已在消息里，目标不该再用工具读图');
+  assert.doesNotMatch(note, /请直接检查原图|Inspect them directly/u);
+  assert.match(kickoff.payload.content.at(-1).text, /已作为图片附在本条消息里/);
 });
 
 test('migrate：文本目标拒绝图片时无 token 请求地降级到文本 kickoff', async () => {
