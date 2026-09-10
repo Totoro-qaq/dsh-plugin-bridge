@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.4
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.5
 ```
 
 Then type in the official WebUI:
