@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.6 — 2026-09-15
+
 ### DSH 0.1.6-alpha.1
 
 - Extend the optional DSH peers to `^0.1.6-alpha.1`. `^0.1.5-alpha.1` matches a future 0.1.6 release but no 0.1.6 prerelease. Every older host range is kept.
