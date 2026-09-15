@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+### DSH 0.1.6-alpha.1
+
+- Extend the optional DSH peers to `^0.1.6-alpha.1`. `^0.1.5-alpha.1` matches a future 0.1.6 release but no 0.1.6 prerelease. Every older host range is kept.
+- Build against the exact 0.1.6-alpha.1 client SDK. The SDK change is additive, and the generated `lib/` is byte-identical to 0.3.5.
+- Smoke-test the packed candidate on an official npm 0.1.6-alpha.1 web profile: doctor 13/13, native card, `ptc` still listed after the PTC runtime rename, and a keyless preview that fails closed. The model-backed migration was not re-run ([report](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md)).
+
 ## 0.3.5 — 2026-09-10
 
 ### DSH 0.1.5-rc.1

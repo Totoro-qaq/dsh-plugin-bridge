@@ -142,7 +142,7 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
-test('0.1.5-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 client-runtime', async () => {
+test('0.1.6-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 client-runtime', async () => {
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   const alphaClientPackages = [
     '@deepseek-ai/dsh-api-remotes',
@@ -160,14 +160,19 @@ test('0.1.5-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 cl
     );
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.1.5-alpha.1',
-      `${packageName} 的本地构建应锁定当前官方 0.1.5-alpha.1`,
+      '0.1.6-alpha.1',
+      `${packageName} 的本地构建应锁定当前官方 0.1.6-alpha.1`,
     );
     assert.match(manifest.peerDependencies[packageName], /\^0\.1\.3-alpha\.2/u);
     assert.match(
       manifest.peerDependencies[packageName],
       /\^0\.1\.5-alpha\.1/u,
       `${packageName} 的 peer range 必须显式列出 0.1.5 预发布：caret 预发布范围不会匹配下一个 minor`,
+    );
+    assert.match(
+      manifest.peerDependencies[packageName],
+      /\^0\.1\.6-alpha\.1/u,
+      `${packageName} 的 peer range 必须显式列出 0.1.6 预发布`,
     );
   }
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
@@ -186,8 +191,8 @@ test('0.1.5-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 cl
   ]) {
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.1.5-alpha.1',
-      `${packageName} 必须提供 0.1.5-alpha.1 的客户端类型契约`,
+      '0.1.6-alpha.1',
+      `${packageName} 必须提供 0.1.6-alpha.1 的客户端类型契约`,
     );
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-chat'));
