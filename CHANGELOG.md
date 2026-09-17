@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+### DSH 0.1.6-alpha.2
+
+- Open the migration target through the WebUI's `uiWorkspace.openSession` navigation service. DSH 0.1.6-alpha.2 removed `sessions.open`, so the automatic open after **Confirm migration** and the **Open target session** button would have thrown a `TypeError`. Hosts without that service, or whose service throws, still use `sessions.open`; a host with neither shows a localized error instead of failing silently.
+- Read the navigation service at click time with `ctx.get('uiWorkspace')` instead of adding it to the client `inject` list. Every Cordis inject entry is required, so hosts without the service would otherwise leave the client module pending.
+- Keep waiting until the created target appears in the browser's session list before opening it: alpha.2 rejects sessions that are not listed yet. The wait now stops when the client plugin unloads, and its timeout message follows the card language.
+- Build against the exact 0.1.6-alpha.2 client SDK. The peer ranges are unchanged because `^0.1.6-alpha.1` already matches alpha.2.
+- Docs: for unresolved images, recommend the image-capable V4.1-Flash (`deepseek-flash`) instead of `deepseek-v4-flash-vision-exp`, which DSH 0.1.6-alpha.2 dropped from the default model list together with V4 Flash. Note that on alpha.2 a first install from the WebUI Plugins page applies without a restart, while upgrading there or installing with the CLI may still need one.
+- Verify on official npm DSH 0.1.6-alpha.2 and 0.1.6-alpha.1: the published 0.3.6 fails to open the target on alpha.2, and the fix opens it on both hosts, keeps the paused goal, still applies `DSH_BRIDGE_TIER`, and survives live disable and enable ([report](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md)).
+
 ## 0.3.6 — 2026-09-15
 
 ### DSH 0.1.6-alpha.1

@@ -5,7 +5,7 @@ import type { CommandRowProps } from '@deepseek-ai/dsh-client-ui-chat/client';
 import { type BridgeOutcome } from './client-contract.ts';
 interface BridgeInjected {
     readonly execute: (sessionId: SessionId, line: string) => Promise<BridgeOutcome>;
-    readonly openSession: (sessionId: SessionId) => Promise<void>;
+    readonly openSession: (sessionId: SessionId, lang: 'zh' | 'en') => Promise<void>;
 }
 type BridgeCommandCardProps = CommandRowProps & BridgeInjected;
 /** Rich renderer for the durable command lifecycle keyed by name and isolated from every other plugin. */

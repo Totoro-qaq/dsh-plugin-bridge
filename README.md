@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh 0.1.6-alpha.1](https://img.shields.io/badge/dsh-0.1.6--alpha.1-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.6-alpha.2](https://img.shields.io/badge/dsh-0.1.6--alpha.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=en)](https://dshfind.com/en/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -123,6 +123,7 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | 0.1.5-alpha.1 | Yes (Bridge 0.3.4+) | Yes (Bridge 0.3.4+) | Official npm host with session format V3: tarball install, served native-card bundle, doctor 13/13 and preset listing on a V3 session; SDK type diff and V3 fold fixtures. Model-backed preview, migration and image fallback were not re-run; see [smoke report](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
 | 0.1.5-rc.1 | Yes (Bridge 0.3.4+) | Yes (Bridge 0.3.4+) | Official npm host with the published 0.3.4 unchanged: doctor 13/13, native card rendered, three model-backed migrations to PTC with an exact edited handoff and paused goal, and an unresolved image carried to the vision-capable default model; see [acceptance report](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md) |
 | 0.1.6-alpha.1 | Yes (Bridge 0.3.6+) | Yes (Bridge 0.3.6+) | Official npm host: doctor 13/13, native card rendered, `ptc` still offered after the PTC runtime rename, keyless preview fails closed; the SDK change is additive and `lib/` is byte-identical to 0.3.5. Model-backed migration was not re-run; see [smoke report](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md) |
+| 0.1.6-alpha.2 | Unreleased candidate | Unreleased candidate | Official npm host: Bridge 0.3.6 migrates, but its Open target session button fails with `ctx.sessions.open is not a function`; the candidate opens the target through `uiWorkspace.openSession` on alpha.2 and alpha.1, keeps the paused goal, and survives live disable and enable from the Plugins page; see [acceptance report](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md) |
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -130,12 +131,14 @@ Since 0.3.5 the summary worker follows the conversation's model by default (`mod
 
 Use Bridge 0.3.6 or later for DSH 0.1.6-alpha.1. It adds the `^0.1.6-alpha.1` peer term: `^0.1.5-alpha.1` matches a future 0.1.6 but no 0.1.6 prerelease. Only the dependency ranges change; the shipped code is the same as 0.3.5.
 
+DSH 0.1.6-alpha.2 removed the client `sessions.open`. Bridge 0.3.6 still migrates there, but its **Open target session** button fails with `ctx.sessions.open is not a function`. The unreleased fix opens targets through the WebUI navigation service `uiWorkspace.openSession` and falls back to `sessions.open` on older hosts.
+
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 
 Current limits:
 
-- installation needs one WebUI restart;
-- the native card auto-opens the created target through the official Session runtime; older clients still receive the title and session ID fallback;
+- installing with the CLI (`dsh plugin --profile web add`) may need one WebUI restart; on DSH 0.1.6-alpha.2 a first install from the WebUI Plugins page (add the package name `dsh-plugin-bridge`) applies live, while upgrading an existing install there needs a restart;
+- the native card opens the created target through the WebUI navigation service (`uiWorkspace.openSession`, with `sessions.open` as the fallback on older hosts); older clients still receive the title and session ID fallback;
 - progress appears immediately while the worker runs; the current fixed three-run sample took 7.4–12.8 seconds of worker time, while `previewTimeoutMs` remains the hard bound;
 - text-only models cannot inspect unresolved images;
 - the native-card repeat gate is still only three fixed runs, so it is release evidence rather than a statistical guarantee.
@@ -153,6 +156,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [DSH 0.1.5-rc.1 compatibility acceptance](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md)
 - [Summary worker tier comparison on DSH 0.1.5-rc.1](reports/worker-tier-rc1-2026-09-10.md)
 - [DSH 0.1.6-alpha.1 compatibility smoke](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md)
+- [DSH 0.1.6-alpha.2 compatibility acceptance](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development
@@ -162,7 +166,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 177 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 184 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

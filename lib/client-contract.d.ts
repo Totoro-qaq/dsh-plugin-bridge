@@ -86,6 +86,62 @@ export declare function uiLanguageOf(documentLang: string | undefined): 'zh' | '
 export declare function parseBridgeCard(outcome: BridgeOutcome): BridgeCard;
 /** Return a value only when the complete editor document is valid JSON. */
 export declare function parseJsonDocument(text: string): object | unknown[] | undefined;
+/** Client service that owns main-view navigation in the official WebUI (`openSession` since DSH 0.1.5-alpha.2). */
+export declare const BRIDGE_NAVIGATION_SERVICE = "uiWorkspace";
+/** How long the card waits for a created target to reach this browser's session list. */
+export declare const BRIDGE_SESSION_VISIBLE_TIMEOUT_MS = 5000;
+/** The `uiWorkspace.openSession` face; DSH 0.1.6-alpha.2 widened its parameter to `SessionTarget`. */
+export interface BridgeSessionNavigator {
+    openSession(target: string): void;
+}
+/** The session-list face every supported WebUI exposes as `ctx.sessions.list`. */
+export interface BridgeSessionList {
+    getSnapshot(): {
+        readonly byId: object;
+    };
+    subscribe(listener: () => void): () => void;
+}
+/**
+ * The parts of a WebUI client Cordis context that session navigation reads.
+ * The client module injects only `sessions`; the navigation service is read
+ * through `get()` so hosts without it still activate the module.
+ */
+export interface BridgeNavigationContext {
+    /** Cordis `ctx.get()`: reads a service without the inject requirement, or undefined when none is active. */
+    get?(name: string): unknown;
+    readonly sessions: {
+        readonly list: BridgeSessionList;
+        /** Present from DSH 0.1.0 through 0.1.6-alpha.1; removed in 0.1.6-alpha.2. */
+        open?(id: string): void;
+    };
+}
+/** Which host path opened the target session. */
+export type BridgeSessionRoute = 'uiWorkspace.openSession' | 'sessions.open';
+export interface BridgeSessionOpenOptions {
+    lang: 'zh' | 'en';
+    /** Stops the visibility wait, for example when the plugin fiber disposes. */
+    signal?: AbortSignal;
+    timeoutMs?: number;
+}
+/** Resolve the host navigation service when it is active; never throws for an absent service. */
+export declare function bridgeSessionNavigator(ctx: BridgeNavigationContext): BridgeSessionNavigator | undefined;
+/** The routes this host offers, in the order Bridge tries them. */
+export declare function bridgeSessionRoutes(ctx: BridgeNavigationContext): BridgeSessionRoute[];
+/**
+ * Show one session that is already in the session list. DSH 0.1.6-alpha.2
+ * navigates through `uiWorkspace.openSession`; older hosts use `sessions.open`,
+ * which also remains the fallback when the navigation service throws.
+ * @returns the route that opened the session.
+ * @throws {Error} a localized error when no route exists or every route failed.
+ */
+export declare function openBridgeSession(ctx: BridgeNavigationContext, sessionId: string, lang: 'zh' | 'en'): BridgeSessionRoute;
+/** Resolve once `sessionId` is listed; reject on timeout or abort, always releasing the subscription and timer. */
+export declare function waitForBridgeSession(list: BridgeSessionList, sessionId: string, { lang, signal, timeoutMs }: BridgeSessionOpenOptions): Promise<void>;
+/**
+ * Wait until a created target reaches this browser's session list, then open it.
+ * Fails fast with a localized error when the host offers no navigation route.
+ */
+export declare function openBridgeSessionWhenVisible(ctx: BridgeNavigationContext, sessionId: string, options: BridgeSessionOpenOptions): Promise<BridgeSessionRoute>;
 /** Build the hidden-input-safe command used by the native editor confirmation. */
 export declare function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en', previewId: string): string;
 export {};

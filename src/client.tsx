@@ -15,6 +15,7 @@ import {
   appendBridgeTextListItem,
   buildBridgeMigrationCommand,
   MAX_EDITED_SUMMARY_CHARS,
+  openBridgeSessionWhenVisible,
   parseBridgeCard,
   parseBridgeTextProjection,
   parseJsonDocument,
@@ -57,7 +58,7 @@ const STYLE = `
 
 interface BridgeInjected {
   readonly execute: (sessionId: SessionId, line: string) => Promise<BridgeOutcome>
-  readonly openSession: (sessionId: SessionId) => Promise<void>
+  readonly openSession: (sessionId: SessionId, lang: 'zh' | 'en') => Promise<void>
 }
 
 interface CommandRemote {
@@ -370,7 +371,7 @@ function PreviewCard({ card, execute, openSession, sessionId }: {
       if (result.phase !== 'migrated') throw new Error(card.lang === 'en' ? 'The host returned no target session.' : '宿主没有返回目标会话。')
       setCreated(result)
       setStatus(copy.opening)
-      await openSession(result.sessionId)
+      await openSession(result.sessionId, card.lang)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
       setStatus('')
@@ -478,7 +479,7 @@ function MigratedCard({ card, error = '', openSession, status = '' }: {
   const open = async () => {
     setOpening(true)
     setLocalError('')
-    try { await openSession(card.sessionId) } catch (cause) { setLocalError(cause instanceof Error ? cause.message : String(cause)) } finally { setOpening(false) }
+    try { await openSession(card.sessionId, card.lang) } catch (cause) { setLocalError(cause instanceof Error ? cause.message : String(cause)) } finally { setOpening(false) }
   }
   return <div className="dsh-bridge-card">
     <Header lang={card.lang} route={`→ ${card.targetPreset}`} />
@@ -534,34 +535,17 @@ export function BridgeCommandCard(props: BridgeCommandCardProps) {
   return <BridgeCardBoundary key={outcomeKey} lang={lang}><BridgeCommandCardContent {...props} /></BridgeCardBoundary>
 }
 
-async function openWhenVisible(ctx: ClientContext, sessionId: SessionId): Promise<void> {
-  if (ctx.sessions.list.getSnapshot().byId[sessionId] !== undefined) {
-    ctx.sessions.open(sessionId)
-    return
-  }
-  await new Promise<void>((resolve, reject) => {
-    let dispose = () => {}
-    const timeout = window.setTimeout(() => {
-      dispose()
-      reject(new Error(`Target session ${sessionId} has not reached this browser yet.`))
-    }, 5_000)
-    dispose = ctx.sessions.list.subscribe(() => {
-      if (ctx.sessions.list.getSnapshot().byId[sessionId] === undefined) return
-      window.clearTimeout(timeout)
-      dispose()
-      resolve()
-    })
-  })
-  ctx.sessions.open(sessionId)
-}
-
 /** Client services are supplied by the official WebUI module table. */
 // rc.2 guards the parent `remote` face separately from its `remote.commands`
 // capability; older compatible builds tolerate the redundant parent seat.
+// Navigation (`uiWorkspace`) is deliberately absent: Cordis inject entries are
+// all required, so hosts without that service would leave this module pending.
 export const inject = ['slots', 'sessions', 'remote', 'remote.commands']
 
 export function apply(ctx: ClientContext): void {
   const commands = (ctx as unknown as { remote: { commands: CommandRemote } }).remote.commands
+  const navigation = new AbortController()
+  ctx.effect(() => () => { navigation.abort() }, 'bridge: target session navigation')
   ctx.effect(() => {
     const prior = document.querySelector(`style[data-plugin-css="${STYLE_ID}"]`)
     if (prior !== null) return () => {}
@@ -582,7 +566,9 @@ export function apply(ctx: ClientContext): void {
         if (result.value === undefined) throw new Error('The /bridge command was not admitted by the host.')
         return result.value.result
       },
-      openSession: (sessionId) => openWhenVisible(ctx, sessionId),
+      openSession: async (sessionId, lang) => {
+        await openBridgeSessionWhenVisible(ctx, sessionId, { lang, signal: navigation.signal })
+      },
     }),
   }, BridgeCommandCard))
 }

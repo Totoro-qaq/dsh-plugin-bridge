@@ -592,6 +592,172 @@ export function parseJsonDocument(text: string): object | unknown[] | undefined 
   }
 }
 
+/** Client service that owns main-view navigation in the official WebUI (`openSession` since DSH 0.1.5-alpha.2). */
+export const BRIDGE_NAVIGATION_SERVICE = 'uiWorkspace'
+
+/** How long the card waits for a created target to reach this browser's session list. */
+export const BRIDGE_SESSION_VISIBLE_TIMEOUT_MS = 5_000
+
+/** The `uiWorkspace.openSession` face; DSH 0.1.6-alpha.2 widened its parameter to `SessionTarget`. */
+export interface BridgeSessionNavigator {
+  openSession(target: string): void
+}
+
+/** The session-list face every supported WebUI exposes as `ctx.sessions.list`. */
+export interface BridgeSessionList {
+  getSnapshot(): { readonly byId: object }
+  subscribe(listener: () => void): () => void
+}
+
+/**
+ * The parts of a WebUI client Cordis context that session navigation reads.
+ * The client module injects only `sessions`; the navigation service is read
+ * through `get()` so hosts without it still activate the module.
+ */
+export interface BridgeNavigationContext {
+  /** Cordis `ctx.get()`: reads a service without the inject requirement, or undefined when none is active. */
+  get?(name: string): unknown
+  readonly sessions: {
+    readonly list: BridgeSessionList
+    /** Present from DSH 0.1.0 through 0.1.6-alpha.1; removed in 0.1.6-alpha.2. */
+    open?(id: string): void
+  }
+}
+
+/** Which host path opened the target session. */
+export type BridgeSessionRoute = 'uiWorkspace.openSession' | 'sessions.open'
+
+export interface BridgeSessionOpenOptions {
+  lang: 'zh' | 'en'
+  /** Stops the visibility wait, for example when the plugin fiber disposes. */
+  signal?: AbortSignal
+  timeoutMs?: number
+}
+
+const NAVIGATION_COPY = {
+  zh: {
+    unavailable: '当前 DSH WebUI 没有提供插件可用的会话导航（uiWorkspace.openSession 或 sessions.open）。目标会话已经创建，请从侧边栏打开。',
+    failed: (sessionId: string, reason: string) => `无法打开目标会话 ${sessionId}：${reason}`,
+    notVisible: (sessionId: string) => `目标会话 ${sessionId} 还没有同步到当前浏览器，请稍后从侧边栏打开。`,
+  },
+  en: {
+    unavailable: 'This DSH WebUI exposes no session navigation to plugins (uiWorkspace.openSession or sessions.open). The target session was created; open it from the sidebar.',
+    failed: (sessionId: string, reason: string) => `Could not open target session ${sessionId}: ${reason}`,
+    notVisible: (sessionId: string) => `Target session ${sessionId} has not reached this browser yet.`,
+  },
+} as const
+
+function isSessionNavigator(value: unknown): value is BridgeSessionNavigator {
+  return (typeof value === 'object' || typeof value === 'function')
+    && value !== null
+    && 'openSession' in value
+    && typeof value.openSession === 'function'
+}
+
+/** Resolve the host navigation service when it is active; never throws for an absent service. */
+export function bridgeSessionNavigator(ctx: BridgeNavigationContext): BridgeSessionNavigator | undefined {
+  if (typeof ctx.get !== 'function') return undefined
+  try {
+    const service = ctx.get(BRIDGE_NAVIGATION_SERVICE)
+    return isSessionNavigator(service) ? service : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** The routes this host offers, in the order Bridge tries them. */
+export function bridgeSessionRoutes(ctx: BridgeNavigationContext): BridgeSessionRoute[] {
+  const routes: BridgeSessionRoute[] = []
+  if (bridgeSessionNavigator(ctx) !== undefined) routes.push('uiWorkspace.openSession')
+  if (typeof ctx.sessions.open === 'function') routes.push('sessions.open')
+  return routes
+}
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
+}
+
+/**
+ * Show one session that is already in the session list. DSH 0.1.6-alpha.2
+ * navigates through `uiWorkspace.openSession`; older hosts use `sessions.open`,
+ * which also remains the fallback when the navigation service throws.
+ * @returns the route that opened the session.
+ * @throws {Error} a localized error when no route exists or every route failed.
+ */
+export function openBridgeSession(ctx: BridgeNavigationContext, sessionId: string, lang: 'zh' | 'en'): BridgeSessionRoute {
+  const copy = NAVIGATION_COPY[lang]
+  let failure: unknown
+  const navigator = bridgeSessionNavigator(ctx)
+  if (navigator !== undefined) {
+    try {
+      navigator.openSession(sessionId)
+      return 'uiWorkspace.openSession'
+    } catch (cause) {
+      failure = cause
+    }
+  }
+  const sessions = ctx.sessions
+  if (typeof sessions.open === 'function') {
+    try {
+      sessions.open(sessionId)
+      return 'sessions.open'
+    } catch (cause) {
+      failure ??= cause
+    }
+  }
+  if (failure === undefined) throw new Error(copy.unavailable)
+  throw new Error(copy.failed(sessionId, errorMessage(failure)), { cause: failure })
+}
+
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? new Error('Bridge session navigation was cancelled.')
+}
+
+/** Resolve once `sessionId` is listed; reject on timeout or abort, always releasing the subscription and timer. */
+export function waitForBridgeSession(
+  list: BridgeSessionList,
+  sessionId: string,
+  { lang, signal, timeoutMs = BRIDGE_SESSION_VISIBLE_TIMEOUT_MS }: BridgeSessionOpenOptions,
+): Promise<void> {
+  const listed = () => Reflect.get(list.getSnapshot().byId, sessionId) !== undefined
+  if (signal?.aborted) return Promise.reject(abortReason(signal))
+  if (listed()) return Promise.resolve()
+  return new Promise<void>((resolve, reject) => {
+    let settled = false
+    let unsubscribe: (() => void) | undefined
+    const finish = (error?: unknown) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      unsubscribe?.()
+      if (error === undefined) resolve()
+      else reject(error)
+    }
+    const onAbort = () => { if (signal !== undefined) finish(abortReason(signal)) }
+    const timer = setTimeout(() => { finish(new Error(NAVIGATION_COPY[lang].notVisible(sessionId))) }, timeoutMs)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    const stop = list.subscribe(() => { if (listed()) finish() })
+    if (settled) stop()
+    else unsubscribe = stop
+    if (listed()) finish()
+  })
+}
+
+/**
+ * Wait until a created target reaches this browser's session list, then open it.
+ * Fails fast with a localized error when the host offers no navigation route.
+ */
+export async function openBridgeSessionWhenVisible(
+  ctx: BridgeNavigationContext,
+  sessionId: string,
+  options: BridgeSessionOpenOptions,
+): Promise<BridgeSessionRoute> {
+  if (bridgeSessionRoutes(ctx).length === 0) throw new Error(NAVIGATION_COPY[options.lang].unavailable)
+  await waitForBridgeSession(ctx.sessions.list, sessionId, options)
+  return openBridgeSession(ctx, sessionId, options.lang)
+}
+
 function encodeUtf8Base64Url(text: string): string {
   const bytes = new TextEncoder().encode(text)
   let binary = ''

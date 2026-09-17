@@ -1,9 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { Context, Service } from '@deepseek-ai/cordis';
+
 import {
+  BRIDGE_NAVIGATION_SERVICE,
   buildBridgeMigrationCommand,
   appendBridgeTextListItem,
+  bridgeSessionRoutes,
+  openBridgeSession,
+  openBridgeSessionWhenVisible,
   parseBridgeCard,
   parseJsonDocument,
   parseBridgeTextProjection,
@@ -416,4 +422,206 @@ test('running card follows the official WebUI document language', () => {
   assert.equal(uiLanguageOf('zh-Hans'), 'zh');
   assert.equal(uiLanguageOf(''), 'en');
   assert.equal(uiLanguageOf(undefined), 'en');
+});
+
+/** Session list double with the `ctx.sessions.list` face: snapshot byId plus subscribe. */
+function fakeSessionList(ids) {
+  const byId = Object.fromEntries(ids.map((id) => [id, { id }]));
+  const listeners = new Set();
+  return {
+    listeners,
+    getSnapshot: () => ({ byId: { ...byId } }),
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    add(id) {
+      byId[id] = { id };
+      for (const listener of [...listeners]) listener();
+    },
+  };
+}
+
+/**
+ * Client ctx double recording every navigation call in order.
+ * `navigation(calls)` builds what `ctx.get('uiWorkspace')` returns (openSession since DSH 0.1.5-alpha.2);
+ * `legacyOpen` adds `sessions.open`, which DSH 0.1.6-alpha.2 removed.
+ */
+function fakeClientContext({ ids = ['target'], navigation, legacyOpen = false, legacyFailure } = {}) {
+  const calls = [];
+  const list = fakeSessionList(ids);
+  const sessions = { list };
+  if (legacyOpen) {
+    sessions.open = (id) => {
+      calls.push(['sessions.open', id]);
+      if (legacyFailure) throw legacyFailure;
+    };
+  }
+  const service = navigation?.(calls);
+  return {
+    calls,
+    list,
+    sessions,
+    get: (name) => (name === BRIDGE_NAVIGATION_SERVICE ? service : undefined),
+  };
+}
+
+/** `uiWorkspace` double; `failure` makes openSession throw after recording the call. */
+const navigatorFor = (failure) => (calls) => ({
+  openSession(target) {
+    calls.push(['uiWorkspace.openSession', target]);
+    if (failure) throw failure;
+  },
+});
+
+test('session navigation prefers the uiWorkspace service when the host provides it', async () => {
+  // DSH 0.1.5-alpha.2 through 0.1.6-alpha.1 offer both paths; navigate once, through the view owner.
+  const older = fakeClientContext({ legacyOpen: true, navigation: navigatorFor() });
+  assert.deepEqual(bridgeSessionRoutes(older), ['uiWorkspace.openSession', 'sessions.open']);
+  assert.equal(openBridgeSession(older, 'target', 'en'), 'uiWorkspace.openSession');
+  assert.deepEqual(older.calls, [['uiWorkspace.openSession', 'target']]);
+
+  // DSH 0.1.6-alpha.2 offers only the navigation service.
+  const alpha2 = fakeClientContext({ navigation: navigatorFor() });
+  assert.deepEqual(bridgeSessionRoutes(alpha2), ['uiWorkspace.openSession']);
+  assert.equal(await openBridgeSessionWhenVisible(alpha2, 'target', { lang: 'zh' }), 'uiWorkspace.openSession');
+  assert.deepEqual(alpha2.calls, [['uiWorkspace.openSession', 'target']]);
+});
+
+test('session navigation falls back to sessions.open on hosts without uiWorkspace.openSession', async () => {
+  // DSH 0.1.0 and 0.1.1: no uiWorkspace service at all.
+  const legacy = fakeClientContext({ legacyOpen: true });
+  assert.deepEqual(bridgeSessionRoutes(legacy), ['sessions.open']);
+  assert.equal(await openBridgeSessionWhenVisible(legacy, 'target', { lang: 'en' }), 'sessions.open');
+  assert.deepEqual(legacy.calls, [['sessions.open', 'target']]);
+
+  // DSH 0.1.2 through 0.1.5-alpha.1: uiWorkspace exists but has no openSession.
+  const dsh012 = fakeClientContext({ legacyOpen: true, navigation: () => ({ archiveSession: async () => {} }) });
+  assert.equal(openBridgeSession(dsh012, 'target', 'zh'), 'sessions.open');
+
+  // A context without ctx.get, or whose get throws, still reaches the legacy path.
+  const withoutGet = fakeClientContext({ legacyOpen: true });
+  delete withoutGet.get;
+  assert.equal(openBridgeSession(withoutGet, 'target', 'en'), 'sessions.open');
+  const strictGet = fakeClientContext({ legacyOpen: true });
+  strictGet.get = () => { throw new Error('cannot get property "uiWorkspace" without inject'); };
+  assert.equal(openBridgeSession(strictGet, 'target', 'en'), 'sessions.open');
+});
+
+test('session navigation fails fast with a localized error when the host offers no route', async () => {
+  const bare = fakeClientContext();
+  assert.deepEqual(bridgeSessionRoutes(bare), []);
+  assert.throws(() => openBridgeSession(bare, 'target', 'en'), /exposes no session navigation.*open it from the sidebar/u);
+  assert.throws(() => openBridgeSession(bare, 'target', 'zh'), /没有提供插件可用的会话导航.*请从侧边栏打开/u);
+
+  const unlisted = fakeClientContext({ ids: [] });
+  const started = performance.now();
+  await assert.rejects(
+    openBridgeSessionWhenVisible(unlisted, 'target', { lang: 'zh', timeoutMs: 10_000 }),
+    /没有提供插件可用的会话导航/u,
+  );
+  assert.ok(performance.now() - started < 1_000, 'a host without navigation must not wait for the list');
+  assert.equal(unlisted.list.listeners.size, 0);
+});
+
+test('a throwing navigation service falls back to sessions.open or surfaces a localized cause', () => {
+  const failure = new Error('sessions.retain: unknown session target');
+
+  const older = fakeClientContext({ legacyOpen: true, navigation: navigatorFor(failure) });
+  assert.equal(openBridgeSession(older, 'target', 'en'), 'sessions.open');
+  assert.deepEqual(older.calls, [['uiWorkspace.openSession', 'target'], ['sessions.open', 'target']]);
+
+  const alpha2 = fakeClientContext({ navigation: navigatorFor(failure) });
+  assert.throws(
+    () => openBridgeSession(alpha2, 'target', 'en'),
+    (error) => error.message === 'Could not open target session target: sessions.retain: unknown session target'
+      && error.cause === failure,
+  );
+  assert.throws(
+    () => openBridgeSession(alpha2, 'target', 'zh'),
+    (error) => error.message === '无法打开目标会话 target：sessions.retain: unknown session target',
+  );
+
+  const bothFail = fakeClientContext({
+    legacyOpen: true,
+    legacyFailure: new Error('unknown session'),
+    navigation: navigatorFor(failure),
+  });
+  assert.throws(() => openBridgeSession(bothFail, 'target', 'en'), (error) => error.cause === failure);
+  assert.deepEqual(bothFail.calls, [['uiWorkspace.openSession', 'target'], ['sessions.open', 'target']]);
+});
+
+test('session navigation waits until the created target is listed, then releases the subscription', async () => {
+  const ctx = fakeClientContext({ ids: [], navigation: navigatorFor() });
+  const opened = openBridgeSessionWhenVisible(ctx, 'target', { lang: 'en', timeoutMs: 10_000 });
+  await Promise.resolve();
+  assert.deepEqual(ctx.calls, [], 'DSH 0.1.6-alpha.2 retain() throws for a session that is not listed yet');
+  assert.equal(ctx.list.listeners.size, 1);
+  ctx.list.add('other');
+  assert.deepEqual(ctx.calls, []);
+  ctx.list.add('target');
+  assert.equal(await opened, 'uiWorkspace.openSession');
+  assert.deepEqual(ctx.calls, [['uiWorkspace.openSession', 'target']]);
+  assert.equal(ctx.list.listeners.size, 0);
+});
+
+test('session navigation wait times out with localized copy and stops when the plugin disposes', async () => {
+  const late = fakeClientContext({ ids: [], legacyOpen: true });
+  await assert.rejects(
+    openBridgeSessionWhenVisible(late, 'target', { lang: 'en', timeoutMs: 5 }),
+    (error) => error.message === 'Target session target has not reached this browser yet.',
+  );
+  await assert.rejects(
+    openBridgeSessionWhenVisible(late, 'target', { lang: 'zh', timeoutMs: 5 }),
+    /目标会话 target 还没有同步到当前浏览器/u,
+  );
+  assert.equal(late.list.listeners.size, 0);
+  assert.deepEqual(late.calls, []);
+
+  const disposed = fakeClientContext({ ids: [], legacyOpen: true });
+  const fiber = new AbortController();
+  const waiting = openBridgeSessionWhenVisible(disposed, 'target', { lang: 'en', signal: fiber.signal, timeoutMs: 10_000 });
+  await Promise.resolve();
+  assert.equal(disposed.list.listeners.size, 1);
+  fiber.abort();
+  await assert.rejects(waiting, { name: 'AbortError' });
+  assert.equal(disposed.list.listeners.size, 0);
+  disposed.list.add('target');
+  assert.deepEqual(disposed.calls, [], 'a disposed plugin fiber must not navigate later');
+  await assert.rejects(
+    openBridgeSessionWhenVisible(disposed, 'target', { lang: 'en', signal: fiber.signal }),
+    { name: 'AbortError' },
+  );
+});
+
+test('a real Cordis client fiber reaches an un-injected uiWorkspace service through ctx.get', async () => {
+  const calls = [];
+  const root = new Context();
+  const list = fakeSessionList(['target']);
+  root.provide('sessions', { list });
+  await root.plugin({
+    name: 'ui-layout',
+    apply: (ctx) => { ctx.provide('layout', { selectPanel: (panel) => { calls.push(['layout.selectPanel', panel]); } }); },
+  });
+
+  // Mirrors DSH 0.1.6-alpha.2 UiWorkspaceService: a named Service whose method reads its own injected layout.
+  class UiWorkspace extends Service {
+    constructor(ctx) {
+      super(ctx, BRIDGE_NAVIGATION_SERVICE);
+    }
+
+    openSession(target) {
+      calls.push(['uiWorkspace.openSession', target]);
+      this.ctx.layout.selectPanel(null);
+    }
+  }
+  await root.plugin({ name: 'ui-workspace', inject: ['layout'], apply: (ctx) => { new UiWorkspace(ctx); } });
+
+  let bridgeCtx;
+  const bridge = await root.plugin({ name: 'bridge-client', inject: ['sessions'], apply: (ctx) => { bridgeCtx = ctx; } });
+  assert.throws(() => bridgeCtx.uiWorkspace, /without inject/u, 'property access stays strict for undeclared services');
+  assert.deepEqual(bridgeSessionRoutes(bridgeCtx), ['uiWorkspace.openSession']);
+  assert.equal(await openBridgeSessionWhenVisible(bridgeCtx, 'target', { lang: 'en' }), 'uiWorkspace.openSession');
+  assert.deepEqual(calls, [['uiWorkspace.openSession', 'target'], ['layout.selectPanel', null]]);
+  await bridge.dispose();
 });

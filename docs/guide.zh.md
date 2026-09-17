@@ -144,7 +144,7 @@ A：确认重启过 `dsh web`（插件在启动时挂载），并且用的是 `w
 A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十三项能力里的哪几项、当前模式是什么、生效配置是什么。全绿就是好的。缺能力它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 已逐条核对；0.1.1-rc.2 的原图迁移已实测；官方 npm `0.1.2-alpha.2` 的 typed-controller 13/13、三态编辑、PTC 自动跳转、暂停目标与干净卸载也已实测；官方 npm `0.1.5-alpha.1`（会话格式 V3）已实测安装、doctor 13/13 与预设列表，需要模型的迁移验收尚未重跑。
 
 **Q：图片迁移需要怎么选模型？**
-A：图片已有助手分析时，Bridge 逐字搬这段视觉证据，不需要再次烧视觉 token。图片还没被分析时，源会话应选 `deepseek-v4-flash-vision-exp` 等视觉路由；Bridge 会在 kickoff 前把源 provider/model/reasoning effort 复制到目标，再搬原图。文本模型仍不能识图，Bridge 也不会暗中启动本地视觉模型。
+A：图片已有助手分析时，Bridge 逐字搬这段视觉证据，不需要再次烧视觉 token。图片还没被分析时，源会话应选能识图的 V4.1-Flash（`deepseek-flash`，DSH 0.1.5-rc.1 起的默认模型，接受文本与图片输入）；Bridge 会在 kickoff 前把源 provider/model/reasoning effort 复制到目标，再搬原图。DSH 0.1.6-alpha.2 已从默认模型列表移除 V4 Flash（`deepseek-v4-flash`）和 V4 Flash Vision Exp（`deepseek-v4-flash-vision-exp`），以前建议的 vision-exp 路由在新宿主上已不在默认模型列表中；默认列表只剩 V4.1-Flash 与 V4-Pro，其中 V4-Pro 只收文本。文本模型仍不能识图，Bridge 也不会暗中启动本地视觉模型。
 
 **Q：迁移后新会话「记得」多少？**
 A：当前 release gate 的 6 份摘要、12 个目标会话达到摘要 30/30、复述 60/60、首次有效工作 60/60，预定义旧值复活为 0。这是修复驱动的小样本回归门禁，不是总体准确率保证。更早 26 组档位实验里，pro 探针可用性为 95%；两组证据都提示数字与端口需要在预览里重点检查。

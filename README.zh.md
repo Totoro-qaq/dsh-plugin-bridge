@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh 0.1.6-alpha.1](https://img.shields.io/badge/dsh-0.1.6--alpha.1-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh 0.1.6-alpha.2](https://img.shields.io/badge/dsh-0.1.6--alpha.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 [![dshfind](https://dshfind.com/api/badge/Totoro-qaq/dsh-plugin-bridge?lang=zh)](https://dshfind.com/zh/plugins/Totoro-qaq/dsh-plugin-bridge?ref=badge)
 
@@ -123,6 +123,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.5-alpha.1 | 支持（Bridge 0.3.4+） | 支持（Bridge 0.3.4+） | 官方 npm 宿主（会话格式 V3）：tarball 安装、原生卡片 bundle 已下发、V3 会话上 doctor 13/13 与预设列表；SDK 类型 diff 与 V3 折叠 fixture。未重跑需要模型的预览、迁移与图片回退；见[smoke 记录](reports/dsh-0.1.5-alpha.1-compat-2026-09-09.md) |
 | 0.1.5-rc.1 | 支持（Bridge 0.3.4+） | 支持（Bridge 0.3.4+） | 官方 npm 宿主，已发布的 0.3.4 未改动：doctor 13/13，原生卡片实际渲染，三次真实模型迁移到 PTC，编辑内容逐字交接且 goal 保持暂停，未解析图片以原图交给支持图片的默认模型；见[验收记录](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md) |
 | 0.1.6-alpha.1 | 支持（Bridge 0.3.6+） | 支持（Bridge 0.3.6+） | 官方 npm 宿主：doctor 13/13，原生卡片实际渲染，PTC 运行时改名后 `ptc` 仍可迁入，未配置 key 时预览按设计失败退出；SDK 变化只有新增，`lib/` 与 0.3.5 逐字节相同。未重跑真实模型迁移；见[smoke 记录](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md) |
+| 0.1.6-alpha.2 | 未发布候选版 | 未发布候选版 | 官方 npm 宿主：Bridge 0.3.6 能完成迁移，但「打开目标会话」按钮报 `ctx.sessions.open is not a function`；候选版在 alpha.2 和 alpha.1 上都通过 `uiWorkspace.openSession` 打开目标，goal 保持暂停，在插件页实时停用和启用也正常；见[验收记录](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md) |
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
@@ -130,12 +131,14 @@ DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.
 
 DSH 0.1.6-alpha.1 请使用 Bridge 0.3.6 或更高版本，它加入了 `^0.1.6-alpha.1` peer 范围：`^0.1.5-alpha.1` 能匹配以后的 0.1.6 正式版，但匹配不到任何 0.1.6 预发布版。这次只改依赖范围，发布的代码与 0.3.5 相同。
 
+DSH 0.1.6-alpha.2 删除了客户端的 `sessions.open`。Bridge 0.3.6 在上面仍能完成迁移，但「打开目标会话」按钮会报 `ctx.sessions.open is not a function`。尚未发布的修复改为通过 WebUI 导航服务 `uiWorkspace.openSession` 打开目标，旧宿主上回退到 `sessions.open`。
+
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
 当前边界：
 
-- 安装后需要重启一次 WebUI；
-- 原生卡片通过官方 Session runtime 自动打开目标；旧客户端仍回退为标题和 ID；
+- 用 CLI（`dsh plugin --profile web add`）安装后可能需要重启一次 WebUI；DSH 0.1.6-alpha.2 在 WebUI「插件」页首次添加包名 `dsh-plugin-bridge` 可以直接生效，在那里升级已安装的版本仍需重启；
+- 原生卡片通过 WebUI 导航服务（`uiWorkspace.openSession`，旧宿主回退到 `sessions.open`）打开目标；旧客户端仍回退为标题和 ID；
 - worker 运行时立即显示进度；本次三次固定样本的 worker 用时为 7.4–12.8 秒，`previewTimeoutMs` 仍是硬上限；
 - 纯文本模型无法读取未解析原图；
 - 原生卡片重复门禁也只有三次固定输入，是发布证据，不是统计保证。
@@ -153,6 +156,7 @@ CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；�
 - [DSH 0.1.5-rc.1 兼容性验收](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md)
 - [DSH 0.1.5-rc.1 压缩档位对比](reports/worker-tier-rc1-2026-09-10.md)
 - [DSH 0.1.6-alpha.1 兼容性 smoke](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md)
+- [DSH 0.1.6-alpha.2 兼容性验收](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
@@ -162,7 +166,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 177 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 184 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
