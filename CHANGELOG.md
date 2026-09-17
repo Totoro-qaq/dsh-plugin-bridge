@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+## 0.3.7 — 2026-09-18
+
 ### DSH 0.1.6-alpha.2
 
 - Open the migration target through the WebUI's `uiWorkspace.openSession` navigation service. DSH 0.1.6-alpha.2 removed `sessions.open`, so the automatic open after **Confirm migration** and the **Open target session** button would have thrown a `TypeError`. Hosts without that service, or whose service throws, still use `sessions.open`; a host with neither shows a localized error instead of failing silently.
