@@ -136,13 +136,17 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
     'rc.2 对父 remote face 与 commands capability 分别做注入校验');
   assert.match(client, /commands\.execute\(sessionId,\s*line,\s*\[\]\)/u,
     'rc.2 的 command.execute wire contract 要求显式传空图片数组');
+  assert.match(client, /const inject = \[\s*"slots",\s*"sessions",\s*"remote",\s*"remote\.commands"\s*\]/u,
+    'Cordis inject 全是必需项：导航服务写进 inject 会让没有 uiWorkspace 的旧宿主一直挂起');
+  assert.match(client, /["']uiWorkspace["']/u,
+    'DSH 0.1.6-alpha.2 删除了 sessions.open，打开目标会话要经由 uiWorkspace.openSession');
   assert.match(client, /document\.documentElement\.lang/u,
     '执行中应读取官方 WebUI 文档语言，而不是把中英文硬拼在一起');
   assert.doesNotMatch(client, /Preparing editable handoff · 正在生成可编辑交接/u);
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
-test('0.1.6-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 client-runtime', async () => {
+test('0.1.6-alpha.2 构建保留旧宿主 peer 范围且不引用已移除的 client-runtime', async () => {
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   const alphaClientPackages = [
     '@deepseek-ai/dsh-api-remotes',
@@ -160,8 +164,8 @@ test('0.1.6-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 cl
     );
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.1.6-alpha.1',
-      `${packageName} 的本地构建应锁定当前官方 0.1.6-alpha.1`,
+      '0.1.6-alpha.2',
+      `${packageName} 的本地构建应锁定当前官方 0.1.6-alpha.2`,
     );
     assert.match(manifest.peerDependencies[packageName], /\^0\.1\.3-alpha\.2/u);
     assert.match(
@@ -191,8 +195,8 @@ test('0.1.6-alpha.1 构建保留旧宿主 peer 范围且不引用已移除的 cl
   ]) {
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.1.6-alpha.1',
-      `${packageName} 必须提供 0.1.6-alpha.1 的客户端类型契约`,
+      '0.1.6-alpha.2',
+      `${packageName} 必须提供 0.1.6-alpha.2 的客户端类型契约`,
     );
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-chat'));
