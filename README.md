@@ -106,7 +106,7 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | Plugin installed, no `/bridge` call | No prompt injection or model tool | **0 Bridge prompt tokens** |
 | `/bridge code` | One bounded summary worker; preview only | No target session is created |
 | Default `--go` | Target restates and waits | One explicit confirmation request before useful work |
-| `--go --continue` | Restate and work in one target request | Lower request count; no background goal round |
+| `--go --continue` | Confirm the defined next step; restate and work in one target request | Separate approvals and safety limits still apply; no background goal round |
 | Image already has assistant analysis | Copy that response verbatim | No raw image is resent by default |
 | Image is unresolved and target accepts images | Copy the original attachment and preserve the source VLM | Vision pricing comes from the selected provider |
 | Image is unresolved and target is text-only | Prompt admission rejects the image; Bridge sends a visible text fallback | No hidden local VLM and no silent claim of visual understanding |
@@ -168,7 +168,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 201 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 203 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

@@ -2,6 +2,10 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## Unreleased
+
+- Clarify in both languages that **Continue directly** / `--continue` is the user's current confirmation of the handoff's already-defined next step. It satisfies generic continuation waits, not separate action approvals, tool permissions, safety restrictions, or other unmet prerequisites. The handoff text, default waiting mode, and paused-goal behavior remain unchanged.
+
 ## 0.3.8 — 2026-09-22
 
 ### Handoff UX

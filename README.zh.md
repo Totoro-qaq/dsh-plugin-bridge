@@ -106,7 +106,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 只安装，不调用 `/bridge` | 不注入提示，不注册模型工具 | **0 Bridge prompt token** |
 | `/bridge code` | 起一个有界摘要 worker，只输出预览 | 不创建目标会话 |
 | 默认 `--go` | 目标先复述再等待 | 首次有效工作前多一个显式确认请求 |
-| `--go --continue` | 同一次目标请求里复述并开工 | 请求数更低，没有后台 goal 轮次 |
+| `--go --continue` | 确认既定下一步，同一次目标请求里复述并开工 | 单独审批和安全限制仍生效，没有后台 goal 轮次 |
 | 图片已有助手分析 | 逐字搬运对应回答 | 默认不重发原图 |
 | 图片未解析，目标可接图 | 搬原附件并保留源 VLM | 视觉费用由所选 provider 计算 |
 | 图片未解析，目标是纯文本模型 | prompt 准入拒图，Bridge 显式发送文字降级 | 不暗启本地 VLM，也不假装看懂图片 |
@@ -168,7 +168,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 201 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 203 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
