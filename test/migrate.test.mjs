@@ -284,10 +284,11 @@ test('migrate：alpha.2 的 namespaced 图片错误仍降级到文本 kickoff', 
 
 test('migrate：autoContinue 在同一轮继续，但 goal 仍暂停以免追加轮次', async () => {
   const host = createFakeHost();
+  const summary = '## 目标\n端口 7101\n## 下一步\n等待用户明确要求继续后，核对配置；部署生产环境另需管理员审批。';
   const result = await executeMigration(host.rpc, {
     sessionId: host.sourceSessionId,
     to: 'code',
-    summary: '## 目标\n端口 7101',
+    summary,
     lang: 'zh',
     autoContinue: true,
   });
@@ -298,6 +299,12 @@ test('migrate：autoContinue 在同一轮继续，但 goal 仍暂停以免追加
     (c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId,
   );
   assert.ok(kickoff.payload.content[0].text.includes('继续执行下一步'));
+  assert.equal(host.state.goals[0].objective, summary, '不删除或改写用户的旧等待条件和单独审批要求');
+  const text = kickoff.payload.content[0].text;
+  assert.ok(text.includes(summary), '首轮仍包含完整原始摘要');
+  assert.ok(text.lastIndexOf('用户本次已明确选择') > text.indexOf(summary), '本次继续确认在原始摘要之后明确表达');
+  assert.match(text, /工具权限[^。]*安全限制[^。]*单独审批/);
+  assert.equal(host.state.calls.filter((c) => c.method === 'session.prompt' && c.payload.sessionId === result.sessionId).length, 1);
 });
 
 test('migrate：pause 失败时先清除 goal、再取消自动启动且不发送 kickoff', async () => {
