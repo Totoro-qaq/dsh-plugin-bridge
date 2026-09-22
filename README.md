@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![dsh 0.1.6-alpha.2](https://img.shields.io/badge/dsh-0.1.6--alpha.2-4c8dff)](https://github.com/deepseek-ai/deepseek-harness)
+[![DSH tested 0.1.7-alpha.1](https://img.shields.io/badge/DSH_tested-0.1.7--alpha.1-4c8dff)](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -30,7 +30,7 @@ Install from npm:
 dsh plugin --profile web add dsh-plugin-bridge
 ```
 
-On **DSH 0.1.5-rc.2** (npm `latest`), restart `dsh web` after adding or removing the plugin. On **DSH 0.1.6-alpha.2** (npm `alpha`), a first install from the WebUI Plugins page applies live; CLI install and upgrades may still need one restart.
+On **DSH 0.1.5-rc.2**, restart `dsh web` after adding or removing the plugin. On **DSH 0.1.6-alpha.2**, a first install from the WebUI Plugins page applies live; CLI install and upgrades may still need one restart. **DSH 0.1.7-alpha.1** was tested with CLI installation, live disable/enable, and removal followed by a restart; restart-free installation or upgrades were not tested.
 
 Pinned GitHub fallback:
 
@@ -124,6 +124,7 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | 0.1.5-rc.1 | Yes (Bridge 0.3.4+) | Yes (Bridge 0.3.4+) | Official npm host with the published 0.3.4 unchanged: doctor 13/13, native card rendered, three model-backed migrations to PTC with an exact edited handoff and paused goal, and an unresolved image carried to the vision-capable default model; see [acceptance report](reports/dsh-0.1.5-rc.1-compat-2026-09-10.md) |
 | 0.1.6-alpha.1 | Yes (Bridge 0.3.6+) | Yes (Bridge 0.3.6+) | Official npm host: doctor 13/13, native card rendered, `ptc` still offered after the PTC runtime rename, keyless preview fails closed; the SDK change is additive and `lib/` is byte-identical to 0.3.5. Model-backed migration was not re-run; see [smoke report](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md) |
 | 0.1.6-alpha.2 | Yes (Bridge 0.3.7+) | Yes (Bridge 0.3.7+) | Official npm host: Bridge 0.3.6 migrates, but its Open target session button fails with `ctx.sessions.open is not a function`; Bridge 0.3.7 opens the target through `uiWorkspace.openSession` on alpha.2 and alpha.1, keeps the paused goal, and survives live disable and enable from the Plugins page; see [acceptance report](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md) |
+| 0.1.7-alpha.1 | Yes (tested: Bridge 0.3.9) | Yes (tested: Bridge 0.3.9) | Published package unchanged: 13 V3 sessions restored as V4, 12 titles preserved, doctor 13/13, model-backed editing and both migration modes, automatic opening, paused goals, worker cleanup, image-to-text fallback, and live toggles. Removal clears the package/command/CSS but leaves a dangling CLI symlink; see [acceptance report](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md). |
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -137,11 +138,14 @@ DSH 0.1.6-alpha.2 removed the client `sessions.open`. Bridge 0.3.6 still migrate
 
 CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade; it names missing required gateway methods instead of failing vaguely.
 
+DSH 0.1.7-alpha.1 was verified on macOS with Node 22.23.1 and the published Bridge 0.3.9, without a runtime or dependency change. The V3→V4 test used a copy of an existing test home; back up `DSH_HOME`, including sessions and profiles, before upgrading. Custom directory-based preset migration, other UI/plugin combinations, and Windows were not covered. This acceptance does not require another Bridge npm release.
+
 Current limits:
 
 - installing with the CLI (`dsh plugin --profile web add`) may need one WebUI restart; on DSH 0.1.6-alpha.2 a first install from the WebUI Plugins page (add the package name `dsh-plugin-bridge`) applies live, while upgrading an existing install there needs a restart;
+- on DSH 0.1.7-alpha.1 with pnpm 11.22.0, CLI removal left a dangling `node_modules/.bin/dsh-bridge` symlink and package-manager metadata in both an upgraded and a clean profile; the package, command and CSS were removed. This is not a zero-disk-trace uninstall; see the report above;
 - the native card opens the created target through the WebUI navigation service (`uiWorkspace.openSession`, with `sessions.open` as the fallback on older hosts); older clients still receive the title and session ID fallback;
-- progress appears immediately while the worker runs; the current fixed three-run sample took 7.4–12.8 seconds of worker time, while `previewTimeoutMs` remains the hard bound;
+- progress appears immediately while the worker runs; the earlier three-run native-card sample took 7.4–12.8 seconds of worker time. Timings depend on the host/model and input; `previewTimeoutMs` remains the hard bound;
 - text-only models cannot inspect unresolved images;
 - the native-card repeat gate is still only three fixed runs, so it is release evidence rather than a statistical guarantee.
 
@@ -159,6 +163,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [Summary worker tier comparison on DSH 0.1.5-rc.1](reports/worker-tier-rc1-2026-09-10.md)
 - [DSH 0.1.6-alpha.1 compatibility smoke](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md)
 - [DSH 0.1.6-alpha.2 compatibility acceptance](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md)
+- [DSH 0.1.7-alpha.1 compatibility acceptance](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development
