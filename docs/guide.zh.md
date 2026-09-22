@@ -1,10 +1,10 @@
 # Bridge 使用指南：安装与使用
 
-> 适用对象：使用官方 `dsh web`（WebUI）的用户。装上、重启、在输入框里打 `/bridge`——没有别的步骤。
+> 适用对象：使用官方 `dsh web`（WebUI）的用户。按宿主版本安装、必要时重启，再在输入框里打 `/bridge`。
 
 ## 1. 安装
 
-前置：已安装 dsh（`dsh --version` 能输出版本，本插件已核对 0.1.0-rc.6 / rc.7 / rc.8，在 0.1.1-rc.2 完成真实视觉迁移，并用官方 npm `0.1.2-alpha.2` 完成 typed-controller 安装、编辑、迁移与卸载验收，官方 npm `0.1.5-alpha.1` 完成安装、doctor 13/13 与预设列表 smoke），并有一个可跑的 web profile（跑过一次 `dsh web` 即会自动初始化）。
+前置：已安装 dsh（`dsh --version` 能输出版本），并有一个可跑的 web profile。Bridge 0.3.9 已在官方 npm DSH 0.1.7-alpha.1 上完成隔离实机验收；完整版本和验证范围见 [README 兼容性表](../README.zh.md#兼容性)及[本轮验收记录](../reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)。
 
 ```bash
 dsh plugin --profile web add dsh-plugin-bridge
@@ -20,7 +20,7 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.9
 
 1. dsh 在 profile 目录（`~/.dsh/profiles/web/`）执行 `pnpm add`，拉取本包（`lib/` 已预构建，不触发 pnpm ≥10 的构建脚本白名单）；
 2. dsh 检测到本包 package.json 里的 `dsh.bundle.patch` 声明，自动把 `dsh-plugin-bridge` 追加进 `dsh.profile.bundles` 层栈；
-3. **重启 `dsh web`**（插件在启动时挂载）。在 DSH 0.1.6-alpha.2 上从 WebUI「插件」页首次安装可以跳过重启直接生效；CLI 安装或升级已有插件仍需一次重启。验证：在任意会话里打 `/bridge`，应当列出可迁入的模式。
+3. **重启 `dsh web`**。DSH 0.1.7-alpha.1 本轮按 CLI 安装/重启路径验收，实时停用和启用已通过，免重启安装或升级未验证。DSH 0.1.6-alpha.2 从 WebUI「插件」页首次安装可以直接生效；不要把这个结论推广到所有版本和升级路径。验证：在任意会话里打 `/bridge`，应当列出可迁入的模式。
 
 卸载：
 
@@ -29,6 +29,8 @@ dsh plugin --profile web remove dsh-plugin-bridge   # 重启后生效
 ```
 
 命令是通过 cordis 的 effect 作用域注册的，插件卸载时随 fiber 一起消失——不会有残留的 `/bridge`。
+
+在 DSH 0.1.7-alpha.1 / pnpm 11.22.0 上，卸载重启后插件包、命令和 CSS 均已清除，但升级和干净 profile 都留下了失效的 `node_modules/.bin/dsh-bridge` 符号链接，以及安装日志和包管理元信息。链接指向的代码已删除，不能运行；这不等于磁盘完全零痕迹。会话数据与用户导出的交接文件会保留，Bridge 不会为了清理这些记录去删除宿主数据。详见[卸载验收边界](../reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md#removal-residue)。
 
 ## 2. 什么时候用它
 
@@ -140,10 +142,10 @@ dsh-bridge migrate --to code --summary-file <path>
 ## 6. 常见问题
 
 **Q：`/bridge` 打了没反应 / 提示未知命令？**
-A：确认重启过 `dsh web`（插件在启动时挂载），并且用的是 `web` profile。命令注册依赖 `commands` 服务；执行时优先用 rc.2 的 `apiProxy`，alpha 则使用 typed Session / Workspace / Preset / Goal controllers。必要能力不完整时 `/bridge --doctor` 会逐项报告，不会假装可用。
+A：确认插件安装在正在运行的 `web` profile 中且已启用；CLI 安装或升级后按上面的步骤重启再试。命令注册依赖 `commands` 服务；执行时优先使用可用的 `apiProxy`，否则使用 typed Session / Workspace / Preset / Goal controllers。必要能力不完整时 `/bridge --doctor` 会逐项报告，不会假装可用。
 
 **Q：升级了 dsh 之后还能用吗？**
-A：先打一次 `/bridge --doctor`，它会告诉你这套 host 暴露了十三项能力里的哪几项、当前模式是什么、生效配置是什么。全绿就是好的。缺能力它会点名，把那行连同你的 dsh 版本发到 issues 就行。rc.6 / rc.7 / rc.8 已逐条核对；0.1.1-rc.2 的原图迁移已实测；官方 npm `0.1.2-alpha.2` 的 typed-controller 13/13、三态编辑、PTC 自动跳转、暂停目标与干净卸载也已实测；官方 npm `0.1.5-alpha.1`（会话格式 V3）已实测安装、doctor 13/13 与预设列表，需要模型的迁移验收尚未重跑。
+A：先打一次 `/bridge --doctor`，它会报告十三项必要接口、当前模式和生效配置。13/13 只证明接口存在，不能替代完整迁移验收。Bridge 0.3.9 已在官方 DSH 0.1.7-alpha.1 上通过 V3→V4 恢复、真实预览/编辑、两种迁移模式、图片转文本回退、取消/超时清理及启停检查；无需为此次验收重发 npm。升级前先备份 `DSH_HOME` 中的会话和 profiles；旧自定义目录 preset 迁移和任意第三方 UI/插件组合未验证。其他版本的范围见 [README 兼容性表](../README.zh.md#兼容性)。
 
 **Q：图片迁移需要怎么选模型？**
 A：图片已有助手分析时，Bridge 逐字搬这段视觉证据，不需要再次烧视觉 token。图片还没被分析时，源会话应选能识图的 V4.1-Flash（`deepseek-flash`，DSH 0.1.5-rc.1 起的默认模型，接受文本与图片输入）；Bridge 会在 kickoff 前把源 provider/model/reasoning effort 复制到目标，再搬原图。DSH 0.1.6-alpha.2 已从默认模型列表移除 V4 Flash（`deepseek-v4-flash`）和 V4 Flash Vision Exp（`deepseek-v4-flash-vision-exp`），以前建议的 vision-exp 路由在新宿主上已不在默认模型列表中；默认列表只剩 V4.1-Flash 与 V4-Pro，其中 V4-Pro 只收文本。文本模型仍不能识图，Bridge 也不会暗中启动本地视觉模型。
