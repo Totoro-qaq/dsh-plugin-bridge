@@ -146,9 +146,9 @@ test('同一个包声明官方 WebUI client half，并交付可加载的原生�
   assert.doesNotMatch(client, /^import\s/mu, 'client half 必须是浏览器模块表可加载的自注册 bundle');
 });
 
-test('0.1.6-alpha.2 构建保留旧宿主 peer 范围且不引用已移除的 client-runtime', async () => {
+test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移除的 client-runtime', async () => {
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
-  const alphaClientPackages = [
+  const dshClientPackages = [
     '@deepseek-ai/dsh-api-remotes',
     '@deepseek-ai/dsh-client-ui-chat',
     '@deepseek-ai/dsh-client-ui-conversation',
@@ -156,29 +156,23 @@ test('0.1.6-alpha.2 构建保留旧宿主 peer 范围且不引用已移除的 cl
     '@deepseek-ai/dsh-client-ui-slots',
   ];
 
-  for (const packageName of alphaClientPackages) {
-    assert.match(
+  for (const packageName of dshClientPackages) {
+    assert.equal(
       manifest.peerDependencies[packageName],
-      /\^0\.1\.2-alpha\.1/u,
-      `${packageName} 的 peer range 必须覆盖已验证的 0.1.2 alpha 系列`,
+      '*',
+      `${packageName} 的 peer range 必须是 *：版本约束由 engines.dsh 统一表达`,
     );
     assert.equal(
       manifest.devDependencies[packageName],
       '0.1.6-alpha.2',
       `${packageName} 的本地构建应锁定当前官方 0.1.6-alpha.2`,
     );
-    assert.match(manifest.peerDependencies[packageName], /\^0\.1\.3-alpha\.2/u);
-    assert.match(
-      manifest.peerDependencies[packageName],
-      /\^0\.1\.5-alpha\.1/u,
-      `${packageName} 的 peer range 必须显式列出 0.1.5 预发布：caret 预发布范围不会匹配下一个 minor`,
-    );
-    assert.match(
-      manifest.peerDependencies[packageName],
-      /\^0\.1\.6-alpha\.1/u,
-      `${packageName} 的 peer range 必须显式列出 0.1.6 预发布`,
-    );
   }
+  assert.equal(
+    manifest.engines.dsh,
+    '>=0.1.0-rc.7 <0.2.0-0',
+    'engines.dsh 必须约束宿主版本：dshmarket 用 includePrerelease 评估此字段',
+  );
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);

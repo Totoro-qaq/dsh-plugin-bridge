@@ -66,9 +66,77 @@ test('preview：工人出错也不留下垃圾会话', async () => {
   const host = createFakeHost({ workerReply: '' });
   await assert.rejects(
     () => previewMigration(host.rpc, { sessionId: host.sourceSessionId, ...fast }),
-    /worker-empty|摘要/,
+    /worker-empty.*本轮结束原因：completed/,
   );
   assert.equal(host.state.archived.length, 1, '失败路径也要归档工人');
+});
+
+const NO_KEY = {
+  kind: 'error',
+  error: {
+    code: 'MISSING_CREDENTIAL',
+    message: 'llm-deepseek: no API key for provider route "deepseek-official"; store DEEPSEEK_API_KEY through the credentials service',
+  },
+};
+
+/** 断言 previewMigration 以指定的工人失败码拒绝，并把错误交给调用方继续检查。 */
+async function rejectsWorker(host, code, options = {}) {
+  let caught;
+  await assert.rejects(
+    () => previewMigration(host.rpc, { sessionId: host.sourceSessionId, ...fast, ...options }),
+    (error) => {
+      caught = error;
+      return error instanceof RpcError && error.method === 'bridge.preview' && error.code === code;
+    },
+  );
+  assert.equal(host.state.archived.length, 1, '失败路径也要归档工人');
+  return caught;
+}
+
+test('preview：没配 API key 时带出宿主的失败码与原话', async () => {
+  const host = createFakeHost({ workerReply: '', workerTurnEnd: NO_KEY });
+  const error = await rejectsWorker(host, 'worker-failed');
+  assert.equal(error.details.turnEnd.code, 'MISSING_CREDENTIAL');
+  assert.match(error.message, /MISSING_CREDENTIAL/);
+  assert.match(error.message, /no API key for provider route/);
+});
+
+test('preview：模型出错时不把残缺的流式文本当成摘要', async () => {
+  const host = createFakeHost({
+    workerReply: '## 目标\n写到一半',
+    workerTurnEnd: { kind: 'error', error: { code: 'RATE_LIMIT', message: '429 Too Many Requests' } },
+  });
+  const error = await rejectsWorker(host, 'worker-failed');
+  assert.match(error.message, /RATE_LIMIT.*429/);
+});
+
+test('preview：工人这一轮被取消时说明取消方', async () => {
+  const host = createFakeHost({ workerReply: '', workerTurnEnd: { kind: 'aborted', reason: { kind: 'user' } } });
+  const error = await rejectsWorker(host, 'worker-aborted');
+  assert.equal(error.details.turnEnd.cause, 'user');
+});
+
+test('preview：工人一直没开始运行时报 worker-not-started 并取消它', async () => {
+  const host = createFakeHost({ startAfterPolls: 10_000 });
+  const error = await rejectsWorker(host, 'worker-not-started');
+  assert.equal(error.details.waitedMs, fast.pollMs * 6);
+  const worker = host.state.archived[0];
+  assert.ok(
+    host.state.calls.some((call) => call.method === 'session.cancel' && call.payload.sessionId === worker),
+    '放弃等待的工人必须被取消，免得归档后继续烧 token',
+  );
+});
+
+test('preview：超时且没有任何文本时报 worker-timeout', async () => {
+  const host = createFakeHost({ replyAfterPolls: 100_000 });
+  const error = await rejectsWorker(host, 'worker-timeout', { workerTimeoutMs: 40 });
+  assert.equal(error.details.waitedMs, 40);
+});
+
+test('preview：宿主没写结束原因时仍按 worker-empty 处理', async () => {
+  const host = createFakeHost({ workerReply: '', workerTurnEnd: null });
+  const error = await rejectsWorker(host, 'worker-empty');
+  assert.equal(error.details.turnEnd, undefined);
 });
 
 test('preview：空会话给出可读的拒绝理由', async () => {

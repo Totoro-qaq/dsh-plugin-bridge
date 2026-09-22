@@ -28,13 +28,14 @@ Install from npm:
 
 ```bash
 dsh plugin --profile web add dsh-plugin-bridge
-# restart dsh web once
 ```
+
+On **DSH 0.1.5-rc.2** (npm `latest`), restart `dsh web` after adding or removing the plugin. On **DSH 0.1.6-alpha.2** (npm `alpha`), a first install from the WebUI Plugins page applies live; CLI install and upgrades may still need one restart.
 
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.7
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.8
 ```
 
 Then type in the official WebUI:
@@ -128,7 +129,9 @@ Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a c
 
 Since 0.3.5 the summary worker follows the conversation's model by default (`modelTier: current`). On DSH 0.1.5-rc.1 that is V4.1-Flash, which matched V4-Pro in the [tier comparison](reports/worker-tier-rc1-2026-09-10.md) at about half the summary time. DSH releases before 0.1.5-rc.1 have no V4.1-Flash, so set `DSH_BRIDGE_TIER=pro` or pass `--tier pro` there.
 
-Use Bridge 0.3.6 or later for DSH 0.1.6-alpha.1. It adds the `^0.1.6-alpha.1` peer term: `^0.1.5-alpha.1` matches a future 0.1.6 but no 0.1.6 prerelease. Only the dependency ranges change; the shipped code is the same as 0.3.5.
+Use Bridge 0.3.6 or later for DSH 0.1.6-alpha.1 (only the dependency ranges changed; shipped code was the same as 0.3.5).
+
+Since 0.3.8 the five DSH optional peer ranges are `"*"` and a new `engines.dsh` field (`>=0.1.0-rc.7 <0.2.0-0`) replaces them. dshmarket evaluates `engines.dsh` with `includePrerelease: true`, so every current prerelease host matches. Individual peer `||` terms are no longer needed for each new prerelease minor.
 
 DSH 0.1.6-alpha.2 removed the client `sessions.open`. Bridge 0.3.6 still migrates there, but its **Open target session** button fails with `ctx.sessions.open is not a function`. Use Bridge 0.3.7 or later: it opens targets through the WebUI navigation service `uiWorkspace.openSession` and falls back to `sessions.open` on older hosts.
 
@@ -165,7 +168,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 184 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 201 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

@@ -55,16 +55,34 @@ export interface WaitOptions {
     afterSeq?: number;
 }
 /**
+ * Why a watched turn ended, read from its `turn/end` event (upstream `TurnEndReason`).
+ * `waitIdle` omits it when the event carries no reason, as with some test fakes.
+ */
+export interface TurnEndSummary {
+    /** `completed` / `aborted` / `blocked` / `error` / `max-tokens` / `interrupted`. */
+    kind: string;
+    /** `error` only: the host's provider-neutral failure code, e.g. `MISSING_CREDENTIAL`. */
+    code?: string;
+    /** `error` only: the host's human-readable failure. */
+    message?: string;
+    /** `aborted` only: who cancelled the turn (`user` / `parent` / `hook` / `disposed` / `legacy`). */
+    cause?: string;
+}
+export interface WaitResult {
+    idle: boolean;
+    started: boolean;
+    /** Present when the observed `turn/end` carried a reason. */
+    end?: TurnEndSummary;
+}
+/**
  * 等一个会话的新一轮写入 `turn/end`。
  *
  * `session.list` 是全局列表，拿它每两秒轮询一个 worker 会把会话总量放大成
  * O(会话数 × 轮询次数)。`session.history` 则只读目标会话；用 prompt 前的事件
  * 水位隔开旧轮次后，`turn/start` / `turn/end` 也比易过期的 running 快照更可靠。
+ * 结束原因（例如没配 API key 时的 `MISSING_CREDENTIAL`）随结果一起返回。
  */
-export declare function waitIdle(input: BridgeHostInput, sessionId: string, options?: WaitOptions): Promise<{
-    idle: boolean;
-    started: boolean;
-}>;
+export declare function waitIdle(input: BridgeHostInput, sessionId: string, options?: WaitOptions): Promise<WaitResult>;
 /** 拉取并折叠会话历史（按需翻页）。 */
 export declare function foldedHistory(input: BridgeHostInput, sessionId: string, options?: {
     pageMessages?: number;
@@ -72,6 +90,14 @@ export declare function foldedHistory(input: BridgeHostInput, sessionId: string,
 }): Promise<ChatMessage[]>;
 /** 会话里最后一条非空 assistant 文本。 */
 export declare function lastAssistantText(host: BridgeHostInput, sessionId: string): Promise<string>;
+/** `RpcError.code` values `previewMigration` uses when the worker leaves no usable handoff. */
+export type WorkerFailureCode = 'worker-failed' | 'worker-aborted' | 'worker-timeout' | 'worker-not-started' | 'worker-empty';
+/** Host facts carried in `RpcError.details` for a worker failure, so callers can localize it. */
+export interface WorkerFailureDetails {
+    turnEnd?: TurnEndSummary;
+    /** The wait bound that expired, for `worker-timeout` and `worker-not-started`. */
+    waitedMs?: number;
+}
 export interface PreviewOptions {
     sessionId: string;
     /** 同一命令已经读取过的源会话行，避免重复扫描全局列表。 */

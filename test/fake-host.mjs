@@ -15,6 +15,9 @@ export function createFakeHost(options = {}) {
     replyAfterPolls = 2,
     // 第一次轮询前就已经不 running：模拟「host 还没排上队」。
     startAfterPolls = 0,
+    // 工人这一轮的 turn/end 原因（上游 TurnEndReason），例如没配 key 时的
+    // { kind: 'error', error: { code: 'MISSING_CREDENTIAL', message } }；null 表示事件里不带原因。
+    workerTurnEnd = { kind: 'completed' },
     failGoal = false,
     failPause = false,
     failClear = false,
@@ -59,7 +62,7 @@ export function createFakeHost(options = {}) {
     const sessionId = `s-${(nextId += 1)}`;
     sessions.set(sessionId, {
       sessionId, agentPreset, running: false, blank: true, events: [],
-      pendingPolls: 0, startPolls: 0, turnStarted: false, reply: null, ...extra,
+      pendingPolls: 0, startPolls: 0, turnStarted: false, reply: null, turnEnd: { kind: 'completed' }, ...extra,
     });
     return sessions.get(sessionId);
   };
@@ -98,7 +101,7 @@ export function createFakeHost(options = {}) {
             push(session, 'assistant/message', { turn: 9, step: 1, message: { content: [{ type: 'text', text: session.reply }] } });
             session.reply = null;
           }
-          push(session, 'turn/end', {});
+          push(session, 'turn/end', session.turnEnd ? { turn: 9, reason: session.turnEnd } : {});
         }
       }
     }
@@ -199,6 +202,7 @@ export function createFakeHost(options = {}) {
         session.startPolls = startAfterPolls;
         session.turnStarted = false;
         session.reply = session === source ? '好的' : workerReply;
+        session.turnEnd = session === source ? { kind: 'completed' } : workerTurnEnd;
         return { accepted: true };
       }
       case 'session.attachment': {

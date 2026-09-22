@@ -51,6 +51,8 @@ export interface BridgeCommandDeps {
     writeSummary?: (sessionId: string, summary: string) => string | undefined;
     readSummary?: (path: string) => string;
     now?: () => number;
+    /** 轮询压缩工人的间隔（毫秒），默认 750；测试里调小。 */
+    pollMs?: number;
 }
 interface ParsedInput {
     preset?: string;

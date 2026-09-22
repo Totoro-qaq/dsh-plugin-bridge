@@ -27,11 +27,19 @@ export type BridgeCard = {
 } | {
     phase: 'error';
     text: string;
+    picker?: BridgeTargetPicker;
 } | {
     phase: 'message';
     text: string;
     lang: 'zh' | 'en';
+    picker?: BridgeTargetPicker;
 };
+/** Target presets a `/bridge` usage block offers, rendered as one-click preview buttons. */
+export interface BridgeTargetPicker {
+    lang: 'zh' | 'en';
+    targets: string[];
+    current?: string;
+}
 export type BridgeTextSectionKey = 'goal' | 'currentState' | 'keyDecisions' | 'keyFiles' | 'nextStep';
 export interface BridgeTextSection {
     key: BridgeTextSectionKey;
@@ -82,6 +90,12 @@ export declare function removeBridgeTextListItem(projection: BridgeTextProjectio
 export declare function appendBridgeTextListItem(projection: BridgeTextProjection, key: BridgeTextSectionKey, plainText: string): string;
 /** Map the official WebUI document language onto Bridge's supported UI copy. */
 export declare function uiLanguageOf(documentLang: string | undefined): 'zh' | 'en';
+/**
+ * Read the target list of a `/bridge` usage block. Anything unexpected returns
+ * undefined so the card shows plain text instead: after an in-place upgrade
+ * this client can face an older server half whose wording differs.
+ */
+export declare function parseBridgeTargets(text: string): BridgeTargetPicker | undefined;
 /** Convert one durable `/bridge` outcome into the native card's view model. */
 export declare function parseBridgeCard(outcome: BridgeOutcome): BridgeCard;
 /** Return a value only when the complete editor document is valid JSON. */
@@ -142,6 +156,14 @@ export declare function waitForBridgeSession(list: BridgeSessionList, sessionId:
  * Fails fast with a localized error when the host offers no navigation route.
  */
 export declare function openBridgeSessionWhenVisible(ctx: BridgeNavigationContext, sessionId: string, options: BridgeSessionOpenOptions): Promise<BridgeSessionRoute>;
+/**
+ * Build the preview command a picker button submits, equal to typing it.
+ * Only English adds `--lang`: a Chinese usage block is also what the default
+ * `auto` language prints, and auto must keep detecting the summary language.
+ */
+export declare function buildBridgePreviewCommand(targetPreset: string, lang: 'zh' | 'en'): string;
 /** Build the hidden-input-safe command used by the native editor confirmation. */
-export declare function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en', previewId: string): string;
+export declare function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en', previewId: string, options?: {
+    autoContinue?: boolean;
+}): string;
 export {};
