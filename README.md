@@ -35,7 +35,7 @@ On **DSH 0.1.5-rc.2** (npm `latest`), restart `dsh web` after adding or removing
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.8
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.9
 ```
 
 Then type in the official WebUI:
