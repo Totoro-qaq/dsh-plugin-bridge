@@ -2,7 +2,18 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
-## Unreleased
+## 0.3.8 — 2026-09-22
+
+### Handoff UX
+
+- Preview failure reasons: `waitIdle` returns the host's `turn/end` reason; `previewMigration` throws distinct structured errors (`worker-failed`, `worker-aborted`, `worker-not-started`, `worker-timeout`, `worker-empty`). The command formats localized zh/en error messages naming the concrete next step (e.g., configure API key → rerun).
+- Card continue option: PreviewCard adds a "wait for confirmation" / "continue directly" radio (default: wait). `buildBridgeMigrationCommand` appends `--continue` when the user chooses direct continuation.
+- MessageCard renders message text with preserved newlines (`pre-wrap`) instead of Markdown.
+- Target picker: pending previews keyed by preview ID (bounded newest 8 per session, 30-min TTL); strict parser of `可迁入：`/`Available:` in usage with fallback to plain text; clickable buttons executing `/bridge <id>` via `execute`; `buildBridgePreviewCommand`.
+
+### Peers and engines
+
+- Replace five DSH optional peer ranges with `"*"` and add `engines.dsh: ">=0.1.0-rc.7 <0.2.0-0"`. dshmarket evaluates `engines.dsh` with `includePrerelease: true`, so every current prerelease host matches. Individual peer `||` terms are no longer needed for each new prerelease minor.
 
 ## 0.3.7 — 2026-09-18
 

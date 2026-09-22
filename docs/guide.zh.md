@@ -13,14 +13,14 @@ dsh plugin --profile web add dsh-plugin-bridge
 需要固定 GitHub tag 或 npm 暂时不可用时：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.7
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.8
 ```
 
 发生了什么（不用手动干预）：
 
 1. dsh 在 profile 目录（`~/.dsh/profiles/web/`）执行 `pnpm add`，拉取本包（`lib/` 已预构建，不触发 pnpm ≥10 的构建脚本白名单）；
 2. dsh 检测到本包 package.json 里的 `dsh.bundle.patch` 声明，自动把 `dsh-plugin-bridge` 追加进 `dsh.profile.bundles` 层栈；
-3. **重启 `dsh web`**（插件在启动时挂载）。验证：重启后在任意会话里打 `/bridge`，应当列出可迁入的模式。
+3. **重启 `dsh web`**（插件在启动时挂载）。在 DSH 0.1.6-alpha.2 上从 WebUI「插件」页首次安装可以跳过重启直接生效；CLI 安装或升级已有插件仍需一次重启。验证：在任意会话里打 `/bridge`，应当列出可迁入的模式。
 
 卸载：
 

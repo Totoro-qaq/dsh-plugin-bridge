@@ -28,6 +28,7 @@ import {
   type ModelTier,
   type PresetRow,
   type SessionRow,
+  type WorkerFailureDetails,
 } from './migrate.ts';
 import { asBridgeHost, missingHostCapability, type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { RpcError, type Rpc } from './rpc.ts';
@@ -75,11 +76,14 @@ export interface BridgeCommandDeps {
   writeSummary?: (sessionId: string, summary: string) => string | undefined;
   readSummary?: (path: string) => string;
   now?: () => number;
+  /** 轮询压缩工人的间隔（毫秒），默认 750；测试里调小。 */
+  pollMs?: number;
 }
 
-/** 预览与执行之间暂存的摘要。 */
+/** 预览与执行之间暂存的摘要，按预览 ID 保存。 */
 interface Pending {
   id: string;
+  sessionId: string;
   preset: string;
   summary: string;
   lang: 'zh' | 'en';
@@ -97,6 +101,8 @@ interface CompletedWebUiConfirmation {
 
 /** 暂存有效期：超过就要求重新预览，免得拿一份很旧的摘要迁过去。 */
 const PENDING_TTL_MS = 30 * 60_000;
+/** 每个会话同时保留的待确认预览上限；超出时挤掉最旧的一份。 */
+const MAX_PENDING_PER_SESSION = 8;
 
 interface ParsedInput {
   preset?: string;
@@ -260,11 +266,28 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   recordInput: false;
   handler: (invocation: BridgeInvocation) => Promise<BridgeResult>;
 } {
+  // Keyed by preview ID: a newer preview (for example from the WebUI target
+  // picker) must not silently void an older card that is still on screen.
   const pending = new Map<string, Pending>();
   const completedWebUi = new Map<string, CompletedWebUiConfirmation>();
   const inFlightWebUi = new Set<string>();
   const now = deps.now ?? (() => Date.now());
   const metadata = commandMetadata(deps.config.lang);
+  const livePending = (entry: Pending | undefined, sessionId: string, target: string): Pending | undefined =>
+    entry && entry.sessionId === sessionId && entry.preset === target && now() - entry.at < PENDING_TTL_MS ? entry : undefined;
+  const newestPending = (sessionId: string, target: string): Pending | undefined => {
+    let newest: Pending | undefined;
+    for (const entry of pending.values()) {
+      if (livePending(entry, sessionId, target) && (!newest || entry.at >= newest.at)) newest = entry;
+    }
+    return newest;
+  };
+  const stashPending = (entry: Pending): void => {
+    for (const [id, old] of pending) if (now() - old.at >= PENDING_TTL_MS) pending.delete(id);
+    pending.set(entry.id, entry);
+    const own = [...pending.values()].filter((old) => old.sessionId === entry.sessionId).sort((a, b) => a.at - b.at);
+    for (const old of own.slice(0, Math.max(0, own.length - MAX_PENDING_PER_SESSION))) pending.delete(old.id);
+  };
 
   return {
     name: 'bridge',
@@ -361,10 +384,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         let pendingLang: DisplayLang | undefined;
         let webUiConfirmationKey: string | undefined;
         let consumedPending: Pending | undefined;
-        const stashed = pending.get(sessionId);
-        const validStashed = stashed && stashed.preset === target && now() - stashed.at < PENDING_TTL_MS
-          ? stashed
-          : undefined;
+        // The typed or file-based --go uses up this preview on success, so it cannot migrate twice.
+        let usedPending: Pending | undefined;
         if (parsed.summary64) {
           if (!parsed.previewId) {
             return { kind: 'error', text: initialLang === 'en' ? 'The WebUI handoff has no preview ID; generate a new preview.' : 'WebUI 编辑稿缺少预览 ID，请重新生成预览。' };
@@ -376,7 +397,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           if (inFlightWebUi.has(webUiConfirmationKey)) {
             return { kind: 'error', text: initialLang === 'en' ? 'This WebUI confirmation is already running.' : '这次 WebUI 确认正在执行，请勿重复提交。' };
           }
-          if (!validStashed || validStashed.id !== parsed.previewId) {
+          const bound = livePending(pending.get(parsed.previewId), sessionId, target);
+          if (!bound) {
             return {
               kind: 'error',
               text: initialLang === 'en'
@@ -384,7 +406,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
                 : `这份 WebUI 编辑稿没有绑定有效预览。请重新运行 /bridge ${target}，校对后再确认。`,
             };
           }
-          pendingLang = validStashed.lang;
+          pendingLang = bound.lang;
           try {
             if (!/^[A-Za-z0-9_-]+$/u.test(parsed.summary64)) throw new Error('invalid base64url');
             summary = Buffer.from(parsed.summary64, 'base64url').toString('utf8');
@@ -405,8 +427,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             };
           }
           // Consume before the first await below so concurrent confirmations cannot create duplicates.
-          consumedPending = validStashed;
-          pending.delete(sessionId);
+          consumedPending = bound;
+          pending.delete(bound.id);
           inFlightWebUi.add(webUiConfirmationKey);
         } else if (parsed.file) {
           try {
@@ -414,10 +436,13 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           } catch (error) {
             return { kind: 'error', text: initialLang === 'en' ? `Cannot read ${parsed.file}: ${describe(error)}` : `读不到 ${parsed.file}：${describe(error)}` };
           }
+          usedPending = [...pending.values()].find((entry) => entry.file === parsed.file && livePending(entry, sessionId, target))
+            ?? newestPending(sessionId, target);
         } else {
-          if (validStashed) {
-            summary = validStashed.summary;
-            pendingLang = validStashed.lang;
+          usedPending = newestPending(sessionId, target);
+          if (usedPending) {
+            summary = usedPending.summary;
+            pendingLang = usedPending.lang;
           }
         }
         const runLang = parsed.lang === 'en' || parsed.lang === 'zh' ? parsed.lang : pendingLang ?? initialLang;
@@ -446,7 +471,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             autoContinue: parsed.autoContinue,
             lang: runLang,
           });
-          if (validStashed && pending.get(sessionId)?.id === validStashed.id) pending.delete(sessionId);
+          if (usedPending) pending.delete(usedPending.id);
           const lines = runLang === 'en'
             ? [
                 `Created a new session in the ${result.agentPreset} preset from ${source}.`,
@@ -488,8 +513,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           return commandResult;
         } catch (error) {
           if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
-          if (consumedPending && error instanceof RpcError && error.method === 'session.create' && !pending.has(sessionId)) {
-            pending.set(sessionId, consumedPending);
+          if (consumedPending && error instanceof RpcError && error.method === 'session.create' && !pending.has(consumedPending.id)) {
+            pending.set(consumedPending.id, consumedPending);
           }
           return { kind: 'error', text: describe(error) };
         }
@@ -506,14 +531,15 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           summaryCharBudget: config.summaryCharBudget,
           lang: parsed.lang ?? config.lang,
           workerTimeoutMs: config.previewTimeoutMs,
-          pollMs: 750,
+          pollMs: deps.pollMs ?? 750,
           ...(config.workerProvider ? { provider: config.workerProvider } : {}),
           ...(config.workerModel ? { model: config.workerModel } : {}),
         });
         const previewId = randomUUID();
         const file = deps.writeSummary?.(sessionId, preview.summary);
-        pending.set(sessionId, {
+        stashPending({
           id: previewId,
+          sessionId,
           preset: target,
           summary: preview.summary,
           lang: preview.lang,
@@ -567,10 +593,57 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         }
         return { kind: 'success', text: lines.join('\n') };
       } catch (error) {
-        return { kind: 'error', text: describe(error) };
+        return { kind: 'error', text: previewFailureText(error, initialLang, target) ?? describe(error) };
       }
     },
   };
+}
+
+/** Turn a worker failure from `previewMigration` into the host's reason plus one concrete next step. */
+function previewFailureText(error: unknown, lang: DisplayLang, target: string): string | undefined {
+  if (!(error instanceof RpcError) || error.method !== 'bridge.preview') return undefined;
+  const details = (error.details ?? {}) as WorkerFailureDetails;
+  const end = details.turnEnd;
+  const seconds = Math.round((details.waitedMs ?? 0) / 1000);
+  const rerun = `/bridge ${target}`;
+  const en = lang === 'en';
+  switch (error.code) {
+    case 'worker-failed': {
+      const code = end?.code ?? 'UNKNOWN';
+      const next = code === 'MISSING_CREDENTIAL'
+        ? (en ? `Next: enter the API key on the Models page of the WebUI settings, then run ${rerun} again.` : `下一步：在 WebUI 设置的「模型」页填入 API 密钥，再重新运行 ${rerun}。`)
+        : code === 'INVALID_CREDENTIAL'
+          ? (en ? `Next: correct the API key on the Models page of the WebUI settings, then run ${rerun} again.` : `下一步：在 WebUI 设置的「模型」页改正 API 密钥，再重新运行 ${rerun}。`)
+          : (en ? `Next: resolve the host error above, then run ${rerun} again.` : `下一步：处理上面的宿主错误后，重新运行 ${rerun}。`);
+      return [
+        en ? `Preview failed: the summary worker's model request failed (${code}).` : `预览失败：压缩工人请求模型出错（${code}）。`,
+        ...(end?.message ? [en ? `Host message: ${end.message}` : `宿主原因：${end.message}`] : []),
+        next,
+      ].join('\n');
+    }
+    case 'worker-timeout':
+      return en
+        ? `Preview failed: the summary worker did not finish within ${seconds} s and was cancelled.\n`
+          + `Next: run ${rerun} again. For very long sessions, restart dsh web with a larger DSH_BRIDGE_PREVIEW_TIMEOUT (milliseconds).`
+        : `预览失败：压缩工人 ${seconds} 秒内没写完，已取消。\n`
+          + `下一步：重新运行 ${rerun}。会话特别长时，可以带上更大的 DSH_BRIDGE_PREVIEW_TIMEOUT（毫秒）重启 dsh web。`;
+    case 'worker-not-started':
+      return en
+        ? `Preview failed: the summary worker did not start within ${seconds} s; the host may still be starting or busy.\nNext: wait a moment, then run ${rerun} again.`
+        : `预览失败：压缩工人 ${seconds} 秒内没有开始运行，宿主可能还在启动或忙。\n下一步：稍等片刻，再重新运行 ${rerun}。`;
+    case 'worker-aborted':
+      return en
+        ? `Preview failed: the summary worker's turn was cancelled (${end?.cause ?? end?.kind ?? 'unknown'}).\nNext: run ${rerun} again.`
+        : `预览失败：压缩工人这一轮被取消了（${end?.cause ?? end?.kind ?? '原因未知'}）。\n下一步：重新运行 ${rerun}。`;
+    case 'worker-empty':
+      return en
+        ? `Preview failed: the summary worker finished without writing a handoff${end ? ` (turn ended: ${end.kind})` : ''}.\n`
+          + `Next: run ${rerun} again; if it keeps happening, try another worker model with ${rerun} --tier pro.`
+        : `预览失败：压缩工人跑完了，但没有写出交接摘要${end ? `（本轮结束原因：${end.kind}）` : ''}。\n`
+          + `下一步：重新运行 ${rerun}；反复出现时，换个压缩模型试试：${rerun} --tier pro。`;
+    default:
+      return undefined;
+  }
 }
 
 function describe(error: unknown): string {

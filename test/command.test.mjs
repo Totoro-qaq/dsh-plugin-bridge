@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
 import { createBridgeCommand, parseBridgeInput } from '../src/command.ts';
+import { parseBridgeCard } from '../src/client-contract.ts';
 
 const CONFIG = {
   modelTier: 'pro',
@@ -22,10 +23,11 @@ const CONFIG = {
   previewTimeoutMs: 5_000,
 };
 
-function setup(hostOptions = {}, overrides = {}) {
+function setup(hostOptions = {}, overrides = {}, extraDeps = {}) {
   const host = createFakeHost(hostOptions);
   const files = new Map();
   const command = createBridgeCommand({
+    ...extraDeps,
     rpcFor: (signal) => createApiProxyRpc(host.apiProxy, signal),
     probe: () => probeApiProxy(host.apiProxy),
     config: { ...CONFIG, ...overrides },
@@ -87,6 +89,17 @@ test('/bridge 不带参数：列出可迁入的模式与当前模式', async () 
   assert.match(result.text, /code/);
   assert.match(result.text, /当前：minimal/);
   assert.ok(!result.text.includes('minimal ·'), '当前模式不该出现在可迁入列表里');
+});
+
+test('WebUI 卡片能从真实的用法输出里认出可迁入的模式', async () => {
+  const { invoke } = setup();
+  const zh = parseBridgeCard(await invoke(''));
+  assert.deepEqual(zh.picker, { lang: 'zh', targets: ['standard', 'code', 'cordis'], current: 'minimal' });
+  const en = parseBridgeCard(await invoke('--lang en'));
+  assert.deepEqual(en.picker, { lang: 'en', targets: ['standard', 'code', 'cordis'], current: 'minimal' });
+  const unknown = parseBridgeCard(await invoke('codex'));
+  assert.equal(unknown.phase, 'error');
+  assert.deepEqual(unknown.picker?.targets, ['standard', 'code', 'cordis']);
 });
 
 test('/bridge code：出摘要、落盘、给出确认命令，且不动任何会话', async () => {
@@ -233,6 +246,95 @@ test('新预览不会让旧 WebUI 卡片重放成第二次迁移', async () => {
   const replay = await invoke(`code --go --preview-id ${firstPreviewId} --summary64 ${payload}`);
   assert.deepEqual(replay, first, '旧卡片只能取回它自己的已完成结果');
   assert.equal(host.state.goals.length, 1, '生成新预览后重放旧卡片也不能新建第二个 goal');
+});
+
+const base64url = (text) => Buffer.from(text, 'utf8').toString('base64url');
+
+test('同一会话的多张预览卡各自可确认，新预览不会作废旧卡', async () => {
+  const { host, invoke } = setup({}, {}, { pollMs: 1 });
+  const firstCode = previewIdFrom((await invoke('code')).text);
+  const cordis = previewIdFrom((await invoke('cordis')).text);
+  const secondCode = previewIdFrom((await invoke('code')).text);
+
+  const first = await invoke(`code --go --preview-id ${firstCode} --summary64 ${base64url('## 目标\n第一张卡')}`);
+  assert.equal(first.kind, 'success', first.text);
+  const toCordis = await invoke(`cordis --go --preview-id ${cordis} --summary64 ${base64url('## 目标\n第二张卡')}`);
+  assert.equal(toCordis.kind, 'success', toCordis.text);
+  const wrongTarget = await invoke(`cordis --go --preview-id ${secondCode} --summary64 ${base64url('## 目标\n换目标')}`);
+  assert.equal(wrongTarget.kind, 'error', '预览 ID 只能确认它自己的目标模式');
+  const third = await invoke(`code --go --preview-id ${secondCode} --summary64 ${base64url('## 目标\n第三张卡')}`);
+  assert.equal(third.kind, 'success', third.text);
+  assert.deepEqual(
+    host.state.goals.map((goal) => ['第一张卡', '第二张卡', '第三张卡'].find((mark) => goal.objective.includes(mark))),
+    ['第一张卡', '第二张卡', '第三张卡'],
+  );
+});
+
+test('手打 --go 用这个目标模式最新的一份预览，用过即失效', async () => {
+  const { host, invoke } = setup({}, {}, { pollMs: 1 });
+  await invoke('code');
+  await invoke('cordis');
+  const toCode = await invoke('code --go');
+  assert.equal(toCode.kind, 'success', '后来的 cordis 预览不能挤掉 code 预览');
+  assert.match(toCode.text, /已在 code 模式下建好新会话/);
+  const again = await invoke('code --go');
+  assert.equal(again.kind, 'error', '同一份预览不能迁移两次');
+  const toCordis = await invoke('cordis --go');
+  assert.equal(toCordis.kind, 'success', toCordis.text);
+  assert.equal(host.state.goals.length, 2);
+});
+
+test('每个会话最多保留 8 份待确认预览，挤掉的是最旧的', async () => {
+  const { invoke } = setup({}, {}, { pollMs: 1 });
+  const ids = [];
+  for (let index = 0; index < 9; index += 1) ids.push(previewIdFrom((await invoke('code')).text));
+  const oldest = await invoke(`code --go --preview-id ${ids[0]} --summary64 ${base64url('## 目标\n最旧的卡')}`);
+  assert.equal(oldest.kind, 'error');
+  assert.match(oldest.text, /没有绑定有效预览/);
+  const kept = await invoke(`code --go --preview-id ${ids[1]} --summary64 ${base64url('## 目标\n还在上限内')}`);
+  assert.equal(kept.kind, 'success', kept.text);
+});
+
+test('预览 ID 绑定来源会话，别的会话拿来确认会被拒绝', async () => {
+  const { host, invoke } = setup({}, {}, { pollMs: 1 });
+  const previewId = previewIdFrom((await invoke('code')).text);
+  const other = await host.handle('session.create', { agentPreset: 'standard' });
+  const result = await invoke(`code --go --preview-id ${previewId} --summary64 ${base64url('## 目标\n串会话')}`, other.sessionId);
+  assert.equal(result.kind, 'error');
+  assert.equal(host.state.goals.length, 0);
+});
+
+test('预览失败时显示宿主给的原因和下一步', async () => {
+  const noKey = {
+    kind: 'error',
+    error: { code: 'MISSING_CREDENTIAL', message: 'llm-deepseek: no API key for provider route "deepseek-official"' },
+  };
+  const { invoke } = setup({ workerReply: '', workerTurnEnd: noKey }, {}, { pollMs: 1 });
+  const zh = await invoke('code');
+  assert.equal(zh.kind, 'error');
+  assert.equal(zh.text, [
+    '预览失败：压缩工人请求模型出错（MISSING_CREDENTIAL）。',
+    '宿主原因：llm-deepseek: no API key for provider route "deepseek-official"',
+    '下一步：在 WebUI 设置的「模型」页填入 API 密钥，再重新运行 /bridge code。',
+  ].join('\n'));
+  const en = await invoke('code --lang en');
+  assert.match(en.text, /^Preview failed: the summary worker's model request failed \(MISSING_CREDENTIAL\)\./u);
+  assert.match(en.text, /Next: enter the API key on the Models page of the WebUI settings, then run \/bridge code again\.$/u);
+});
+
+test('预览失败：工人没开始运行、超时、空回复各有各的说法', async () => {
+  const notStarted = await setup({ startAfterPolls: 10_000 }, {}, { pollMs: 1 }).invoke('code');
+  assert.equal(notStarted.kind, 'error');
+  assert.match(notStarted.text, /^预览失败：压缩工人 0 秒内没有开始运行/u);
+  assert.match(notStarted.text, /稍等片刻，再重新运行 \/bridge code。$/u);
+
+  const timedOut = await setup({ replyAfterPolls: 100_000 }, { previewTimeoutMs: 40 }, { pollMs: 1 }).invoke('code --lang en');
+  assert.match(timedOut.text, /^Preview failed: the summary worker did not finish within 0 s and was cancelled\./u);
+  assert.match(timedOut.text, /DSH_BRIDGE_PREVIEW_TIMEOUT/u);
+
+  const empty = await setup({ workerReply: '' }, {}, { pollMs: 1 }).invoke('code');
+  assert.match(empty.text, /^预览失败：压缩工人跑完了，但没有写出交接摘要（本轮结束原因：completed）。/u);
+  assert.match(empty.text, /\/bridge code --tier pro。$/u);
 });
 
 test('目标 session.create 暂时失败后可重试同一份 WebUI 编辑稿', async () => {

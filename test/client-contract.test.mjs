@@ -6,11 +6,13 @@ import { Context, Service } from '@deepseek-ai/cordis';
 import {
   BRIDGE_NAVIGATION_SERVICE,
   buildBridgeMigrationCommand,
+  buildBridgePreviewCommand,
   appendBridgeTextListItem,
   bridgeSessionRoutes,
   openBridgeSession,
   openBridgeSessionWhenVisible,
   parseBridgeCard,
+  parseBridgeTargets,
   parseJsonDocument,
   parseBridgeTextProjection,
   removeBridgeTextListItem,
@@ -135,6 +137,72 @@ test('edited summary command uses bounded base64url and never shell quoting', ()
   const command = buildBridgeMigrationCommand('code', summary, 'zh', PREVIEW_ID);
   assert.match(command, /^\/bridge code --go --lang zh --preview-id preview-12345678 --summary64 [A-Za-z0-9_-]+$/);
   assert.doesNotMatch(command, /端口|\s['"]/);
+});
+
+test('the wait/continue choice only adds --continue before the payload', () => {
+  const waiting = buildBridgeMigrationCommand('code', '## Goal\nX', 'en', PREVIEW_ID);
+  assert.equal(waiting, buildBridgeMigrationCommand('code', '## Goal\nX', 'en', PREVIEW_ID, { autoContinue: false }));
+  assert.doesNotMatch(waiting, /--continue/u);
+  const continuing = buildBridgeMigrationCommand('code', '## Goal\nX', 'en', PREVIEW_ID, { autoContinue: true });
+  assert.equal(continuing, waiting.replace(' --summary64 ', ' --continue --summary64 '));
+});
+
+const ZH_USAGE = `用法：
+  /bridge <模式>          生成交接摘要给你过目（不改动任何会话）
+  /bridge <模式> --go     确认后迁移；新会话复述理解后暂停
+  /bridge <模式> --go --continue  同一轮复述并继续下一步
+
+可迁入：standard · code · cordis
+当前：minimal
+
+可选：--continue · --tier flash|current|pro · --lang zh|en|auto · --goal-rounds N · --file <改过的摘要文件>
+排查：/bridge --doctor`;
+
+const EN_USAGE = `Usage:
+  /bridge <preset>          Preview a handoff without changing either session
+
+Available: ptc · minimal
+Current: standard
+
+Check: /bridge --doctor`;
+
+test('usage blocks become a target picker and keep their exact text', () => {
+  assert.deepEqual(parseBridgeCard({ kind: 'success', text: ZH_USAGE }), {
+    phase: 'message',
+    text: ZH_USAGE,
+    lang: 'zh',
+    picker: { lang: 'zh', targets: ['standard', 'code', 'cordis'], current: 'minimal' },
+  });
+  assert.deepEqual(parseBridgeTargets(EN_USAGE), { lang: 'en', targets: ['ptc', 'minimal'], current: 'standard' });
+  const unknown = `没有叫 "codex" 的模式（或者它当前是坏的）。\n\n${ZH_USAGE}`;
+  assert.deepEqual(parseBridgeCard({ kind: 'error', text: unknown }).picker?.targets, ['standard', 'code', 'cordis']);
+});
+
+test('anything but a well-formed usage block falls back to plain text', () => {
+  const doctor = '适配器：dsh-typed-controllers · 13/13 个方法可用\n当前模式：standard\n可迁入：ptc · minimal · cordis';
+  const cases = [
+    doctor,
+    ZH_USAGE.replace('可迁入：standard · code · cordis', '可迁入：（这套部署没有其他 preset）'),
+    EN_USAGE.replace('Available: ptc · minimal', 'Available: (no other presets in this deployment)'),
+    ZH_USAGE.replace('standard · code', 'standard · standard'),
+    ZH_USAGE.replace('code', 'code --go'),
+    ZH_USAGE.replace('code', 'co`de'),
+    ZH_USAGE.replace('当前：minimal', '当前：code'),
+    `${ZH_USAGE}\n可迁入：plan`,
+    ZH_USAGE.replace('用法：', '用法'),
+    '可迁入：standard · code',
+  ];
+  for (const text of cases) {
+    assert.equal(parseBridgeTargets(text), undefined, text);
+    assert.equal(parseBridgeCard({ kind: 'success', text }).picker, undefined, text);
+  }
+  assert.equal(parseBridgeCard({ kind: 'error', text: '--tier 只能是 flash / current / pro\n\n用 /bridge 看用法。' }).picker, undefined);
+});
+
+test('picker buttons submit the same preview command a user would type', () => {
+  assert.equal(buildBridgePreviewCommand('code', 'zh'), '/bridge code');
+  assert.equal(buildBridgePreviewCommand('ptc', 'en'), '/bridge ptc --lang en');
+  assert.throws(() => buildBridgePreviewCommand('code --go', 'zh'), /preset id/u);
 });
 
 test('strict bilingual five-section summaries project to plain text without mutating Markdown', () => {
@@ -405,6 +473,7 @@ test('card parser stays linear on adversarial host output', () => {
   const started = performance.now();
   assert.equal(parseBridgeCard({ kind: 'success', text: hostilePreview }).phase, 'message');
   assert.equal(parseBridgeCard({ kind: 'success', text: `已在 code 模式下建好新会话\n${hostileTarget}` }).phase, 'message');
+  assert.equal(parseBridgeTargets(`用法：\n可迁入：${'a · '.repeat(40_000)}!`), undefined);
   assert.ok(performance.now() - started < 250, '超长宿主输出必须在线性时间内被拒绝');
 });
 

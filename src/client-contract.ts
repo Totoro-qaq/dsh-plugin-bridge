@@ -26,8 +26,15 @@ export type BridgeCard =
       details: string[]
       warnings: string[]
     }
-  | { phase: 'error'; text: string }
-  | { phase: 'message'; text: string; lang: 'zh' | 'en' }
+  | { phase: 'error'; text: string; picker?: BridgeTargetPicker }
+  | { phase: 'message'; text: string; lang: 'zh' | 'en'; picker?: BridgeTargetPicker }
+
+/** Target presets a `/bridge` usage block offers, rendered as one-click preview buttons. */
+export interface BridgeTargetPicker {
+  lang: 'zh' | 'en'
+  targets: string[]
+  current?: string
+}
 
 export type BridgeTextSectionKey =
   | 'goal'
@@ -570,14 +577,47 @@ function parseMigrated(text: string): BridgeCard | undefined {
   }
 }
 
+/** Preset ids Bridge will put on a command line; DSH itself allows `[a-z0-9][a-z0-9-]*`. */
+const SAFE_PRESET_ID = /^[A-Za-z0-9._-]+$/u
+
+const USAGE_LINES = {
+  zh: { head: '用法：', available: '可迁入：', current: '当前：' },
+  en: { head: 'Usage:', available: 'Available: ', current: 'Current: ' },
+} as const
+
+/**
+ * Read the target list of a `/bridge` usage block. Anything unexpected returns
+ * undefined so the card shows plain text instead: after an in-place upgrade
+ * this client can face an older server half whose wording differs.
+ */
+export function parseBridgeTargets(text: string): BridgeTargetPicker | undefined {
+  const lines = text.split('\n')
+  for (const lang of ['zh', 'en'] as const) {
+    const copy = USAGE_LINES[lang]
+    const head = lines.indexOf(copy.head)
+    if (head < 0) continue
+    const rest = lines.slice(head + 1)
+    const available = rest.filter((line) => line.startsWith(copy.available))
+    const currentLines = rest.filter((line) => line.startsWith(copy.current))
+    if (available.length !== 1 || currentLines.length > 1) return undefined
+    const targets = (available[0] ?? '').slice(copy.available.length).split(' · ')
+    if (!targets.every((id) => SAFE_PRESET_ID.test(id)) || new Set(targets).size !== targets.length) return undefined
+    const current = currentLines[0]?.slice(copy.current.length)
+    if (current !== undefined && (!SAFE_PRESET_ID.test(current) || targets.includes(current))) return undefined
+    return { lang, targets, ...(current === undefined ? {} : { current }) }
+  }
+  return undefined
+}
+
 /** Convert one durable `/bridge` outcome into the native card's view model. */
 export function parseBridgeCard(outcome: BridgeOutcome): BridgeCard {
   if (outcome === null) return { phase: 'running' }
   const text = outcome.text?.trim() ?? ''
-  if (outcome.kind === 'error') return { phase: 'error', text }
+  const picker = parseBridgeTargets(text)
+  if (outcome.kind === 'error') return { phase: 'error', text, ...(picker ? { picker } : {}) }
   return parsePreview(text)
     ?? parseMigrated(text)
-    ?? { phase: 'message', text, lang: languageOf(text) }
+    ?? { phase: 'message', text, lang: languageOf(text), ...(picker ? { picker } : {}) }
 }
 
 /** Return a value only when the complete editor document is valid JSON. */
@@ -765,14 +805,31 @@ function encodeUtf8Base64Url(text: string): string {
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '')
 }
 
+/**
+ * Build the preview command a picker button submits, equal to typing it.
+ * Only English adds `--lang`: a Chinese usage block is also what the default
+ * `auto` language prints, and auto must keep detecting the summary language.
+ */
+export function buildBridgePreviewCommand(targetPreset: string, lang: 'zh' | 'en'): string {
+  if (!SAFE_PRESET_ID.test(targetPreset)) throw new Error('Unsupported target preset id')
+  return lang === 'en' ? `/bridge ${targetPreset} --lang en` : `/bridge ${targetPreset}`
+}
+
 /** Build the hidden-input-safe command used by the native editor confirmation. */
-export function buildBridgeMigrationCommand(targetPreset: string, summary: string, lang: 'zh' | 'en', previewId: string): string {
-  if (!/^[A-Za-z0-9._-]+$/u.test(targetPreset)) throw new Error('Unsupported target preset id')
+export function buildBridgeMigrationCommand(
+  targetPreset: string,
+  summary: string,
+  lang: 'zh' | 'en',
+  previewId: string,
+  options: { autoContinue?: boolean } = {},
+): string {
+  if (!SAFE_PRESET_ID.test(targetPreset)) throw new Error('Unsupported target preset id')
   if (lang !== 'zh' && lang !== 'en') throw new Error('Unsupported Bridge language')
   if (!/^[A-Za-z0-9-]{8,}$/u.test(previewId)) throw new Error('Unsupported Bridge preview ID')
   if (!summary.trim()) throw new Error('The handoff summary is empty')
   if (summary.length > MAX_EDITED_SUMMARY_CHARS) {
     throw new Error(`The handoff summary exceeds ${MAX_EDITED_SUMMARY_CHARS} characters`)
   }
-  return `/bridge ${targetPreset} --go --lang ${lang} --preview-id ${previewId} --summary64 ${encodeUtf8Base64Url(summary)}`
+  const continueFlag = options.autoContinue === true ? ' --continue' : ''
+  return `/bridge ${targetPreset} --go --lang ${lang} --preview-id ${previewId}${continueFlag} --summary64 ${encodeUtf8Base64Url(summary)}`
 }

@@ -28,13 +28,14 @@
 
 ```bash
 dsh plugin --profile web add dsh-plugin-bridge
-# 重启一次 dsh web
 ```
+
+在 **DSH 0.1.5-rc.2**（npm `latest`）上，添加或移除插件后需要重启 `dsh web`。在 **DSH 0.1.6-alpha.2**（npm `alpha`）上，从 WebUI「插件」页首次安装可以直接生效；CLI 安装或升级已有插件仍可能需要一次重启。
 
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.7
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.8
 ```
 
 然后在官方 WebUI 输入：
@@ -128,7 +129,9 @@ DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.
 
 0.3.5 起压缩工人默认跟随会话当前模型（`modelTier: current`）。在 DSH 0.1.5-rc.1 上这就是 V4.1-Flash，它在[档位对比](reports/worker-tier-rc1-2026-09-10.md)里与 V4-Pro 打平，摘要用时约减半。DSH 0.1.5-rc.1 之前的版本没有 V4.1-Flash，请设 `DSH_BRIDGE_TIER=pro` 或用 `--tier pro`。
 
-DSH 0.1.6-alpha.1 请使用 Bridge 0.3.6 或更高版本，它加入了 `^0.1.6-alpha.1` peer 范围：`^0.1.5-alpha.1` 能匹配以后的 0.1.6 正式版，但匹配不到任何 0.1.6 预发布版。这次只改依赖范围，发布的代码与 0.3.5 相同。
+DSH 0.1.6-alpha.1 请使用 Bridge 0.3.6 或更高版本（只改了依赖范围，发布代码与 0.3.5 相同）。
+
+0.3.8 起五个 DSH 可选 peer 范围改为 `"*"`，用新增的 `engines.dsh`（`>=0.1.0-rc.7 <0.2.0-0`）统一约束宿主版本。dshmarket 以 `includePrerelease: true` 评估此字段，所有当前预发布宿主均匹配，无需再为每个新预发布 minor 逐条追加 `||` peer 范围。
 
 DSH 0.1.6-alpha.2 删除了客户端的 `sessions.open`。Bridge 0.3.6 在上面仍能完成迁移，但「打开目标会话」按钮会报 `ctx.sessions.open is not a function`。请使用 Bridge 0.3.7 或更高版本，它改为通过 WebUI 导航服务 `uiWorkspace.openSession` 打开目标，旧宿主上回退到 `sessions.open`。
 
@@ -165,7 +168,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 184 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行 201 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

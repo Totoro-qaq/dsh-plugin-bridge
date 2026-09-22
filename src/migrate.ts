@@ -146,6 +146,9 @@ export async function resolveWorkerPreset(input: BridgeHostInput): Promise<strin
   return presets.find((preset) => preset.isDefault)?.id;
 }
 
+const DEFAULT_WAIT_TIMEOUT_MS = 360_000;
+const DEFAULT_START_GRACE_MS = 25_000;
+
 export interface WaitOptions {
   timeoutMs?: number;
   /** 等待新 `turn/start` 的宽限期；超过仍未出现就按未启动处理。 */
@@ -156,21 +159,66 @@ export interface WaitOptions {
 }
 
 /**
+ * Why a watched turn ended, read from its `turn/end` event (upstream `TurnEndReason`).
+ * `waitIdle` omits it when the event carries no reason, as with some test fakes.
+ */
+export interface TurnEndSummary {
+  /** `completed` / `aborted` / `blocked` / `error` / `max-tokens` / `interrupted`. */
+  kind: string;
+  /** `error` only: the host's provider-neutral failure code, e.g. `MISSING_CREDENTIAL`. */
+  code?: string;
+  /** `error` only: the host's human-readable failure. */
+  message?: string;
+  /** `aborted` only: who cancelled the turn (`user` / `parent` / `hook` / `disposed` / `legacy`). */
+  cause?: string;
+}
+
+export interface WaitResult {
+  idle: boolean;
+  started: boolean;
+  /** Present when the observed `turn/end` carried a reason. */
+  end?: TurnEndSummary;
+}
+
+const MAX_HOST_MESSAGE_CHARS = 500;
+
+function recordOf(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+}
+
+function textOf(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function turnEndOf(event: SessionEvent): TurnEndSummary | undefined {
+  const reason = recordOf(event.data?.reason);
+  const kind = textOf(reason?.kind);
+  if (!reason || !kind) return undefined;
+  const failure = recordOf(reason.error);
+  const code = textOf(failure?.code);
+  const raw = textOf(failure?.message);
+  const message = raw && raw.length > MAX_HOST_MESSAGE_CHARS ? `${raw.slice(0, MAX_HOST_MESSAGE_CHARS - 1)}…` : raw;
+  const cause = textOf(recordOf(reason.reason)?.kind);
+  return { kind, ...(code ? { code } : {}), ...(message ? { message } : {}), ...(cause ? { cause } : {}) };
+}
+
+/**
  * 等一个会话的新一轮写入 `turn/end`。
  *
  * `session.list` 是全局列表，拿它每两秒轮询一个 worker 会把会话总量放大成
  * O(会话数 × 轮询次数)。`session.history` 则只读目标会话；用 prompt 前的事件
  * 水位隔开旧轮次后，`turn/start` / `turn/end` 也比易过期的 running 快照更可靠。
+ * 结束原因（例如没配 API key 时的 `MISSING_CREDENTIAL`）随结果一起返回。
  */
 export async function waitIdle(
   input: BridgeHostInput,
   sessionId: string,
   options: WaitOptions = {},
-): Promise<{ idle: boolean; started: boolean }> {
+): Promise<WaitResult> {
   const host = asBridgeHost(input);
   const pollMs = options.pollMs ?? 2000;
-  const deadline = Date.now() + (options.timeoutMs ?? 360_000);
-  const startBy = Date.now() + (options.startGraceMs ?? 25_000);
+  const deadline = Date.now() + (options.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS);
+  const startBy = Date.now() + (options.startGraceMs ?? DEFAULT_START_GRACE_MS);
   const afterSeq = options.afterSeq ?? 0;
   let started = false;
   while (Date.now() < deadline) {
@@ -178,7 +226,11 @@ export async function waitIdle(
     const events = await tailSessionEvents(host, sessionId).catch(() => [] as SessionEvent[]);
     const fresh = events.filter((event) => typeof event.seq === 'number' && event.seq > afterSeq);
     if (fresh.some((event) => event.type === 'turn/start')) started = true;
-    if (fresh.some((event) => event.type === 'turn/end')) return { idle: true, started: true };
+    const ended = fresh.filter((event) => event.type === 'turn/end').at(-1);
+    if (ended) {
+      const end = turnEndOf(ended);
+      return end ? { idle: true, started: true, end } : { idle: true, started: true };
+    }
     if (!started && Date.now() > startBy) return { idle: true, started: false };
   }
   return { idle: false, started };
@@ -240,6 +292,38 @@ export async function lastAssistantText(host: BridgeHostInput, sessionId: string
 }
 
 /* ------------------------------------------------------------------ 预览 */
+
+/** `RpcError.code` values `previewMigration` uses when the worker leaves no usable handoff. */
+export type WorkerFailureCode = 'worker-failed' | 'worker-aborted' | 'worker-timeout' | 'worker-not-started' | 'worker-empty';
+
+/** Host facts carried in `RpcError.details` for a worker failure, so callers can localize it. */
+export interface WorkerFailureDetails {
+  turnEnd?: TurnEndSummary;
+  /** The wait bound that expired, for `worker-timeout` and `worker-not-started`. */
+  waitedMs?: number;
+}
+
+function workerFailure(settled: WaitResult, summary: string, bounds: { timeoutMs: number; startGraceMs: number }): RpcError | undefined {
+  const end = settled.end;
+  const fail = (code: WorkerFailureCode, message: string, details: WorkerFailureDetails): RpcError =>
+    new RpcError('bridge.preview', code, message, details);
+  const seconds = (ms: number): number => Math.round(ms / 1000);
+  // A failed turn can leave partial streamed text behind; never present it as a handoff.
+  if (end?.kind === 'error') {
+    return fail('worker-failed', `压缩工人请求模型出错（${end.code ?? 'UNKNOWN'}）：${end.message ?? '宿主没有给出说明'}`, { turnEnd: end });
+  }
+  if (summary) return undefined;
+  if (!settled.idle) {
+    return fail('worker-timeout', `压缩工人 ${seconds(bounds.timeoutMs)} 秒内没写完，已取消。`, { waitedMs: bounds.timeoutMs });
+  }
+  if (!settled.started) {
+    return fail('worker-not-started', `压缩工人 ${seconds(bounds.startGraceMs)} 秒内没有开始运行，宿主可能还在启动或忙。`, { waitedMs: bounds.startGraceMs });
+  }
+  if (end?.kind === 'aborted' || end?.kind === 'interrupted') {
+    return fail('worker-aborted', `压缩工人这一轮被取消了（${end.cause ?? end.kind}），没有产出摘要。`, { turnEnd: end });
+  }
+  return fail('worker-empty', `压缩工人没有产出摘要${end ? `（本轮结束原因：${end.kind}）` : ''}。`, end ? { turnEnd: end } : {});
+}
 
 export interface PreviewOptions {
   sessionId: string;
@@ -314,20 +398,26 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
       content: [{ type: 'text', text: `${instruction}${source.text}` }],
     });
     progress('等待摘要…');
+    const bounds = {
+      timeoutMs: options.workerTimeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS,
+      startGraceMs: options.pollMs === undefined ? DEFAULT_START_GRACE_MS : options.pollMs * 6,
+    };
     const settled = await waitIdle(host, worker.sessionId, {
-      timeoutMs: options.workerTimeoutMs ?? 360_000,
+      ...bounds,
       afterSeq: workerBaselineSeq,
-      ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs, startGraceMs: options.pollMs * 6 }),
+      ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs }),
     });
+    if (!settled.idle || !settled.started) {
+      // Timed out, or never started: stop it so the archived worker cannot keep spending tokens.
+      await host.sessions.cancel({ sessionId: worker.sessionId }).catch(() => undefined);
+    }
     if (!settled.idle) {
       capped = true;
-      await host.sessions.cancel({ sessionId: worker.sessionId }).catch(() => undefined);
       await sleep(2500);
     }
     const workerSummary = await lastAssistantText(host, worker.sessionId);
-    if (!workerSummary) {
-      throw new RpcError('bridge.preview', 'worker-empty', '压缩工人没有产出摘要（可能是模型不可用或被取消）。');
-    }
+    const failure = workerFailure(settled, workerSummary, bounds);
+    if (failure) throw failure;
     const summary = appendVisualEvidence(workerSummary, source.visualEvidence, lang);
     return {
       summary,
