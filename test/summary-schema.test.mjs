@@ -125,4 +125,30 @@ test('kickoff：指明 goal 是跨模式交接摘要，并要求复述理解（�
   assert.match(en, /wait for the user to confirm/i);
   assert.match(buildBridgeKickoff('zh', true), /继续执行下一步/);
   assert.match(buildBridgeKickoff('en', true), /continue with the next step/i);
+  assert.equal(buildBridgeKickoff('zh', false), zh);
+  assert.equal(buildBridgeKickoff('en', false), en);
+  assert.doesNotMatch(zh, /用户本次已明确选择/);
+  assert.doesNotMatch(en, /explicitly chosen to continue now/i);
+});
+
+test('继续授权：本次选择满足通用等待，但不覆盖单独审批或未完成条件', () => {
+  const text = buildBridgeKickoff('zh', true);
+  assert.match(text, /用户本次已明确选择/);
+  assert.match(text, /同一轮/);
+  assert.match(text, /仅满足[^。]*通用等待/);
+  assert.match(text, /迁移本身已完成/);
+  assert.match(text, /工具权限[^。]*安全限制[^。]*单独审批/);
+  assert.match(text, /条件未满足或不明确/);
+  assert.match(text, /不得自行推定/);
+});
+
+test('continue authorization: English retains the same narrow permission boundary', () => {
+  const text = buildBridgeKickoff('en', true);
+  assert.match(text, /explicitly chosen to continue now/i);
+  assert.match(text, /same request/i);
+  assert.match(text, /only satisfies[^.]*generic wait/i);
+  assert.match(text, /session migration itself is complete/i);
+  assert.match(text, /tool permissions[^.]*safety restrictions[^.]*separate approvals/i);
+  assert.match(text, /unmet or unclear/i);
+  assert.match(text, /do not assume/i);
 });
