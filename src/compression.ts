@@ -442,11 +442,11 @@ Rules: drop details tied to the old preset's tools; keep decision rationale; whe
 export function buildBridgeKickoff(lang: 'zh' | 'en', autoContinue = false): string {
   if (lang === 'en') {
     return autoContinue
-      ? 'The session goal above is a handoff summary from a previous session that ran under a different tool preset. Treat only currently effective values as actionable; never quote or restate concrete values marked obsolete, revoked, or superseded. Reply in one short paragraph restating your understanding of the current state, then continue with the next step.'
+      ? 'The session goal above is a handoff summary from a previous session that ran under a different tool preset. Treat only currently effective values as actionable; never quote or restate concrete values marked obsolete, revoked, or superseded. The user has explicitly chosen to continue now (Continue directly / --continue), confirming the already-defined next step in this same request. This confirmation only satisfies generic wait-for-user-to-continue conditions in the handoff; do not ask for that same confirmation again. The session migration itself is complete, not any other migration, deployment, or task prerequisite. This does not override tool permissions, safety restrictions, separate approvals for specific actions, or the task scope. If another prerequisite or specific approval is unmet or unclear, stop and identify that blocker; do not assume it has been satisfied. Reply in one short paragraph restating your understanding of the current state, then continue with the next step within these boundaries.'
       : 'The session goal above is a handoff summary from a previous session that ran under a different tool preset. Treat only currently effective values as actionable; never quote or restate concrete values marked obsolete, revoked, or superseded. Reply in one short paragraph restating your understanding of the current state, then stop and wait for the user to confirm before taking any further action.';
   }
   return autoContinue
-    ? '上面的会话目标是上个会话（另一套工具模式）留下的交接摘要。只把当前生效值当作可执行事实；不要引用或复述任何标记为已作废、撤销或被覆盖的具体旧值。请先用一段话复述你对当前状态的理解，然后继续执行下一步。'
+    ? '上面的会话目标是上个会话（另一套工具模式）留下的交接摘要。只把当前生效值当作可执行事实；不要引用或复述任何标记为已作废、撤销或被覆盖的具体旧值。用户本次已明确选择“直接继续”（或 --continue），这是对交接中既定下一步的本次继续确认，请在同一轮执行。这份确认仅满足交接中“等待用户确认后继续”之类的通用等待条件，不必再次索要相同确认。会话迁移本身已完成，不代表其他迁移、部署或任务前置工作已完成。这不解除工具权限、安全限制或针对具体操作的单独审批，也不扩大任务范围。其他前置条件或单独审批条件未满足或不明确时，应停止并指出具体阻碍，不得自行推定已经满足。请先用一段话复述你对当前状态的理解，然后在上述边界内继续执行下一步。'
     : '上面的会话目标是上个会话（另一套工具模式）留下的交接摘要。只把当前生效值当作可执行事实；不要引用或复述任何标记为已作废、撤销或被覆盖的具体旧值。请只用一段话复述你对当前状态的理解，然后停止，等待用户确认后再采取任何进一步行动。';
 }
 
