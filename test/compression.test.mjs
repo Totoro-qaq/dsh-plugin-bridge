@@ -50,6 +50,19 @@ test('a worker paraphrase of the current restriction is not duplicated', () => {
   assert.equal(preserveActiveUserConstraints(summary, [user('不要调用任何工具，不要读写文件。')], 'zh'), summary);
 });
 
+test('asking whether tools are allowed does not revoke a ban; a plain permission does', () => {
+  const summary = '## 目标\n任务\n\n## 关键决策与约定\n- 待答复\n\n## 下一步\n回答';
+  const question = [user('不要调用任何工具。'), user('现在可以调用工具吗？')];
+  assert.match(preserveActiveUserConstraints(summary, question, 'zh'), /不要调用任何工具/);
+  const permitted = [user('不要调用任何工具。'), user('可以调用工具了。')];
+  assert.equal(preserveActiveUserConstraints(summary, permitted, 'zh'), summary);
+});
+
+test('optional non-use in the worker summary is not mistaken for a prohibition', () => {
+  const summary = '## 目标\n任务\n\n## 关键决策与约定\n- 可以不调用工具，按需选择。\n\n## 下一步\n继续';
+  assert.match(preserveActiveUserConstraints(summary, [user('不要调用任何工具。')], 'zh'), /- 不要调用任何工具/);
+});
+
 test('用户消息全文保留，条数正确', () => {
   const msgs = [user('第一条'), asst('回复一'), user('第二条'), asst('回复二')];
   const src = buildBridgeSource(msgs);
