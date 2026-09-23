@@ -48,7 +48,7 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.9
 /bridge code --go --continue  在同一次目标请求里复述并开始工作
 ```
 
-DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本编辑」把固定五段变成普通文本框，并无损支持平坦的项目符号或编号列表；「Markdown」保留完整源码自由；「预览」渲染 Markdown 或完整 JSON 树。长内容只在卡片正文内滚动，操作按钮保持可达；点「确认迁移」后自动打开目标会话。
+DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本编辑」把固定五段变成普通文本框，并无损支持平坦的项目符号或编号列表；「Markdown」保留完整源码自由；「预览」渲染 Markdown 或完整 JSON 树。长内容只在卡片正文内滚动；点「确认迁移」后自动打开目标会话。DSH 0.1.7-alpha.2 上验收的后续源码版本，为窄窗口的固定输入栏留出了确认按钮的可点击空间；这项修复**尚未进入**已发布的 npm 0.3.9 或其同名 tag。
 
 实现官方 `conversation.chat.commandview` slot 的第三方 UI 会自动得到同一张卡片。其他自定义 UI 仍保留完整服务端结果、摘要文件流程和目标标题/session ID 回退；UI 作者还可以复用无 React 的 `dsh-plugin-bridge/client-contract` 导出，而无需重写协议。旧客户端可修改输出里打印的摘要文件，再执行：
 
@@ -125,6 +125,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.6-alpha.1 | 支持（Bridge 0.3.6+） | 支持（Bridge 0.3.6+） | 官方 npm 宿主：doctor 13/13，原生卡片实际渲染，PTC 运行时改名后 `ptc` 仍可迁入，未配置 key 时预览按设计失败退出；SDK 变化只有新增，`lib/` 与 0.3.5 逐字节相同。未重跑真实模型迁移；见[smoke 记录](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md) |
 | 0.1.6-alpha.2 | 支持（Bridge 0.3.7+） | 支持（Bridge 0.3.7+） | 官方 npm 宿主：Bridge 0.3.6 能完成迁移，但「打开目标会话」按钮报 `ctx.sessions.open is not a function`；Bridge 0.3.7 在 alpha.2 和 alpha.1 上都通过 `uiWorkspace.openSession` 打开目标，goal 保持暂停，在插件页实时停用和启用也正常；见[验收记录](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md) |
 | 0.1.7-alpha.1 | 支持（实测 Bridge 0.3.9） | 支持（实测 Bridge 0.3.9） | 已发布包未改动：13 个 V3 会话恢复为 V4、12 个标题保留、doctor 13/13、真实模型编辑与两种迁移模式、自动跳转、暂停 goal、worker 清理、图片转文本回退及实时启停。卸载清除包/命令/CSS，但留下失效 CLI 链接；见[验收记录](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)。 |
+| 0.1.7-alpha.2 | 支持（0.3.9 之后的源码包） | 支持（0.3.9 之后的源码包） | 官方 npm 宿主 + 本地打包的 Bridge 源码候选版：doctor 13/13、真实模型预览、文本/Markdown 往返、640/800 像素宽窗口确认按钮可达、编辑稿逐字交接、目标无工具调用、自动跳转且 goal 暂停。**不代表已发布的 0.3.9 含有修复**；见[限定范围验收](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)。 |
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
@@ -139,6 +140,8 @@ DSH 0.1.6-alpha.2 删除了客户端的 `sessions.open`。Bridge 0.3.6 在上面
 CI 覆盖 Node.js 22/24。每次升级 Harness 后先跑 `/bridge --doctor`；缺哪个必要网关方法会被直接点名。
 
 DSH 0.1.7-alpha.1 使用已发布的 Bridge 0.3.9，在 macOS / Node 22.23.1 上完成验收，没有改运行时代码或依赖。V3→V4 测试使用已有测试 home 的副本；升级前请备份 `DSH_HOME`，包括会话和 profiles，不要只备份插件目录。旧自定义目录 preset 的迁移、其他 UI/插件组合及 Windows 不在本轮范围内。本次兼容验收不需要另发 Bridge npm。
+
+DSH 0.1.7-alpha.2 上的后续源码版本修复两处实测边界：压缩工人漏写时，将窄范围内识别出的、仍然生效的用户“禁用工具／禁止读写文件”明文约束补进可编辑交接稿；小窗口中确认按钮不再被固定输入栏遮挡。用户后来明确放开限制时，旧限制不再补入。这不是“所有用户约束都能自动保真”的承诺，确认前仍应过目并编辑；最终按编辑稿逐字交接。npm 0.3.9 与 `v0.3.9` tag 尚未改变，发版需另行处理。
 
 当前边界：
 
@@ -164,6 +167,7 @@ DSH 0.1.7-alpha.1 使用已发布的 Bridge 0.3.9，在 macOS / Node 22.23.1 上
 - [DSH 0.1.6-alpha.1 兼容性 smoke](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md)
 - [DSH 0.1.6-alpha.2 兼容性验收](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md)
 - [DSH 0.1.7-alpha.1 兼容性验收](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)
+- [DSH 0.1.7-alpha.2 源码候选版验收](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
