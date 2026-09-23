@@ -406,10 +406,10 @@ export function preserveActiveUserConstraints(
         /(?:^|[,.!?;\n])\s*(do not (?:use|call) any tools)/giu,
       ],
       allow: [
-        /(?:现在|接下来|以后|改为)\s*(?:可以|允许)(?:调用|使用)(?:任何)?工具/gu,
-        /(?:you )?(?:can|may|are allowed to) (?:now )?(?:use|call) (?:any )?tools(?: now)?/giu,
+        /(?:^|[，,。！？;；\n])\s*(?:(?:现在|接下来|以后|改为)\s*)?(?:可以|允许)(?:调用|使用)(?:任何)?工具(?:了)?(?=$|[，,。！;；\n])/gu,
+        /(?:^|[,.!;\n])\s*(?:now )?(?:you )?(?:can|may|are allowed to) (?:now )?(?:use|call) (?:any )?tools(?: now)?(?=$|[,.!;\n])/giu,
       ],
-      alreadyPresent: /(?:(?:不要|禁止|不得|不能|不准|别|不)(?:调用|使用)(?:任何)?工具)|do not (?:use|call) any tools/iu,
+      alreadyPresent: /(?:不要|禁止|不得|不能|不准|别)(?:调用|使用)(?:任何)?工具|(?:^|[，,。！？;；\n-])\s*不(?:调用|使用)(?:任何)?工具|do not (?:use|call) any tools/iu,
     },
     files: {
       ban: [
@@ -417,10 +417,10 @@ export function preserveActiveUserConstraints(
         /(?:^|[,.!?;\n])\s*(do not (?:read or write|read|write|modify) (?:any )?files)/giu,
       ],
       allow: [
-        /(?:现在|接下来|以后|改为)\s*(?:可以|允许)(?:读写|读取|写入|修改)文件/gu,
-        /(?:you )?(?:can|may|are allowed to) (?:now )?(?:read or write|read|write|modify) (?:any )?files(?: now)?/giu,
+        /(?:^|[，,。！？;；\n])\s*(?:(?:现在|接下来|以后|改为)\s*)?(?:可以|允许)(?:读写|读取|写入|修改)文件(?:了)?(?=$|[，,。！;；\n])/gu,
+        /(?:^|[,.!;\n])\s*(?:now )?(?:you )?(?:can|may|are allowed to) (?:now )?(?:read or write|read|write|modify) (?:any )?files(?: now)?(?=$|[,.!;\n])/giu,
       ],
-      alreadyPresent: /(?:(?:不要|禁止|不得|不能|不准|别|不)(?:读写|读取|写入|修改)文件)|do not (?:read or write|read|write|modify) (?:any )?files/iu,
+      alreadyPresent: /(?:不要|禁止|不得|不能|不准|别)(?:读写|读取|写入|修改)文件|(?:^|[，,。！？;；\n-])\s*不(?:读写|读取|写入|修改)文件|do not (?:read or write|read|write|modify) (?:any )?files/iu,
     },
   };
   const active = new Map<UserConstraintKind, string>();
