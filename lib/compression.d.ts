@@ -68,6 +68,13 @@ export declare function collectVisualEvidence(messages: ChatMessage[], charBudge
 export declare function appendVisualEvidence(summary: string, evidence: VisualEvidence, lang: 'zh' | 'en'): string;
 /** 从折叠消息构建压缩输入。messages 按时间正序。 */
 export declare function buildBridgeSource(messages: ChatMessage[], options?: BridgeSourceOptions): BridgeSource;
+/**
+ * The worker can omit a short negative instruction even when the source is intact.
+ * Only copy narrow, explicit user-authored prohibitions into the editable preview;
+ * later explicit permission for the same category wins. This is not a general
+ * natural-language policy extractor and never modifies the confirmed draft.
+ */
+export declare function preserveActiveUserConstraints(summary: string, messages: ChatMessage[], lang: 'zh' | 'en'): string;
 export interface BridgeInstructionOptions {
     /** 摘要正文字符预算，默认 SUMMARY_CHAR_BUDGET。 */
     summaryCharBudget?: number;

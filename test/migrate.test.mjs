@@ -53,6 +53,18 @@ test('preview：压缩指令与取材一起发给工人', async () => {
   assert.ok(text.includes('7101'), '取材必须跟在指令后面');
 });
 
+test('preview：工人漏掉源会话的禁用工具要求时，交接稿仍显式保留', async () => {
+  const host = createFakeHost({ workerReply: '## 目标\n心算\n\n## 当前状态\n等待继续\n\n## 关键决策与约定\n- 用户确认后计算\n\n## 关键文件\n无\n\n## 下一步\n计算' });
+  host.state.sessions.get(host.sourceSessionId).events.push({ event: {
+    type: 'user/message', seq: 100, time: 1_700_000_100_000,
+    data: { content: [{ type: 'text', text: '不要调用任何工具，不要读写文件，只心算 137 加 248。' }] },
+  } });
+  const result = await previewMigration(host.rpc, { sessionId: host.sourceSessionId, ...fast });
+  assert.match(result.summary, /不要调用任何工具/);
+  assert.match(result.summary, /不要读写文件/);
+  assert.match(result.summary, /## 关键决策与约定\n- 不要调用任何工具/);
+});
+
 test('preview：已有识图回答作为逐字视觉证据追加到摘要', async () => {
   const exact = 'OCR 原文：ERR_IMG_55837；右侧按钮为 Retry。';
   const host = createFakeHost({ sourceImage: { userText: '请看截图', assistantText: exact } });
