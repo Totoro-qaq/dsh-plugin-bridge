@@ -2,6 +2,11 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.3.10 — 2026-09-23
+
+- Preserve narrowly recognized, still-active user prohibitions on using tools or reading/writing files in the editable handoff when the summary worker omits them. Later explicit permission supersedes the earlier prohibition; the confirmed draft is still sent exactly as edited. This is not a guarantee that every natural-language constraint is preserved.
+- Keep the native preview confirmation control reachable above the official WebUI's fixed composer in tested narrow viewports. Verified the source build on official DSH 0.1.7-alpha.2 with real preview/edit/migration, no target tool calls, a paused goal, and unchanged source history; see the [bounded acceptance report](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md).
+
 ## 0.3.9 — 2026-09-22
 
 - Clarify in both languages that **Continue directly** / `--continue` is the user's current confirmation of the handoff's already-defined next step. It satisfies generic continuation waits, not separate action approvals, tool permissions, safety restrictions, or other unmet prerequisites. The handoff text, default waiting mode, and paused-goal behavior remain unchanged.

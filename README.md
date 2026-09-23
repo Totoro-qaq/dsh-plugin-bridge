@@ -35,7 +35,7 @@ On **DSH 0.1.5-rc.2**, restart `dsh web` after adding or removing the plugin. On
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.9
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.10
 ```
 
 Then type in the official WebUI:
@@ -48,7 +48,7 @@ Then type in the official WebUI:
 /bridge code --go --continue  restate and start work in the same target request
 ```
 
-On DSH rc.7 and later, the official WebUI renders `/bridge` as a native card. **Text** exposes the fixed five sections as ordinary fields and flat bullet or ordered-list rows while preserving their Markdown markers; **Markdown** preserves full source freedom; **Preview** renders Markdown or a complete JSON tree. Long content scrolls inside the card. **Confirm migration** opens the created target session. The source build tested on DSH 0.1.7-alpha.2 adds room to keep confirmation reachable above the fixed composer at narrow widths; this fix is **not** in the published npm 0.3.9 package or its tag.
+On DSH rc.7 and later, the official WebUI renders `/bridge` as a native card. **Text** exposes the fixed five sections as ordinary fields and flat bullet or ordered-list rows while preserving their Markdown markers; **Markdown** preserves full source freedom; **Preview** renders Markdown or a complete JSON tree. Long content scrolls inside the card. **Confirm migration** opens the created target session. Bridge 0.3.10 adds room to keep confirmation reachable above the fixed composer at the tested narrow widths.
 
 UIs that implement the official `conversation.chat.commandview` slot receive the same card automatically. Other custom UIs retain the complete server result, summary-file workflow, and target title/session-ID fallback; UI authors can reuse the framework-free `dsh-plugin-bridge/client-contract` export instead of reimplementing the wire. On an older or non-slot client, correct the printed summary file and run:
 
@@ -125,7 +125,7 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | 0.1.6-alpha.1 | Yes (Bridge 0.3.6+) | Yes (Bridge 0.3.6+) | Official npm host: doctor 13/13, native card rendered, `ptc` still offered after the PTC runtime rename, keyless preview fails closed; the SDK change is additive and `lib/` is byte-identical to 0.3.5. Model-backed migration was not re-run; see [smoke report](reports/dsh-0.1.6-alpha.1-compat-2026-09-15.md) |
 | 0.1.6-alpha.2 | Yes (Bridge 0.3.7+) | Yes (Bridge 0.3.7+) | Official npm host: Bridge 0.3.6 migrates, but its Open target session button fails with `ctx.sessions.open is not a function`; Bridge 0.3.7 opens the target through `uiWorkspace.openSession` on alpha.2 and alpha.1, keeps the paused goal, and survives live disable and enable from the Plugins page; see [acceptance report](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md) |
 | 0.1.7-alpha.1 | Yes (tested: Bridge 0.3.9) | Yes (tested: Bridge 0.3.9) | Published package unchanged: 13 V3 sessions restored as V4, 12 titles preserved, doctor 13/13, model-backed editing and both migration modes, automatic opening, paused goals, worker cleanup, image-to-text fallback, and live toggles. Removal clears the package/command/CSS but leaves a dangling CLI symlink; see [acceptance report](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md). |
-| 0.1.7-alpha.2 | Yes (source build after 0.3.9) | Yes (source build after 0.3.9) | Official npm host with a locally packed Bridge source candidate: doctor 13/13, model-backed preview, text/Markdown round-trip, 640/800 px confirmation reachability, exact edited handoff, no target tool calls, auto-open and paused goal. The published 0.3.9 was **not** retested as fixed; see [bounded acceptance](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md). |
+| 0.1.7-alpha.2 | Yes (Bridge 0.3.10 source) | Yes (Bridge 0.3.10 source) | Official npm host with a locally packed Bridge source build: doctor 13/13, model-backed preview, text/Markdown round-trip, 640/800 px confirmation reachability, exact edited handoff, no target tool calls, auto-open and paused goal. This is source-build evidence, not a registry-install claim; see [bounded acceptance](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md). |
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -141,7 +141,7 @@ CI covers Node.js 22 and 24. Run `/bridge --doctor` after every Harness upgrade;
 
 DSH 0.1.7-alpha.1 was verified on macOS with Node 22.23.1 and the published Bridge 0.3.9, without a runtime or dependency change. The V3→V4 test used a copy of an existing test home; back up `DSH_HOME`, including sessions and profiles, before upgrading. Custom directory-based preset migration, other UI/plugin combinations, and Windows were not covered. This acceptance does not require another Bridge npm release.
 
-On DSH 0.1.7-alpha.2, a later source build fixes two observed edges: an omitting summary worker no longer silently drops narrowly recognized, still-active user prohibitions on using tools or reading/writing files from the editable handoff, and the confirmation control remains clickable in the tested small viewports. Later explicit permission supersedes an earlier prohibition. This is a guard for these explicit forms, **not** a guarantee that every user constraint is automatically retained; review and edit the handoff before confirming. The confirmed draft is still sent exactly as edited. npm 0.3.9 and tag `v0.3.9` remain unchanged until a separate release.
+Bridge 0.3.10 includes the source build tested on DSH 0.1.7-alpha.2. It fixes two observed edges: an omitting summary worker no longer silently drops narrowly recognized, still-active user prohibitions on using tools or reading/writing files from the editable handoff, and the confirmation control remains clickable in the tested small viewports. Later explicit permission supersedes an earlier prohibition. This is a guard for these explicit forms, **not** a guarantee that every user constraint is automatically retained; review and edit the handoff before confirming. The confirmed draft is still sent exactly as edited. The linked acceptance predates npm publication and should not be read as registry-install evidence.
 
 Current limits:
 
@@ -177,7 +177,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 203 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 211 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

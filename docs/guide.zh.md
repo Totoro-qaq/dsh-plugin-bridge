@@ -4,7 +4,7 @@
 
 ## 1. 安装
 
-前置：已安装 dsh（`dsh --version` 能输出版本），并有一个可跑的 web profile。Bridge 0.3.9 已在官方 npm DSH 0.1.7-alpha.1 上完成隔离实机验收；完整版本和验证范围见 [README 兼容性表](../README.zh.md#兼容性)及[本轮验收记录](../reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)。
+前置：已安装 dsh（`dsh --version` 能输出版本），并有一个可跑的 web profile。Bridge 0.3.10 包含在官方 npm DSH 0.1.7-alpha.2 上通过隔离实机验收的源码修复；完整范围见 [README 兼容性表](../README.zh.md#兼容性)及[本轮验收记录](../reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)。
 
 ```bash
 dsh plugin --profile web add dsh-plugin-bridge
@@ -13,7 +13,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 需要固定 GitHub tag 或 npm 暂时不可用时：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.9
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.10
 ```
 
 发生了什么（不用手动干预）：
@@ -145,7 +145,7 @@ dsh-bridge migrate --to code --summary-file <path>
 A：确认插件安装在正在运行的 `web` profile 中且已启用；CLI 安装或升级后按上面的步骤重启再试。命令注册依赖 `commands` 服务；执行时优先使用可用的 `apiProxy`，否则使用 typed Session / Workspace / Preset / Goal controllers。必要能力不完整时 `/bridge --doctor` 会逐项报告，不会假装可用。
 
 **Q：升级了 dsh 之后还能用吗？**
-A：先打一次 `/bridge --doctor`，它会报告十三项必要接口、当前模式和生效配置。13/13 只证明接口存在，不能替代完整迁移验收。Bridge 0.3.9 已在官方 DSH 0.1.7-alpha.1 上通过 V3→V4 恢复、真实预览/编辑、两种迁移模式、图片转文本回退、取消/超时清理及启停检查；无需为此次验收重发 npm。升级前先备份 `DSH_HOME` 中的会话和 profiles；旧自定义目录 preset 迁移和任意第三方 UI/插件组合未验证。其他版本的范围见 [README 兼容性表](../README.zh.md#兼容性)。
+A：先打一次 `/bridge --doctor`，它会报告十三项必要接口、当前模式和生效配置。13/13 只证明接口存在，不能替代完整迁移验收。Bridge 0.3.9 在官方 DSH 0.1.7-alpha.1 上通过了 V3→V4 恢复、真实迁移、图片回退和插件生命周期检查；0.3.10 的新增修复则在 0.1.7-alpha.2 上完成了源码包的真实预览、编辑、迁移与窄窗口验收，未重复前述全部门禁。升级前先备份 `DSH_HOME` 中的会话和 profiles；旧自定义目录 preset 迁移和任意第三方 UI/插件组合未验证。各版边界见 [README 兼容性表](../README.zh.md#兼容性)。
 
 **Q：图片迁移需要怎么选模型？**
 A：图片已有助手分析时，Bridge 逐字搬这段视觉证据，不需要再次烧视觉 token。图片还没被分析时，源会话应选能识图的 V4.1-Flash（`deepseek-flash`，DSH 0.1.5-rc.1 起的默认模型，接受文本与图片输入）；Bridge 会在 kickoff 前把源 provider/model/reasoning effort 复制到目标，再搬原图。DSH 0.1.6-alpha.2 已从默认模型列表移除 V4 Flash（`deepseek-v4-flash`）和 V4 Flash Vision Exp（`deepseek-v4-flash-vision-exp`），以前建议的 vision-exp 路由在新宿主上已不在默认模型列表中；默认列表只剩 V4.1-Flash 与 V4-Pro，其中 V4-Pro 只收文本。文本模型仍不能识图，Bridge 也不会暗中启动本地视觉模型。
