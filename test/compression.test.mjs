@@ -9,12 +9,36 @@ import {
   detectLang,
   estimateSummaryTokens,
   summaryTokenBudget,
+  preserveActiveUserConstraints,
   SOURCE_CHAR_BUDGET,
   SUMMARY_CHAR_BUDGET,
 } from '../src/compression.ts';
 
 const user = (t) => ({ role: 'user', content: t });
 const asst = (t, toolNodes) => ({ role: 'assistant', content: t, toolNodes });
+
+test('a current user no-tools/no-file rule survives an omitting summary worker, without duplicate insertion', () => {
+  const messages = [user('这是隔离验收，不要调用任何工具，不要读写文件。下一步只需心算。')];
+  const summary = '## 目标\n心算\n\n## 当前状态\n待继续\n\n## 关键决策与约定\n- 等待确认\n\n## 关键文件\n无\n\n## 下一步\n计算';
+  const protectedSummary = preserveActiveUserConstraints(summary, messages, 'zh');
+  assert.match(protectedSummary, /## 关键决策与约定\n- 不要调用任何工具/);
+  assert.match(protectedSummary, /不要读写文件/);
+  assert.equal(preserveActiveUserConstraints(protectedSummary, messages, 'zh'), protectedSummary);
+});
+
+test('a later explicit permission supersedes the earlier no-tools rule', () => {
+  const messages = [user('不要调用任何工具。'), user('现在可以调用工具了；但不要读写文件。')];
+  const summary = '## 目标\n任务\n\n## 关键决策与约定\n- 当前任务\n\n## 下一步\n继续';
+  const result = preserveActiveUserConstraints(summary, messages, 'zh');
+  assert.doesNotMatch(result, /不要调用任何工具/);
+  assert.match(result, /不要读写文件/);
+});
+
+test('an active English tool prohibition is preserved verbatim in the English handoff', () => {
+  const summary = '## Goal\nCalculate\n\n## Key decisions & conventions\n- Wait for confirmation\n\n## Next step\nCalculate';
+  const result = preserveActiveUserConstraints(summary, [user('Do not use any tools. Do this mentally.')], 'en');
+  assert.match(result, /## Key decisions & conventions\n- Do not use any tools/);
+});
 
 test('用户消息全文保留，条数正确', () => {
   const msgs = [user('第一条'), asst('回复一'), user('第二条'), asst('回复二')];
