@@ -40,6 +40,16 @@ test('an active English tool prohibition is preserved verbatim in the English ha
   assert.match(result, /## Key decisions & conventions\n- Do not use any tools/);
 });
 
+test('a quoted example is not promoted into an active tool restriction', () => {
+  const summary = '## 目标\n解释一句话\n\n## 关键决策与约定\n- 解释语言\n\n## 下一步\n回答';
+  assert.equal(preserveActiveUserConstraints(summary, [user('请解释“不要调用任何工具”是什么意思。')], 'zh'), summary);
+});
+
+test('a worker paraphrase of the current restriction is not duplicated', () => {
+  const summary = '## 目标\n心算\n\n## 关键决策与约定\n- 不调用工具，不读写文件。\n\n## 下一步\n回答';
+  assert.equal(preserveActiveUserConstraints(summary, [user('不要调用任何工具，不要读写文件。')], 'zh'), summary);
+});
+
 test('用户消息全文保留，条数正确', () => {
   const msgs = [user('第一条'), asst('回复一'), user('第二条'), asst('回复二')];
   const src = buildBridgeSource(msgs);

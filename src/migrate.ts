@@ -10,6 +10,7 @@ import {
   buildBridgeInstruction,
   buildBridgeKickoff,
   buildBridgeSource,
+  preserveActiveUserConstraints,
   appendVisualEvidence,
   collectVisualEvidence,
   detectLang,
@@ -418,7 +419,9 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
     const workerSummary = await lastAssistantText(host, worker.sessionId);
     const failure = workerFailure(settled, workerSummary, bounds);
     if (failure) throw failure;
-    const summary = appendVisualEvidence(workerSummary, source.visualEvidence, lang);
+    const summary = appendVisualEvidence(
+      preserveActiveUserConstraints(workerSummary, messages, lang), source.visualEvidence, lang,
+    );
     return {
       summary,
       source,
