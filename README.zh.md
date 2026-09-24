@@ -126,6 +126,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 0.1.6-alpha.2 | 支持（Bridge 0.3.7+） | 支持（Bridge 0.3.7+） | 官方 npm 宿主：Bridge 0.3.6 能完成迁移，但「打开目标会话」按钮报 `ctx.sessions.open is not a function`；Bridge 0.3.7 在 alpha.2 和 alpha.1 上都通过 `uiWorkspace.openSession` 打开目标，goal 保持暂停，在插件页实时停用和启用也正常；见[验收记录](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md) |
 | 0.1.7-alpha.1 | 支持（实测 Bridge 0.3.9） | 支持（实测 Bridge 0.3.9） | 已发布包未改动：13 个 V3 会话恢复为 V4、12 个标题保留、doctor 13/13、真实模型编辑与两种迁移模式、自动跳转、暂停 goal、worker 清理、图片转文本回退及实时启停。卸载清除包/命令/CSS，但留下失效 CLI 链接；见[验收记录](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)。 |
 | 0.1.7-alpha.2 | 支持（Bridge 0.3.10 源码） | 支持（Bridge 0.3.10 源码） | 官方 npm 宿主 + 本地打包的 Bridge 源码：doctor 13/13、真实模型预览、文本/Markdown 往返、640/800 像素宽窗口确认按钮可达、编辑稿逐字交接、目标无工具调用、自动跳转且 goal 暂停。这里是源码验收，不等于已完成 npm 包安装验收；见[限定范围验收](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)。 |
+| 0.1.7-rc.1 | 支持（Bridge 0.3.10） | 支持（Bridge 0.3.10） | 官方 npm 宿主隔离验收：全新 profile 安装；已有会话上 WebUI 启动、doctor 13/13；一次真实模型文本/Markdown 编辑并迁入 `ptc`，编辑稿逐字交接、自动跳转、goal 暂停、目标无工具调用、源会话不变；640/800 像素宽确认按钮可点击。卸载重启通过，但仍留下失效 CLI 链接。测试宿主因 registry 问题跳过可选办公组件；见[验收边界](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)。 |
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
@@ -143,10 +144,12 @@ DSH 0.1.7-alpha.1 使用已发布的 Bridge 0.3.9，在 macOS / Node 22.23.1 上
 
 Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工人漏写时，将窄范围内识别出的、仍然生效的用户“禁用工具／禁止读写文件”明文约束补进可编辑交接稿；小窗口中确认按钮不再被固定输入栏遮挡。用户后来明确放开限制时，旧限制不再补入。这不是“所有用户约束都能自动保真”的承诺，确认前仍应过目并编辑；最终按编辑稿逐字交接。所链验收记录发生在 npm 发布之前，不应视为已发布包的安装验收。
 
+已发布的 Bridge 0.3.10 还通过了 DSH 0.1.7-rc.1 的限定范围兼容验收，无需改 Bridge 运行时代码或重发 npm。这**不是**对 DSH 所有可选依赖和第三方 UI 的验收；具体范围见[rc.1 记录](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)，升级自己的宿主后仍应运行 `/bridge --doctor`。
+
 当前边界：
 
 - 用 CLI（`dsh plugin --profile web add`）安装后可能需要重启一次 WebUI；DSH 0.1.6-alpha.2 在 WebUI「插件」页首次添加包名 `dsh-plugin-bridge` 可以直接生效，在那里升级已安装的版本仍需重启；
-- DSH 0.1.7-alpha.1 / pnpm 11.22.0 的 CLI 卸载，在升级和干净 profile 中都留下了失效的 `node_modules/.bin/dsh-bridge` 链接及包管理元信息；插件包、命令和 CSS 已清除，但不能称为磁盘完全零痕迹，详见上方验收记录；
+- DSH 0.1.7-alpha.1 / pnpm 11.22.0 的 CLI 卸载，在升级和干净 profile 中都留下了失效的 `node_modules/.bin/dsh-bridge` 链接及包管理元信息；0.1.7-rc.1 全新 profile 也复现失效链接，但插件包及依赖声明已删除、WebUI 可重启。不能称为磁盘完全零痕迹；
 - 原生卡片通过 WebUI 导航服务（`uiWorkspace.openSession`，旧宿主回退到 `sessions.open`）打开目标；旧客户端仍回退为标题和 ID；
 - worker 运行时立即显示进度；早期原生卡片三次固定样本的 worker 用时为 7.4–12.8 秒，用时会随宿主、模型和输入变化，`previewTimeoutMs` 仍是硬上限；
 - 纯文本模型无法读取未解析原图；
@@ -168,6 +171,7 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 - [DSH 0.1.6-alpha.2 兼容性验收](reports/dsh-0.1.6-alpha.2-compat-2026-09-18.md)
 - [DSH 0.1.7-alpha.1 兼容性验收](reports/dsh-0.1.7-alpha.1-compat-2026-09-22.md)
 - [DSH 0.1.7-alpha.2 源码候选版验收](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)
+- [DSH 0.1.7-rc.1 兼容性验收](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
