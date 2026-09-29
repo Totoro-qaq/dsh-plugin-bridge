@@ -170,8 +170,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   }
   assert.equal(
     manifest.engines.dsh,
-    '>=0.1.0-rc.7 <0.2.0-0',
-    'engines.dsh 必须约束宿主版本：dshmarket 用 includePrerelease 评估此字段',
+    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2',
+    'engines.dsh 保留原 0.1.x 范围，并且只新增已验收的 0.2.0-rc.2',
   );
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
