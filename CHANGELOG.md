@@ -2,6 +2,11 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.3.11 — 2026-09-30
+
+- Add the tested DSH `0.2.0-rc.2` to `engines.dsh`, retaining the previous 0.1.x range: `>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2`. This does not pre-approve other 0.2 prereleases or the stable 0.2.0 release. Runtime code, generated `lib/`, dependencies and SDK baseline are unchanged.
+- Update both READMEs and include the [bounded official-host acceptance record](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md): published Bridge 0.3.10 passed doctor 13/13, real preview/edit/confirmation, direct and waiting handoffs, image transfer and text fallback, live toggles, and uninstall/restart on an isolated macOS WebUI. The known dangling CLI link remains; native Desktop login/quit and full optional-component installation are not covered.
+
 ## 0.3.10 — 2026-09-23
 
 - Preserve narrowly recognized, still-active user prohibitions on using tools or reading/writing files in the editable handoff when the summary worker omits them. Later explicit permission supersedes the earlier prohibition; the confirmed draft is still sent exactly as edited. This is not a guarantee that every natural-language constraint is preserved.

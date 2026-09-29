@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.3.10",
+  "version": "0.3.11",
   "description": "Previewable cross-preset session migration for DeepSeek Harness with bounded, fixed-schema handoffs",
   "type": "module",
   "main": "lib/index.js",
@@ -65,7 +65,7 @@
   },
   "engines": {
     "node": ">=22",
-    "dsh": ">=0.1.0-rc.7 <0.2.0-0"
+    "dsh": ">=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

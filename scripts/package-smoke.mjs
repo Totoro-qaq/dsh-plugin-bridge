@@ -60,6 +60,7 @@ try {
     'lib/client-contract.d.ts',
     'cordis.patch.yml',
     'docs/design.md',
+    'docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md',
     'reports/v0.2.3-e2e-report.md',
     'reports/native-workbench-2026-08-25.md',
     'reports/native-workbench-2026-08-25.raw.json',
