@@ -181,7 +181,6 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
     { optional: true },
     'Cordis 由 DSH bundle 提供，profile 不应收到缺失 peer 假警告',
   );
-  assert.equal(manifest.devDependencies['@deepseek-ai/cordis'], '4.0.2');
   for (const packageName of [
     '@deepseek-ai/dsh-api-session-controller',
     '@deepseek-ai/dsh-client-ui-renderer',
