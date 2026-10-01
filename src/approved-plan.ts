@@ -31,6 +31,7 @@ interface Review extends BridgePlanApproval {
   live: boolean;
   claimed: boolean;
   sourceStopped: boolean;
+  sourceSignal?: AbortSignal;
   at: number;
   approvalId?: string;
   preset?: string;
@@ -117,12 +118,16 @@ export function createPlanApprovalBridge(deps: {
       }
       record.userFingerprint ??= state.fingerprint;
       record.sourceContext ??= state.context;
+      if (disposed) return failure(lang,'Bridge was unloaded before execution started.', 'Bridge 已卸载，尚未启动执行。');
       if (!record.sourceStopped) {
+        if (record.sourceSignal?.aborted) return failure(lang,'The original plan review was cancelled. Review the current plan again.', '原计划评审已经取消，请重新评审当前计划。');
         // Cancellation ends the source's blocking exit_plan_mode call while leaving plan/mode active.
         // The observer refuses a concurrent native Approve answer once this record is claimed.
-        await host.sessions.cancel({sessionId:record.sourceId});
+        const cancellation = object(await host.sessions.cancel({sessionId:record.sourceId}));
+        if (cancellation?.accepted === false || cancellation?.cancelled === false) throw new Error('The source did not accept cancellation.');
         record.sourceStopped = true;
       }
+      if (disposed) return failure(lang,'Bridge was unloaded before execution started; the plan remains in the source transcript.', 'Bridge 已卸载，尚未启动执行；完整计划仍保留在原会话记录中。');
       const preset = record.preset as string;
       const heading = /^#{1,6}\s+(.+)$/mu.exec(record.plan)?.[1]?.trim().slice(0,160)
         ?? (lang === 'en' ? 'Approved plan' : '已批准计划');
@@ -170,7 +175,9 @@ export function createPlanApprovalBridge(deps: {
       const key = nativeKey(sourceId, plan.callId);
       // A second answerer request must not replace a claim in progress.
       if (reviews.has(key)) return next();
-      const record: Review = {...plan,sourceId,live:true,claimed:false,sourceStopped:false,at:now()};
+      const record: Review = {...plan,sourceId,live:true,claimed:false,sourceStopped:false,at:now(),
+        ...(request.signal ? {sourceSignal:request.signal} : {}),
+      };
       reviews.set(key, record);
       try {
         const answer = await next();
@@ -220,6 +227,7 @@ export function createPlanApprovalBridge(deps: {
         const selected = record;
         const operation = run(selected,host,source,lang);
         selected.inFlight = operation;
+        prune();
         try { return await operation; } finally { delete selected.inFlight; }
       } catch (error) {
         return failure(lang,`Invalid plan approval: ${error instanceof Error ? error.message : String(error)}`,

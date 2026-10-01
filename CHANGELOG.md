@@ -2,6 +2,13 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.4.0 — 2026-10-02
+
+- Add **Approve in new session** to the official WebUI's public `conversation.plan-review.actions` slot. Approval is bound to the exact live native plan document and source session. The original planning turn stops without switching it out of plan mode; a fresh session receives the full approved plan, keeps the source preset/model/workspace, and starts execution.
+- Preserve the host's ordinary in-place approval and feedback controls. No new required host service or DSH peer dependency is introduced; older hosts without the plan-review slot retain ordinary Bridge migration.
+- Deduplicate repeated approval requests, refuse stale or altered documents, and retain a session-bound retry receipt when target creation fails. Source cancellation must succeed before execution is admitted. Complete plan text is not compressed into the normal summary budget; the transfer limit is 128,000 characters.
+- Document the [workflow and boundaries](docs/approved-plan-handoff.md) and [test-driven evidence](.github/tdd/approved-plan-handoff.tdd.md). Candidate acceptance on official DSH 0.2.0-rc.2 used a real model and WebUI approval click, then verified an actual file write and byte-exact read-back in the fresh execution session.
+
 ## 0.3.11 — 2026-09-30
 
 - Add the tested DSH `0.2.0-rc.2` to `engines.dsh`, retaining the previous 0.1.x range: `>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2`. This does not pre-approve other 0.2 prereleases or the stable 0.2.0 release. Runtime code, generated `lib/`, dependencies and SDK baseline are unchanged.
