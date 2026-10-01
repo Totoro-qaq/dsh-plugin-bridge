@@ -20,10 +20,9 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** 收集一次 apply() 注册的命令。 */
 function register(config = Config({})) {
   const registered = [];
-  const ctx = {
-    apiProxy: { sessions: {}, workspace: {}, goals: {}, agentPresets: {} },
-    commands: { register: (definition) => { registered.push(definition); return () => {}; } },
-  };
+  const ctx = new Context();
+  ctx.provide('apiProxy', { sessions: {}, workspace: {}, goals: {}, agentPresets: {} });
+  ctx.provide('commands', { register: (definition) => { registered.push(definition); return () => {}; } });
   apply(ctx, config);
   assert.equal(registered.length, 1);
   return registered[0];

@@ -35,7 +35,7 @@ On **DSH 0.1.5-rc.2**, restart `dsh web` after adding or removing the plugin. On
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.11
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.0
 ```
 
 Then type in the official WebUI:
@@ -112,6 +112,8 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 | Image is unresolved and target is text-only | Prompt admission rejects the image; Bridge sends a visible text fallback | No hidden local VLM and no silent claim of visual understanding |
 
 ## Compatibility
+
+Bridge **0.4.0** adds **Approve in new session** to the official plan-review card on the tested DSH **0.2.0-rc.2** WebUI. Enter `/plan` and review the plan submitted through `exit_plan_mode`, then choose the Bridge action. It stops the original planning turn, leaves that session in plan mode, creates a fresh session with the same preset/model/workspace, transfers the approved plan verbatim, and starts implementation there. The host's existing **Approve** and **Request changes** controls keep their ordinary behavior. See [the approved-plan workflow](docs/approved-plan-handoff.md).
 
 | DSH baseline | Server handoff | Native card | Verification boundary |
 |---|---:|---:|---|

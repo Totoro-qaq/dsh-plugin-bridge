@@ -1,6 +1,7 @@
 import { type InjectMode, type Lang, type ModelTier } from './migrate.ts';
 import { type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { type Rpc } from './rpc.ts';
+import type { PlanApprovalBridge } from './approved-plan.ts';
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
 export interface BridgeInvocation {
     agent?: {
@@ -40,6 +41,8 @@ export interface BridgeCommandConfig {
     previewTimeoutMs: number;
 }
 export interface BridgeCommandDeps {
+    /** Optional native review observer; ordinary migration does not depend on plan mode. */
+    planApprovals?: PlanApprovalBridge;
     /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */
     hostFor?: (signal?: AbortSignal) => BridgeHost;
     /** @deprecated 0.2.x 兼容入口；会自动包装成 BridgeHost。 */
@@ -55,6 +58,8 @@ export interface BridgeCommandDeps {
     pollMs?: number;
 }
 interface ParsedInput {
+    approvePlan64?: string;
+    approvedPlanId?: string;
     preset?: string;
     go: boolean;
     doctor: boolean;

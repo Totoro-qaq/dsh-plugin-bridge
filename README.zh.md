@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.3.11
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.0
 ```
 
 然后在官方 WebUI 输入：
@@ -112,6 +112,8 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 | 图片未解析，目标是纯文本模型 | prompt 准入拒图，Bridge 显式发送文字降级 | 不暗启本地 VLM，也不假装看懂图片 |
 
 ## 兼容性
+
+Bridge **0.4.0** 在已测的 DSH **0.2.0-rc.2** 官方计划评审卡上增加了 **“批准并在新会话执行”**。用 `/plan` 规划，模型通过 `exit_plan_mode` 呈交完整计划后，点击该按钮：原规划轮次停止，原会话保留计划模式；新会话沿用当前工具模式、模型和工作目录，逐字接收批准的计划并开始实施。原有“同意执行”和“要求修改”仍按宿主原来的方式工作。详见[计划批准交接说明](docs/approved-plan-handoff.md)。
 
 | DSH 基线 | 服务端交接 | 原生卡片 | 验证边界 |
 |---|---:|---:|---|

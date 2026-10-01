@@ -1,5 +1,10 @@
 /** Pure wire-to-view helpers shared by the native WebUI card and Node tests. */
 export declare const MAX_EDITED_SUMMARY_CHARS = 24000;
+export declare const MAX_APPROVED_PLAN_CHARS = 128000;
+export interface BridgePlanApproval {
+    callId: string;
+    plan: string;
+}
 export type BridgeOutcome = {
     kind: 'success' | 'error';
     text?: string;
@@ -156,6 +161,8 @@ export declare function waitForBridgeSession(list: BridgeSessionList, sessionId:
  * Fails fast with a localized error when the host offers no navigation route.
  */
 export declare function openBridgeSessionWhenVisible(ctx: BridgeNavigationContext, sessionId: string, options: BridgeSessionOpenOptions): Promise<BridgeSessionRoute>;
+/** Explicit human approval of the exact native review; this does not answer its in-place Approve option. */
+export declare function buildBridgePlanApprovalCommand(plan: BridgePlanApproval, lang: 'zh' | 'en'): string;
 /**
  * Build the preview command a picker button submits, equal to typing it.
  * Only English adds `--lang`: a Chinese usage block is also what the default

@@ -33,6 +33,7 @@ import {
 import { asBridgeHost, missingHostCapability, type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { RpcError, type Rpc } from './rpc.ts';
 import { MAX_EDITED_SUMMARY_CHARS } from './client-contract.ts';
+import type { PlanApprovalBridge } from './approved-plan.ts';
 
 /** 命令处理器从注册表拿到的东西（结构化声明，不 import 上游类型）。 */
 export interface BridgeInvocation {
@@ -65,6 +66,8 @@ export interface BridgeCommandConfig {
 }
 
 export interface BridgeCommandDeps {
+  /** Optional native review observer; ordinary migration does not depend on plan mode. */
+  planApprovals?: PlanApprovalBridge;
   /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */
   hostFor?: (signal?: AbortSignal) => BridgeHost;
   /** @deprecated 0.2.x 兼容入口；会自动包装成 BridgeHost。 */
@@ -105,6 +108,8 @@ const PENDING_TTL_MS = 30 * 60_000;
 const MAX_PENDING_PER_SESSION = 8;
 
 interface ParsedInput {
+  approvePlan64?: string;
+  approvedPlanId?: string;
   preset?: string;
   go: boolean;
   doctor: boolean;
@@ -146,6 +151,18 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
       case 'help': out.help = true; break;
       case 'doctor': out.doctor = true; break;
       case 'continue': out.autoContinue = true; break;
+      case 'approve-plan64': {
+        const value = take();
+        if (!value) return {...out,error:'--approve-plan64 需要完整计划批准载荷'};
+        out.approvePlan64 = value;
+        break;
+      }
+      case 'approved-plan': {
+        const value = take();
+        if (!value || !/^[A-Za-z0-9-]{8,}$/u.test(value)) return {...out,error:'--approved-plan 批准记录无效'};
+        out.approvedPlanId = value;
+        break;
+      }
       case 'tier': {
         const value = take();
         if (value !== 'flash' && value !== 'current' && value !== 'pro') {
@@ -316,6 +333,20 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         return { kind: 'error', text: describe(error) };
       }
       const config = deps.config;
+
+      if (parsed.approvePlan64 || parsed.approvedPlanId) {
+        if (!deps.planApprovals) return {kind:'error',text:initialLang==='en'
+          ? 'This Bridge host cannot hand off native plan approvals.' : '当前 Bridge 宿主没有提供原生计划批准交接。'};
+        if (parsed.go || parsed.autoContinue || parsed.file || parsed.summary64 || parsed.doctor || parsed.help
+          || (parsed.approvePlan64 && parsed.approvedPlanId)) return {kind:'error',text:initialLang==='en'
+            ? 'Plan approval cannot be combined with another Bridge action.' : '计划批准不能与其他 Bridge 操作混用。'};
+        return deps.planApprovals.execute({sessionId,lang:initialLang,
+          ...(parsed.preset ? {preset:parsed.preset} : {}),
+          ...(parsed.approvePlan64 ? {approvePlan64:parsed.approvePlan64} : {}),
+          ...(parsed.approvedPlanId ? {approvedPlanId:parsed.approvedPlanId} : {}),
+          ...(invocation.signal ? {signal:invocation.signal} : {}),
+        });
+      }
 
       let presets: PresetRow[];
       let sourceSession: SessionRow | undefined;

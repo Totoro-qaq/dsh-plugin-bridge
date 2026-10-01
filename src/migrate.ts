@@ -439,6 +439,10 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
 /* ------------------------------------------------------------------ 迁移 */
 
 export interface MigrateOptions {
+  /** An approved plan is transferred verbatim and starts implementation, even in the same preset. */
+  executionKind?: 'approved-plan';
+  /** Quoted user context supplements a plan without rewriting its approved body. */
+  sourceContext?: string;
   sessionId: string;
   /** 同一流程已经读取过的源会话行，避免重复扫描全局列表。 */
   sourceSession?: SessionRow;
@@ -648,7 +652,9 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
   if (options.kickoff !== false && safeToKickoff) {
     // goal mutation 本身不注入模型上下文，而 Bridge 会在 kickoff 前暂停 goal。
     // 只要要发 kickoff，就必须带摘要；不能用一次看不见摘要的目标请求换取表面省 token。
-    const baseText = `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`;
+    const baseText = options.executionKind === 'approved-plan'
+      ? approvedPlanKickoff(summary,options.sourceContext ?? '',lang)
+      : `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`;
     progress('发送首轮交接指令…');
     let unresolved: { refs: ImageAttachmentRef[]; missing: number } = { refs: [], missing: 0 };
     try {
@@ -721,6 +727,14 @@ function handoffPreamble(lang: 'zh' | 'en'): string {
   return lang === 'en'
     ? 'Handoff summary from a previous session that ran under a different tool preset:'
     : '以下是上个会话（另一套工具模式）留下的交接摘要：';
+}
+
+function approvedPlanKickoff(plan: string, context: string, lang: 'zh' | 'en'): string {
+  return lang === 'en'
+    ? 'The user explicitly approved the complete plan below for execution in this NEW session. The original planning turn has stopped and remains in plan mode. This session is the executor. Plan approval and generic waits to begin implementation are satisfied. Start executing the approved steps now; do not enter plan mode or request the same plan approval again. Keep tool permissions, safety limits and separate approvals for actions in force. Do not invent broader scope or prerequisites.\n\n'
+      + `Earlier user requests, quoted as background and constraints (planning-only waits are now satisfied):\n${context}\n\nComplete approved plan, verbatim:\n${plan}\n\nStart implementation, verify its results, and report what you actually completed.`
+    : '用户已明确批准下方完整计划，并选择在这个【新会话】中执行。原规划轮次已经停止，原会话仍保留计划模式；当前会话负责实施。计划批准及等待开始实施的通用条件已满足。现在按批准的步骤开始执行，不要再次进入计划模式或重复索要同一份计划的批准。工具权限、安全限制及具体操作所需的单独审批仍然有效；不要扩大任务范围或假定其他前置条件已经完成。\n\n'
+      + `原会话用户要求，作为背景与约束原话引用（仅规划阶段的等待条件已经满足）：\n${context}\n\n已批准的完整计划，逐字交接：\n${plan}\n\n开始实施，验证结果，并报告实际完成的工作。`;
 }
 
 /** 默认标题：让新会话在侧栏里一眼看得出来源。 */

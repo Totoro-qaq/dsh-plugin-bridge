@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis';
 import Schema from '@deepseek-ai/schemastery';
+export { createPlanApprovalBridge } from './approved-plan.ts';
 export declare const name = "dsh-plugin-bridge";
 /**
  * `commands` 是跨版本入口，唯一硬依赖。执行时优先使用 rc.2 的 `apiProxy`，

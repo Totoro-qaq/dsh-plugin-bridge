@@ -14,8 +14,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   appendBridgeTextListItem,
   buildBridgeMigrationCommand,
+  buildBridgePlanApprovalCommand,
   buildBridgePreviewCommand,
   MAX_EDITED_SUMMARY_CHARS,
+  MAX_APPROVED_PLAN_CHARS,
   openBridgeSessionWhenVisible,
   parseBridgeCard,
   parseBridgeTextProjection,
@@ -29,10 +31,12 @@ import {
   type BridgeTextProjection,
   type BridgeTargetPicker,
   type BridgeTextSection,
+  type BridgePlanApproval,
 } from './client-contract.ts'
 
 const STYLE_ID = 'dsh-plugin-bridge/native-card'
 const STYLE = `
+.dsh-bridge-plan-action{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:0;max-width:160px}.dsh-bridge-plan-action .dsh-bridge-button{font-size:11px;line-height:1.35;padding:6px 8px;white-space:normal}.dsh-bridge-plan-action [role=alert]{font-size:11px;line-height:1.35;max-width:160px;overflow-wrap:anywhere;color:var(--dsw-alias-state-error-primary,#b3261e)}
 .dsh-bridge-card{border:1px solid var(--dsw-alias-border-subtle,light-dark(#dedede,#3f3f46));border-radius:12px;background:var(--dsw-alias-background-primary,light-dark(#fff,#18181b));color:var(--dsw-alias-label-primary,light-dark(#171717,#f4f4f5));overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .dsh-bridge-head{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:1px solid var(--dsw-alias-border-subtle,light-dark(#e6e6e6,#3f3f46));background:var(--dsw-alias-background-secondary,light-dark(#fafafa,#202024))}
 .dsh-bridge-mark{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--dsw-alias-state-business-secondary,light-dark(#e8f1ff,#22325c));color:var(--dsw-alias-state-business-primary,light-dark(#2869d8,#8eaeff));font:700 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -565,6 +569,53 @@ function MessageCard({ card, execute, sessionId }: {
   </div></div>
 }
 
+interface BridgePlanActionInjected {
+  approvePlan: (plan: BridgePlanApproval, lang: 'zh' | 'en') => Promise<BridgeOutcome>
+  openPlanTarget: BridgeInjected['openSession']
+}
+
+/** An additive action in the host's public plan-review slot. Native Approve and Discuss remain owned by the host. */
+function BridgePlanReviewAction({review,approvePlan,openPlanTarget}: {
+  review: {plan:string;callId?:string}
+} & BridgePlanActionInjected) {
+  const lang = uiLanguageOf(document.documentElement.lang)
+  const [busy,setBusy] = useState(false)
+  const [error,setError] = useState<string>()
+  const inFlight = useRef(false)
+  const mounted = useRef(true)
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
+  if (!review.callId) return null
+  const tooLong = review.plan.length > MAX_APPROVED_PLAN_CHARS
+  const approve = async (): Promise<void> => {
+    if (inFlight.current || tooLong || !review.callId) return
+    inFlight.current=true
+    setBusy(true)
+    setError(undefined)
+    try {
+      const outcome=await approvePlan({callId:review.callId,plan:review.plan},lang)
+      const result=parseBridgeCard(outcome)
+      if (result.phase !== 'migrated') throw new Error(outcome?.text || (lang==='zh'?'计划交接失败。':'Plan handoff failed.'))
+      // Source cancellation can unmount this action; navigation must still finish.
+      await openPlanTarget(result.sessionId,lang)
+    } catch(cause) {
+      if(mounted.current) setError(cause instanceof Error?cause.message:String(cause))
+    } finally {
+      if(mounted.current){inFlight.current=false;setBusy(false)}
+    }
+  }
+  return <span className="dsh-bridge-plan-action" data-bridge-plan-approval>
+    <button type="button" className="dsh-bridge-button" disabled={busy||tooLong}
+      aria-label={lang==='zh'?'批准计划并在新会话执行':'Approve plan and execute in a new session'}
+      title={tooLong
+        ? (lang==='zh'?'计划全文过长，请缩短后重新呈交。':'The complete plan is too long; present a shorter plan.')
+        : (lang==='zh'?'将完整批准计划交给新会话执行，原会话保留在计划模式。':'Execute the complete approved plan in a fresh session; keep the source in plan mode.')}
+      onClick={()=>{void approve()}}>
+      {busy?(lang==='zh'?'正在交接…':'Handing off…'):(lang==='zh'?'批准并在新会话执行':'Approve in new session')}
+    </button>
+    {error?<span role="alert">{error}</span>:null}
+  </span>
+}
+
 class BridgeCardBoundary extends Component<{ children: ReactNode; lang: 'zh' | 'en' }, { failed: boolean }> {
   state = { failed: false }
 
@@ -635,4 +686,24 @@ export function apply(ctx: ClientContext): void {
       },
     }),
   }, BridgeCommandCard))
+  // Older hosts can lack this seat. Slot injection waits for its owner and does
+  // not add another required client service or replace any other plugin entry.
+  const planSlots=ctx.slots as unknown as {
+    inject(name:string,setup:()=>unknown):unknown
+    register(options:{name:string;id:string;inject:(sessionId:SessionId)=>BridgePlanActionInjected},component:typeof BridgePlanReviewAction):unknown
+  }
+  planSlots.inject('conversation.plan-review.actions',()=>planSlots.register({
+    name:'conversation.plan-review.actions',id:'dsh-plugin-bridge/approved-plan',
+    inject:sessionId=>({
+      approvePlan:async(plan,lang)=>{
+        const response=await commands.execute(sessionId,buildBridgePlanApprovalCommand(plan,lang),[])
+        if(!response.ok)throw new Error(`${response.error?.code??'command-failed'}: ${response.error?.message??'Plan handoff rejected.'}`)
+        if(response.value===undefined)throw new Error('The Bridge plan approval command was not admitted.')
+        return response.value.result
+      },
+      openPlanTarget:async(sessionId,lang)=>{
+        await openBridgeSessionWhenVisible(ctx,sessionId,{lang,signal:navigation.signal})
+      },
+    }),
+  },BridgePlanReviewAction))
 }
