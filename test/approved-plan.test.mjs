@@ -18,7 +18,8 @@ function deferred() {
 }
 function setup(options = {}) {
   assert.equal(typeof plugin.createPlanApprovalBridge,'function','the approved-plan workflow is not implemented');
-  const fake = createFakeHost(options);
+  const raw = createFakeHost(options);
+  const fake = {...raw,...raw.state};
   const host = createBridgeHostFromRpc(createApiProxyRpc(fake.apiProxy));
   const service = plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG});
   const command = createBridgeCommand({hostFor:()=>host,config:CONFIG,planApprovals:service});

@@ -19,6 +19,8 @@ import Schema from '@deepseek-ai/schemastery'
 import { createBridgeCommand } from './command.ts'
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } from './compression.ts'
 import { probeDshHost, resolveDshHost } from './dsh-alpha-host.ts'
+import { createPlanApprovalBridge, type PlanReviewRequest } from './approved-plan.ts'
+export { createPlanApprovalBridge } from './approved-plan.ts'
 
 export const name = 'dsh-plugin-bridge'
 
@@ -97,7 +99,17 @@ export function commandConfigOf(config: Config = {}) {
 }
 
 export function apply(ctx: Context, config: Config = {}): void {
+  const plans = createPlanApprovalBridge({
+    hostFor: signal => resolveDshHost(ctx as unknown as Parameters<typeof resolveDshHost>[0],signal),
+    config: commandConfigOf(config),
+  })
+  // The public scoped waterfall carries the exact native document. Observation delegates
+  // ordinary answers unchanged; only an explicit Bridge command takes ownership.
+  const events = ctx as unknown as {on(name:string,callback:(request:PlanReviewRequest,next:()=>Promise<unknown>)=>Promise<unknown>,options:{global:boolean;prepend:boolean}):unknown}
+  events.on('user-questions/request',(request,next)=>plans.observe(request,next),{global:true,prepend:true})
+  ctx.effect(()=>()=>plans.dispose(),'bridge: plan approval records')
   const command = createBridgeCommand({
+    planApprovals: plans,
     hostFor: (signal) => resolveDshHost(ctx as unknown as Parameters<typeof resolveDshHost>[0], signal),
     probe: () => probeDshHost(ctx as unknown as Parameters<typeof probeDshHost>[0]),
     config: commandConfigOf(config),

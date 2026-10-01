@@ -133,6 +133,10 @@ export interface PreviewResult {
 /** 生成交接摘要：取材 → 起临时工人 → 收摘要 → 归档工人。 */
 export declare function previewMigration(input: BridgeHostInput, options: PreviewOptions): Promise<PreviewResult>;
 export interface MigrateOptions {
+    /** An approved plan is transferred verbatim and starts implementation, even in the same preset. */
+    executionKind?: 'approved-plan';
+    /** Quoted user context supplements a plan without rewriting its approved body. */
+    sourceContext?: string;
     sessionId: string;
     /** 同一流程已经读取过的源会话行，避免重复扫描全局列表。 */
     sourceSession?: SessionRow;

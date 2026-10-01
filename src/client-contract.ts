@@ -1,6 +1,9 @@
 /** Pure wire-to-view helpers shared by the native WebUI card and Node tests. */
 
 export const MAX_EDITED_SUMMARY_CHARS = 24_000
+export const MAX_APPROVED_PLAN_CHARS = 128_000
+
+export interface BridgePlanApproval { callId: string; plan: string }
 
 export type BridgeOutcome = { kind: 'success' | 'error'; text?: string } | null
 
@@ -803,6 +806,13 @@ function encodeUtf8Base64Url(text: string): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)
   return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '')
+}
+
+/** Explicit human approval of the exact native review; this does not answer its in-place Approve option. */
+export function buildBridgePlanApprovalCommand(plan: BridgePlanApproval, lang: 'zh' | 'en'): string {
+  if (!plan.callId || /\s/u.test(plan.callId) || plan.callId.length > 512) throw new Error('The plan has no traceable review identity.');
+  if (!plan.plan.trim() || plan.plan.length > MAX_APPROVED_PLAN_CHARS) throw new Error('The complete plan exceeds the Bridge approval limit.');
+  return `/bridge --approve-plan64 ${encodeUtf8Base64Url(JSON.stringify(plan))} --lang ${lang}`;
 }
 
 /**
