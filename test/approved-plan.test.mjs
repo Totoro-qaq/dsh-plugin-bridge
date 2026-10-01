@@ -202,3 +202,32 @@ test('generic questions and already-aborted requests keep their original answere
     assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,0);
   } finally {s.finish();}
 });
+
+test('a source review cancelled after rendering cannot stop newer work or authorize a target',async()=>{
+  const s=setup();
+  try {
+    const controller=new AbortController();
+    const service=plugin.createPlanApprovalBridge({hostFor:()=>s.host,config:CONFIG});
+    const observed=service.observe({...s.request,signal:controller.signal},()=>s.review.promise);observed.catch(()=>{});
+    controller.abort();
+    const r=await service.execute({sessionId:s.fake.sourceSessionId,approvePlan64:payload(),lang:'zh'});
+    assert.equal(r.kind,'error');
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.cancel'||c.method==='session.create').length,0);
+    service.dispose();
+  } finally {s.finish();}
+});
+
+test('unloading during source cancellation admits no new target',async()=>{
+  const s=setup();
+  try {
+    const gate=deferred();
+    const host={...s.host,sessions:{...s.host.sessions,cancel:()=>gate.promise}};
+    const service=plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG});
+    const observed=service.observe(s.request,()=>s.review.promise);observed.catch(()=>{});
+    const running=service.execute({sessionId:s.fake.sourceSessionId,approvePlan64:payload(),lang:'zh'});
+    await new Promise(r=>setImmediate(r));
+    service.dispose();gate.resolve({});
+    assert.equal((await running).kind,'error');
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,0);
+  } finally {s.finish();}
+});
