@@ -295,3 +295,37 @@ test('invalid execution preset and oversized or non-UTF8 approval payloads prese
     assert.equal(s.fake.calls.filter(c=>c.method==='session.cancel'||c.method==='session.create').length,0);
   } finally {s.finish();}
 });
+
+test('an approved plan longer than the summary budget is transferred without compression',async()=>{
+  const s=setup();
+  try {
+    const longPlan='# 完整批准计划\n\n'+('必须保留这一条具体验收条件及编号。\n'.repeat(500))+'\n最后验证 TOKEN-END-3917。';
+    const review={...s.request,questions:[{...s.request.questions[0],detail:longPlan,intent:{...s.request.questions[0].intent,callId:'long-plan-call'}}]};
+    const pending=deferred();
+    const observed=s.service.observe(review,()=>pending.promise);observed.catch(()=>{});
+    assert.equal((await s.invoke(`--approve-plan64 ${payload(longPlan,'long-plan-call')}`)).kind,'success');
+    assert.ok(longPlan.length>CONFIG.summaryCharBudget);
+    assert.equal(s.fake.goals[0].objective,longPlan);
+    assert.ok(s.fake.calls.find(c=>c.method==='session.prompt').payload.content.some(c=>c.type==='text'&&c.text.includes(longPlan)));
+    pending.resolve({answers:[]});
+  } finally {s.finish();}
+});
+
+test('old retry authority is retired when the bounded approval history fills',async()=>{
+  const s=setup({failTargetCreateOnce:'minimal'});
+  try {
+    const first=await s.invoke(`--approve-plan64 ${payload()}`);
+    const token=/--approved-plan\s+([a-zA-Z0-9-]+)/.exec(first.text)?.[1];
+    assert.ok(token);
+    for(let i=2;i<=65;i++){
+      const pending=deferred(),callId=`bounded-plan-${i}`;
+      const observed=s.service.observe({...s.request,questions:[{...s.request.questions[0],intent:{...s.request.questions[0].intent,callId}}]},()=>pending.promise);
+      observed.catch(()=>{});
+      assert.equal((await s.invoke(`--approve-plan64 ${payload(PLAN,callId)}`)).kind,'success');
+      pending.resolve({answers:[]});
+    }
+    const before=s.fake.calls.filter(c=>c.method==='session.create').length;
+    assert.equal((await s.invoke(`--approved-plan ${token}`)).kind,'error');
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,before);
+  } finally {s.finish();}
+});
