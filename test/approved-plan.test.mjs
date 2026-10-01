@@ -16,12 +16,12 @@ function deferred() {
   const promise = new Promise((a,b) => {resolve=a;reject=b;});
   return {promise,resolve,reject};
 }
-function setup(options = {}) {
+function setup(options = {},deps = {}) {
   assert.equal(typeof plugin.createPlanApprovalBridge,'function','the approved-plan workflow is not implemented');
   const raw = createFakeHost(options);
   const fake = {...raw,...raw.state};
   const host = createBridgeHostFromRpc(createApiProxyRpc(fake.apiProxy));
-  const service = plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG});
+  const service = plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG,...deps});
   const command = createBridgeCommand({hostFor:()=>host,config:CONFIG,planApprovals:service});
   const review = deferred();
   const request = {agent:{session:{id:fake.sourceSessionId}},questions:[{
@@ -229,5 +229,69 @@ test('unloading during source cancellation admits no new target',async()=>{
     service.dispose();gate.resolve({});
     assert.equal((await running).kind,'error');
     assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,0);
+  } finally {s.finish();}
+});
+
+test('an explicitly unaccepted source cancellation cannot start implementation',async()=>{
+  const s=setup();
+  try {
+    const host={...s.host,sessions:{...s.host.sessions,cancel:async()=>({accepted:false})}};
+    const service=plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG});
+    const observed=service.observe(s.request,()=>s.review.promise);observed.catch(()=>{});
+    const r=await service.execute({sessionId:s.fake.sourceSessionId,approvePlan64:payload(),lang:'zh'});
+    assert.equal(r.kind,'error');
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,0);
+    service.dispose();
+  } finally {s.finish();}
+});
+
+test('expired approval retry and another-session retry authorize no additional target',async()=>{
+  let clock=100;
+  const s=setup({failTargetCreateOnce:'minimal'},{now:()=>clock});
+  try {
+    const first=await s.invoke(`--approve-plan64 ${payload()}`);
+    const token=/--approved-plan\s+([a-zA-Z0-9-]+)/.exec(first.text)?.[1];
+    assert.ok(token,first.text);
+    assert.equal((await s.command.handler({agent:{session:{id:'other-session'}},rawInput:`--approved-plan ${token}`})).kind,'error');
+    clock+=31*60000;
+    assert.equal((await s.invoke(`--approved-plan ${token}`)).kind,'error');
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,1);
+  } finally {s.finish();}
+});
+
+test('retry after source user requirements change stops instead of executing the old plan',async()=>{
+  const s=setup({failTargetCreateOnce:'minimal'});
+  try {
+    const first=await s.invoke(`--approve-plan64 ${payload()}`);
+    const token=/--approved-plan\s+([a-zA-Z0-9-]+)/.exec(first.text)?.[1];
+    assert.ok(token);
+    s.fake.sessions.get(s.fake.sourceSessionId).events.push({event:{seq:900,type:'user/message',data:{content:[{type:'text',text:'任务已取消，禁止执行旧计划。'}]}}});
+    assert.equal((await s.invoke(`--approved-plan ${token}`)).kind,'error');
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,1);
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.prompt').length,0);
+  } finally {s.finish();}
+});
+
+test('English approval results and completed replay point to the same execution session',async()=>{
+  const s=setup();
+  try {
+    const first=await s.invoke(`--approve-plan64 ${payload()} --lang en`);
+    assert.equal(first.kind,'success',first.text);
+    assert.match(first.text,/complete approved plan/i);
+    assert.equal(contract.parseBridgeCard(first).lang,'en');
+    assert.deepEqual(await s.invoke(`--approve-plan64 ${payload()} --lang en`),first);
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.create').length,1);
+  } finally {s.finish();}
+});
+
+test('invalid execution preset and oversized or non-UTF8 approval payloads preserve the planning turn',async()=>{
+  const s=setup();
+  try {
+    const inputs=[`missing-preset --approve-plan64 ${payload()}`,
+      `--approve-plan64 ${payload('x'.repeat(contract.MAX_APPROVED_PLAN_CHARS+1))}`,
+      `--approve-plan64 ${Buffer.from([255,254,253]).toString('base64')}`];
+    for(const input of inputs)assert.equal((await s.invoke(input)).kind,'error');
+    assert.throws(()=>contract.buildBridgePlanApprovalCommand({callId:'x',plan:'x'.repeat(contract.MAX_APPROVED_PLAN_CHARS+1)},'zh'));
+    assert.equal(s.fake.calls.filter(c=>c.method==='session.cancel'||c.method==='session.create').length,0);
   } finally {s.finish();}
 });
