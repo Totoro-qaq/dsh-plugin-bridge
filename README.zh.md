@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH 实测 0.2.0-rc.2](https://img.shields.io/badge/DSH_tested-0.2.0--rc.2-4c8dff)](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
+[![DSH 实测 0.2.1-alpha.1](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.1-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 [English](README.md) | 中文
@@ -35,7 +35,7 @@ dsh plugin --profile web add dsh-plugin-bridge
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.0
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.1
 ```
 
 然后在官方 WebUI 输入：
@@ -113,7 +113,7 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 
 ## 兼容性
 
-Bridge **0.4.0** 在已测的 DSH **0.2.0-rc.2** 官方计划评审卡上增加了 **“批准并在新会话执行”**。用 `/plan` 规划，模型通过 `exit_plan_mode` 呈交完整计划后，点击该按钮：原规划轮次停止，原会话保留计划模式；新会话沿用当前工具模式、模型和工作目录，逐字接收批准的计划并开始实施。原有“同意执行”和“要求修改”仍按宿主原来的方式工作。详见[计划批准交接说明](docs/approved-plan-handoff.md)。
+Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话执行”**，现已在 DSH **0.2.0-rc.2** 和 **0.2.1-alpha.1** WebUI 验证。用 `/plan` 规划，模型通过 `exit_plan_mode` 呈交完整计划后，点击该按钮：原规划轮次停止，原会话保留计划模式；新会话沿用当前工具模式、模型和工作目录，首轮提示逐字接收批准的计划并开始实施。原有“同意执行”和“要求修改”仍按宿主原来的方式工作。详见[计划批准交接说明](docs/approved-plan-handoff.md)。
 
 | DSH 基线 | 服务端交接 | 原生卡片 | 验证边界 |
 |---|---:|---:|---|
@@ -130,6 +130,7 @@ Bridge **0.4.0** 在已测的 DSH **0.2.0-rc.2** 官方计划评审卡上增加�
 | 0.1.7-alpha.2 | 支持（Bridge 0.3.10 源码） | 支持（Bridge 0.3.10 源码） | 官方 npm 宿主 + 本地打包的 Bridge 源码：doctor 13/13、真实模型预览、文本/Markdown 往返、640/800 像素宽窗口确认按钮可达、编辑稿逐字交接、目标无工具调用、自动跳转且 goal 暂停。这里是源码验收，不等于已完成 npm 包安装验收；见[限定范围验收](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)。 |
 | 0.1.7-rc.1 | 支持（Bridge 0.3.10） | 支持（Bridge 0.3.10） | 官方 npm 宿主隔离验收：全新 profile 安装；已有会话上 WebUI 启动、doctor 13/13；一次真实模型文本/Markdown 编辑并迁入 `ptc`，编辑稿逐字交接、自动跳转、goal 暂停、目标无工具调用、源会话不变；640/800 像素宽确认按钮可点击。卸载重启通过，但仍留下失效 CLI 链接。测试宿主因 registry 问题跳过可选办公组件；见[验收边界](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)。 |
 | 0.2.0-rc.2 | 支持（实测 Bridge 0.3.10；0.3.11 补声明） | 支持（运行代码相同） | 官方 npm WebUI 隔离验收：doctor 13/13、真实预览与文本/Markdown 编辑、编辑稿逐字交接、直接继续和等待确认、自动跳转、暂停 goal、原图传递/文本回退、实时启停及卸载重启。仍留失效 CLI 链接；未覆盖全量可选组件和原生桌面端，见[限定范围验收](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)。 |
+| 0.2.1-alpha.1 | 支持（Bridge 0.4.1 补声明） | 支持（0.4.0 运行代码不变） | 已发布的 0.4.0 在官方 npm WebUI 隔离实测：doctor 13/13、渲染编辑、484 字符编辑稿逐字迁入 PTC、自动跳转和暂停 goal；真实点击计划批准后在新 standard 会话写入并读回精确 18 字节文件。启停保留其他样式；卸载重启后包和命令移除，但仍留失效 CLI 链接。见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)。 |
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
@@ -137,7 +138,7 @@ DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.
 
 DSH 0.1.6-alpha.1 请使用 Bridge 0.3.6 或更高版本（只改了依赖范围，发布代码与 0.3.5 相同）。
 
-0.3.8 起五个 DSH 可选 peer 范围改为 `"*"`，由 `engines.dsh` 表达宿主支持声明。Bridge 0.3.11 声明 `>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2`：保留原 0.1.x 范围，只追加已验收的 0.2.0-rc.2，不提前承诺其他 0.2 预发布版或 0.2.0 正式版。dshmarket 以 `includePrerelease: true` 评估此字段；官方 0.2.0-rc.2 安装器检查的是 DSH peer 范围，因此“能安装”不等于“已经验收支持”。
+0.3.8 起五个 DSH 可选 peer 范围改为 `"*"`，由 `engines.dsh` 表达宿主支持声明。Bridge 0.4.1 声明 `>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1`：保留原范围，只追加本次验收的 alpha.1，不提前承诺后续 0.2 预发布版或 0.2.0/0.2.1 正式版。dshmarket 以 `includePrerelease: true` 评估此字段；官方 0.2.0-rc.2 安装器检查的是 DSH peer 范围，因此“能安装”不等于“已经验收支持”。
 
 DSH 0.1.6-alpha.2 删除了客户端的 `sessions.open`。Bridge 0.3.6 在上面仍能完成迁移，但「打开目标会话」按钮会报 `ctx.sessions.open is not a function`。请使用 Bridge 0.3.7 或更高版本，它改为通过 WebUI 导航服务 `uiWorkspace.openSession` 打开目标，旧宿主上回退到 `sessions.open`。
 
@@ -150,6 +151,8 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 已发布的 Bridge 0.3.10 还通过了 DSH 0.1.7-rc.1 的限定范围兼容验收，无需改 Bridge 运行时代码或重发 npm。这**不是**对 DSH 所有可选依赖和第三方 UI 的验收；具体范围见[rc.1 记录](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)，升级自己的宿主后仍应运行 `/bridge --doctor`。
 
 针对 DSH **0.2.0-rc.2**，Bridge **0.3.11** 仅更新支持元数据和文档，迁移运行代码与实测的已发布 0.3.10 相同。[验收记录](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)区分了真实模型/WebUI 测试和打包检查；不代表 DSH 0.2.0 正式版、原生桌面端登录/退出、所有可选组件或第三方 UI 已经通过验收。
+
+针对 DSH **0.2.1-alpha.1**，Bridge **0.4.1** 更新支持声明和文档，服务端/客户端源码、已提交的 `lib/`、SDK 基线及依赖均与 0.4.0 相同。[验收记录](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)记录真实模型流程和插件生命周期。本轮未重新认证图片传递/回退、原生桌面端、后续 alpha 或任意第三方 UI/插件组合。
 
 当前边界：
 
@@ -178,6 +181,7 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 - [DSH 0.1.7-alpha.2 源码候选版验收](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)
 - [DSH 0.1.7-rc.1 兼容性验收](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)
 - [DSH 0.2.0-rc.2 兼容性验收](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
+- [DSH 0.2.1-alpha.1 兼容性验收](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
