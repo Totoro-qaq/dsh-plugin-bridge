@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH tested 0.2.0-rc.2](https://img.shields.io/badge/DSH_tested-0.2.0--rc.2-4c8dff)](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
+[![DSH tested 0.2.1-alpha.1](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.1-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -35,7 +35,7 @@ On **DSH 0.1.5-rc.2**, restart `dsh web` after adding or removing the plugin. On
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.0
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.1
 ```
 
 Then type in the official WebUI:
@@ -113,7 +113,7 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 ## Compatibility
 
-Bridge **0.4.0** adds **Approve in new session** to the official plan-review card on the tested DSH **0.2.0-rc.2** WebUI. Enter `/plan` and review the plan submitted through `exit_plan_mode`, then choose the Bridge action. It stops the original planning turn, leaves that session in plan mode, creates a fresh session with the same preset/model/workspace, transfers the approved plan verbatim, and starts implementation there. The host's existing **Approve** and **Request changes** controls keep their ordinary behavior. See [the approved-plan workflow](docs/approved-plan-handoff.md).
+Since Bridge **0.4.0**, **Approve in new session** is available on the official plan-review card, verified on DSH **0.2.0-rc.2** and **0.2.1-alpha.1** WebUI. Enter `/plan` and review the plan submitted through `exit_plan_mode`, then choose the Bridge action. It stops the original planning turn, leaves that session in plan mode, creates a fresh session with the same preset/model/workspace, transfers the approved plan verbatim in its kickoff, and starts implementation there. The host's existing **Approve** and **Request changes** controls keep their ordinary behavior. See [the approved-plan workflow](docs/approved-plan-handoff.md).
 
 | DSH baseline | Server handoff | Native card | Verification boundary |
 |---|---:|---:|---|
@@ -130,6 +130,7 @@ Bridge **0.4.0** adds **Approve in new session** to the official plan-review car
 | 0.1.7-alpha.2 | Yes (Bridge 0.3.10 source) | Yes (Bridge 0.3.10 source) | Official npm host with a locally packed Bridge source build: doctor 13/13, model-backed preview, text/Markdown round-trip, 640/800 px confirmation reachability, exact edited handoff, no target tool calls, auto-open and paused goal. This is source-build evidence, not a registry-install claim; see [bounded acceptance](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md). |
 | 0.1.7-rc.1 | Yes (Bridge 0.3.10) | Yes (Bridge 0.3.10) | Isolated official npm host: fresh-profile install; existing-session WebUI and doctor 13/13; one model-backed text/Markdown handoff to `ptc` with exact edited payload, auto-open, paused goal, no target tools and unchanged source; 640/800 px confirmation hit-tests. Uninstall/restart passed but a dangling CLI link remained. The host test skipped optional Office packages after registry errors; see [bounded acceptance](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md). |
 | 0.2.0-rc.2 | Yes (tested: Bridge 0.3.10; declared in 0.3.11) | Yes (same runtime) | Isolated official npm WebUI: doctor 13/13, real preview and text/Markdown edits, exact edited handoff, direct and waiting targets, auto-open, paused goals, image transfer/text fallback, live toggles and uninstall/restart. A dangling CLI link remains; optional components and native Desktop behavior are outside this run. See [bounded acceptance](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md). |
+| 0.2.1-alpha.1 | Yes (declared in Bridge 0.4.1) | Yes (unchanged 0.4.0 runtime) | Published Bridge 0.4.0 on an isolated official npm WebUI: doctor 13/13, rendered editing, exact 484-character edited handoff to PTC, auto-open, paused goal, and a real approved-plan click that starts a new standard session and writes/read-verifies an exact 18-byte fixture. Live disable/enable preserves other styles; uninstall/restart removes package and command but retains a dangling CLI link. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md). |
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -137,7 +138,7 @@ Since 0.3.5 the summary worker follows the conversation's model by default (`mod
 
 Use Bridge 0.3.6 or later for DSH 0.1.6-alpha.1 (only the dependency ranges changed; shipped code was the same as 0.3.5).
 
-Since 0.3.8 the five DSH optional peer ranges are `"*"`; `engines.dsh` expresses the host support declaration. Bridge 0.3.11 declares `>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2`: it preserves the 0.1.x range and adds only the tested 0.2.0-rc.2, not untested 0.2 prereleases or stable 0.2.0. dshmarket evaluates this field with `includePrerelease: true`; the official 0.2.0-rc.2 installer instead checks DSH peer ranges, so installation alone does not establish verified support.
+Since 0.3.8 the five DSH optional peer ranges are `"*"`; `engines.dsh` expresses the host support declaration. Bridge 0.4.1 declares `>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1`: it preserves the previous range and adds only the newly tested alpha.1, not later 0.2 prereleases or stable 0.2.0/0.2.1. dshmarket evaluates this field with `includePrerelease: true`; the official 0.2.0-rc.2 installer instead checks DSH peer ranges, so installation alone does not establish verified support.
 
 DSH 0.1.6-alpha.2 removed the client `sessions.open`. Bridge 0.3.6 still migrates there, but its **Open target session** button fails with `ctx.sessions.open is not a function`. Use Bridge 0.3.7 or later: it opens targets through the WebUI navigation service `uiWorkspace.openSession` and falls back to `sessions.open` on older hosts.
 
@@ -150,6 +151,8 @@ Bridge 0.3.10 includes the source build tested on DSH 0.1.7-alpha.2. It fixes tw
 The published Bridge 0.3.10 also passed a bounded DSH 0.1.7-rc.1 compatibility run. No Bridge runtime change or new npm release was needed. This does **not** validate every optional DSH dependency or third-party UI; follow the [rc.1 test boundary](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md) and run `/bridge --doctor` after upgrading your own host.
 
 For DSH **0.2.0-rc.2**, Bridge **0.3.11** updates the support metadata and documentation; the migration runtime remains unchanged from the tested published 0.3.10. The [acceptance record](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md) separates real-model/WebUI evidence from packaging checks. It does not certify stable DSH 0.2.0, native Desktop login/quit, all optional components, or third-party UIs.
+
+For DSH **0.2.1-alpha.1**, Bridge **0.4.1** updates support metadata and documentation; server/client code, generated `lib/`, SDK pins and dependencies remain unchanged from 0.4.0. The [acceptance record](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md) documents real-model flows and lifecycle checks. Images, native Desktop, later alpha versions and arbitrary plugin/UI combinations were not re-certified in this run.
 
 Current limits:
 
@@ -178,6 +181,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [DSH 0.1.7-alpha.2 source-build acceptance](reports/dsh-0.1.7-alpha.2-compat-2026-09-23.md)
 - [DSH 0.1.7-rc.1 compatibility acceptance](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)
 - [DSH 0.2.0-rc.2 compatibility acceptance](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
+- [DSH 0.2.1-alpha.1 compatibility acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development

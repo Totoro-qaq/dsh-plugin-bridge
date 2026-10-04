@@ -17,7 +17,7 @@ The complete approved plan is the execution scope. Planning-stage waits are sati
 
 The plan body is preserved exactly, including Unicode, line endings, numbered steps and its acceptance criteria. No summary worker rewrites it, and the regular `summaryCharBudget` does not truncate it. Up to 128,000 characters are accepted; larger plans must be shortened and resubmitted rather than silently cut.
 
-Quoted recent user requests provide bounded background and persistent constraints. Old tool-call history is not inherited. The default `inject: both` also stores the full plan as a paused handoff goal; the explicit kickoff starts one normal execution turn without activating extra autonomous goal rounds. Completion depends on the selected model, tools and host limits, as with ordinary native plan execution.
+Quoted recent user requests provide bounded background and persistent constraints. Old tool-call history is not inherited. The default `inject: both` also stores the plan as a paused handoff goal; DSH's goal service normalizes leading/trailing whitespace, while the kickoff preserves the complete approved body exactly. The explicit kickoff starts one normal execution turn without activating extra autonomous goal rounds. Completion depends on the selected model, tools and host limits, as with ordinary native plan execution.
 
 ## Failure and retry
 
@@ -36,3 +36,5 @@ The server observes the public `user-questions/request` waterfall and delegates 
 Candidate testing used official npm DSH 0.2.0-rc.2 on macOS ARM64, Node 22.23.1 and an isolated WebUI/profile. A real DeepSeek model submitted a plan; a real UI click created and opened a different session; that executor wrote `PLAN-8472\n` to a new file, read it back and checked its exact ten bytes. The source remained in plan mode, the target did not enter plan mode, the plan matched the initial prompt and goal exactly, and one kickoff was admitted. Native Desktop wrappers, arbitrary custom UIs and statistical reliability are outside that fixed-scenario test.
 
 The isolated runtime omitted optional components and supplied the required official ARM64 native packages separately. Its optional ripgrep search was unavailable during planning; native file read and shell operations worked, and the executor completed all approved file and byte-verification steps without tool errors. No local AI model was downloaded.
+
+The unchanged published 0.4.0 runtime also passed the [DSH 0.2.1-alpha.1 acceptance](compatibility/dsh-0.2.1-alpha.1-2026-10-04.md). A real UI click handed off a 2048-character plan to one independent execution session. The executor wrote and read-verified an exact 18-byte fixture; the source stayed in plan mode and the target goal stayed paused. Bridge 0.4.1 adds the tested host declaration without changing that runtime.

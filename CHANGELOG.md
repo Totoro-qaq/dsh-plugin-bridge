@@ -2,6 +2,12 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.4.1 — 2026-10-04
+
+- Add the tested DSH `0.2.1-alpha.1` to `engines.dsh`, preserving previous supported targets and not pre-approving later alphas or stable 0.2 releases.
+- Record bounded official npm/WebUI acceptance of the unchanged published 0.4.0 runtime: doctor 13/13, rendered text/Markdown edits, exact migration to PTC, paused goals, approved-plan execution in a fresh session, style-preserving live toggles and uninstall/restart.
+- Clarify the host goal service's edge-whitespace normalization; the approved-plan kickoff remains byte-exact. Server/client source, generated `lib/`, dependencies and SDK pins are unchanged.
+
 ## 0.4.0 — 2026-10-02
 
 - Add **Approve in new session** to the official WebUI's public `conversation.plan-review.actions` slot. Approval is bound to the exact live native plan document and source session. The original planning turn stops without switching it out of plan mode; a fresh session receives the full approved plan, keeps the source preset/model/workspace, and starts execution.
