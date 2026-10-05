@@ -1,0 +1,104 @@
+{
+  "schema": "bridge-native-desktop-acceptance/v1",
+  "date": "2026-10-05",
+  "timezone": "Asia/Shanghai",
+  "desktop": {
+    "version": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "node": "24.18.1",
+    "os": "macOS",
+    "arch": "arm64"
+  },
+  "bridge": {
+    "version": "0.4.1",
+    "source": "published npm",
+    "libFiles": 29,
+    "libMismatches": 0
+  },
+  "nativeControlsUsed": true,
+  "installation": {
+    "freshProfile": true,
+    "enabledLive": true
+  },
+  "doctor": {
+    "initial": "13/13",
+    "afterToggle": "13/13"
+  },
+  "migration": {
+    "desktop": "0.2.0-rc.2",
+    "bridge": "0.4.1",
+    "sourceId": "session-7878aa3f-4255-4f63-952f-af70b56ec4a9",
+    "targetId": "session-4625a302-6d31-4ed1-bcee-ccc7b6145d77",
+    "sourceHistoryPrefixUnchanged": true,
+    "sourceAppendedEvents": [
+      "command/run",
+      "command/done"
+    ],
+    "summaryCharacters": 455,
+    "exactEditedSummaryInKickoff": true,
+    "exactEditedSummaryInGoal": true,
+    "goal": "paused",
+    "targetPreset": "ptc",
+    "targetTurns": 1,
+    "targetTools": 0,
+    "targetCompleted": true,
+    "publicFactsPreserved": true
+  },
+  "plan": {
+    "desktop": "0.2.0-rc.2",
+    "bridge": "0.4.1",
+    "sourceId": "session-b498be98-1087-40f8-af63-87d7bca6e787",
+    "targetId": "session-afdb947e-cd9f-4190-bbce-c8c169830cdf",
+    "planCharacters": 2440,
+    "planSha256": "c28da21b220bd77f89d858d85edf24b62f00d64a0b1865e0fbea7117fc57288d",
+    "exactPlanInKickoff": true,
+    "goalMatchesTrimmedPlan": true,
+    "sourceHistoryPrefixUnchanged": true,
+    "sourceCancelled": true,
+    "sourceRetainsPlanMode": true,
+    "targetPreset": "standard",
+    "targetPlanMode": false,
+    "targetTurns": 1,
+    "targetCompleted": true,
+    "tools": [
+      "bash",
+      "read",
+      "write",
+      "read",
+      "bash"
+    ],
+    "toolErrors": 0,
+    "proofBytes": 17,
+    "exactProof": true,
+    "readmeUnchanged": true,
+    "onlyExpectedWorkspaceFiles": true,
+    "requestChangesDelegatedNormally": true
+  },
+  "lifecycle": {
+    "retainedSessions": 6,
+    "allOriginalHistoryPrefixesPreserved": true,
+    "titlesPreserved": true,
+    "packageRemoved": true,
+    "dependencyRemoved": true,
+    "remainingCliLink": {
+      "symlink": true,
+      "targetExists": false
+    },
+    "disableEnableObserved": true,
+    "nativeUninstallObserved": true,
+    "restartedWithoutPlugin": true,
+    "quitExitCodes": [
+      0,
+      0
+    ]
+  },
+  "limits": {
+    "nativeScreenshot": "Stage Manager thumbnail; browser mirror is a distinct proof surface",
+    "pixelCertification": false,
+    "accountLoginTested": false,
+    "imagesRetested": false,
+    "allThirdPartyCombinationsTested": false,
+    "workshopBaselineVerified": false,
+    "registryAdmission": false
+  }
+}
