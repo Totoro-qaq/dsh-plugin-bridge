@@ -115,6 +115,8 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 Since Bridge **0.4.0**, **Approve in new session** is available on the official plan-review card, verified on DSH **0.2.0-rc.2** and **0.2.1-alpha.1** WebUI. Enter `/plan` and review the plan submitted through `exit_plan_mode`, then choose the Bridge action. It stops the original planning turn, leaves that session in plan mode, creates a fresh session with the same preset/model/workspace, transfers the approved plan verbatim in its kickoff, and starts implementation there. The host's existing **Approve** and **Request changes** controls keep their ordinary behavior. See [the approved-plan workflow](docs/approved-plan-handoff.md).
 
+Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptance](docs/compatibility/desktop-0.2.0-rc.2-2026-10-05.md): installation, edited migration, approved-plan execution, live toggles, uninstall and restart. Desktop and npm WebUI records are separate; native-window pixels and account login are not certified.
+
 | DSH baseline | Server handoff | Native card | Verification boundary |
 |---|---:|---:|---|
 | 0.1.0-rc.6 | Yes | No | Narrow RPC contract and text compatibility tests |
@@ -153,6 +155,8 @@ The published Bridge 0.3.10 also passed a bounded DSH 0.1.7-rc.1 compatibility r
 For DSH **0.2.0-rc.2**, Bridge **0.3.11** updates the support metadata and documentation; the migration runtime remains unchanged from the tested published 0.3.10. The [acceptance record](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md) separates real-model/WebUI evidence from packaging checks. It does not certify stable DSH 0.2.0, native Desktop login/quit, all optional components, or third-party UIs.
 
 For DSH **0.2.1-alpha.1**, Bridge **0.4.1** updates support metadata and documentation; server/client code, generated `lib/`, SDK pins and dependencies remain unchanged from 0.4.0. The [acceptance record](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md) documents real-model flows and lifecycle checks. Images, native Desktop, later alpha versions and arbitrary plugin/UI combinations were not re-certified in this run.
+
+The proposed [OMDSH intake declaration](docs/community/omdsh-intake.md) only adds author metadata around the existing Profile Bundle. It is not Hub approval or Registry installation authority and does not change the runtime or compatibility range.
 
 Current limits:
 

@@ -63,6 +63,49 @@
       "platform": "web"
     }
   },
+  "dshWorkshop": {
+    "schema": "omdsh-workshop-package/v1",
+    "type": "plugin",
+    "integration": {
+      "protocol": "harness-profile",
+      "artifact": "cordis.patch.yml"
+    },
+    "install": {
+      "mode": "transactional",
+      "adapter": "profile-bundle",
+      "failurePolicy": "generation-rollback",
+      "touchesCurrentBeforeActivation": false
+    },
+    "lifecycle": {
+      "activation": "restart-host",
+      "dispose": "supported"
+    },
+    "permissions": [
+      "session:read",
+      "session:create",
+      "session:cancel",
+      "model:invoke",
+      "goal:create",
+      "filesystem:read",
+      "filesystem:write",
+      "ui:extend"
+    ],
+    "compatibility": {
+      "dshVersions": ["0.2.0-rc.2", "0.2.1-alpha.1"]
+    },
+    "capability": {
+      "id": "bridge",
+      "kind": "command",
+      "invocation": "Run /bridge --doctor in a populated synthetic session.",
+      "expected": "A native Bridge result card reports the selected adapter and 13/13 available host methods. This diagnostic alone does not prove a model-backed migration."
+    },
+    "evidence": {
+      "install": "docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md",
+      "failureIsolation": null,
+      "hotReload": null,
+      "remove": "docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md"
+    }
+  },
   "engines": {
     "node": ">=22",
     "dsh": ">=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1"
