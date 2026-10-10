@@ -2,6 +2,13 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.4.2 — 2026-10-10
+
+- Support the tested DSH `0.2.1-alpha.2`, retaining older declarations and the existing SDK build baseline. The bounded Workshop host list includes alpha.2; no new required capability or direct runtime dependency is added.
+- Read the source's effective working directory immediately before creating a preview worker or migration target, including confirmation and approved-plan retry. A switched directory is passed alone as `cwd`; unchanged/legacy sessions keep workspace placement. Invalid or unavailable explicit current-directory data stops creation instead of silently migrating back to the original project.
+- Recognize fresh durable execution events when a message-aligned history tail crops `turn/start`. Queued text, stale events and configuration-only headers do not prove startup; timeout and provider-error handling stay unchanged.
+- Verify 280 tests, build/typecheck, generated artifacts, datasets and tarball smoke. Real alpha.2 Web checks cover exact edited handoff, current-directory plan execution, paused goals, plugin isolation and removal/restart. rc.2 Desktop and alpha.1 backward smoke are separate bounded checks; the signal-interrupted Desktop cache-restart limitation remains documented. See [acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md).
+
 ## 0.4.1 — 2026-10-04
 
 - Add the tested DSH `0.2.1-alpha.1` to `engines.dsh`, preserving previous supported targets and not pre-approving later alphas or stable 0.2 releases.
