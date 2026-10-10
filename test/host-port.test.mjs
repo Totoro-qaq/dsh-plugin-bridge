@@ -45,6 +45,31 @@ test('BridgeHost：doctor 探测的是语义能力，不依赖 apiProxy 对象�
   assert.equal(report.every((row) => row.available), true);
 });
 
+test('RPC adapter maps the DSH current-directory projection while preserving original cwd', async () => {
+  const fake = createFakeHost();
+  const rpc = async (method, request) => {
+    const result = await fake.rpc(method, request);
+    if (method === 'session.list') result.items[0].projections.values.workingDirectory = '/work/shop/.worktrees/rpc';
+    return result;
+  };
+  const row = (await createBridgeHostFromRpc(rpc).sessions.list()).items[0];
+  assert.equal(row.cwd, '/work/shop');
+  assert.equal(row.currentCwd, '/work/shop/.worktrees/rpc');
+});
+
+test('RPC adapter preserves absence on old hosts and marks malformed present data rather than dropping it', async () => {
+  const fake = createFakeHost();
+  const old = (await createBridgeHostFromRpc(fake.rpc).sessions.list()).items[0];
+  assert.equal(Object.hasOwn(old, 'currentCwd'), false);
+  const rpc = async (method, request) => {
+    const result = await fake.rpc(method, request);
+    if (method === 'session.list') result.items[0].projections.values.workingDirectory = {};
+    return result;
+  };
+  const bad = (await createBridgeHostFromRpc(rpc).sessions.list()).items[0];
+  assert.equal(Object.hasOwn(bad, 'currentCwd'), true);
+});
+
 test('BridgeHost：不完整的第三方 adapter 被 doctor 报告，而不是让探测器崩溃', () => {
   const partial = { descriptor: { id: 'partial-adapter' }, sessions: {} };
   const report = probeBridgeHost(partial);

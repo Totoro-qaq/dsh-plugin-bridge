@@ -1,11 +1,3 @@
-/**
- * 迁移编排：取材 → 压缩工人 → 目标会话。
- *
- * 只依赖注入进来的 `BridgeHost`，不碰 process / argv / 文件系统，所以可以对着
- * 任意宿主 adapter（见 test/migrate.test.mjs）跑完整条链路而不烧任何 token。
- * CLI（`cli.ts`）与客户端 GUI 都消费这里的函数，保证「被验证的」和
- * 「被交付的」是同一条代码路径。
- */
 import { type BridgeSource } from './compression.ts';
 import { type BridgeHostInput, type ModelSelection, type PresetRow, type SessionRow } from './host.ts';
 import type { ChatMessage } from './types.ts';
@@ -48,7 +40,7 @@ export declare function resolveWorkerModel(input: BridgeHostInput, sessionId: st
 export declare function resolveWorkerPreset(input: BridgeHostInput): Promise<string | undefined>;
 export interface WaitOptions {
     timeoutMs?: number;
-    /** 等待新 `turn/start` 的宽限期；超过仍未出现就按未启动处理。 */
+    /** 等待新一轮执行事件的宽限期；超过仍未出现就按未启动处理。 */
     startGraceMs?: number;
     pollMs?: number;
     /** 只观察这个事件序号之后的新一轮；worker 新建后通常为 0。 */
@@ -100,7 +92,7 @@ export interface WorkerFailureDetails {
 }
 export interface PreviewOptions {
     sessionId: string;
-    /** 同一命令已经读取过的源会话行，避免重复扫描全局列表。 */
+    /** 同一命令读到的源会话快照；动态工作目录在创建前仍会重新读取。 */
     sourceSession?: SessionRow;
     tier?: ModelTier;
     provider?: string;
@@ -138,7 +130,7 @@ export interface MigrateOptions {
     /** Quoted user context supplements a plan without rewriting its approved body. */
     sourceContext?: string;
     sessionId: string;
-    /** 同一流程已经读取过的源会话行，避免重复扫描全局列表。 */
+    /** 同一流程的源会话快照；不能作为动态工作目录的最终落点依据。 */
     sourceSession?: SessionRow;
     to: string;
     summary: string;

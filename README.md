@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH tested 0.2.1-alpha.1](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.1-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
+[![DSH candidate tested 0.2.1-alpha.2](https://img.shields.io/badge/DSH_candidate_tested-0.2.1--alpha.2-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -133,6 +133,9 @@ Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptan
 | 0.1.7-rc.1 | Yes (Bridge 0.3.10) | Yes (Bridge 0.3.10) | Isolated official npm host: fresh-profile install; existing-session WebUI and doctor 13/13; one model-backed text/Markdown handoff to `ptc` with exact edited payload, auto-open, paused goal, no target tools and unchanged source; 640/800 px confirmation hit-tests. Uninstall/restart passed but a dangling CLI link remained. The host test skipped optional Office packages after registry errors; see [bounded acceptance](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md). |
 | 0.2.0-rc.2 | Yes (tested: Bridge 0.3.10; declared in 0.3.11) | Yes (same runtime) | Isolated official npm WebUI: doctor 13/13, real preview and text/Markdown edits, exact edited handoff, direct and waiting targets, auto-open, paused goals, image transfer/text fallback, live toggles and uninstall/restart. A dangling CLI link remains; optional components and native Desktop behavior are outside this run. See [bounded acceptance](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md). |
 | 0.2.1-alpha.1 | Yes (declared in Bridge 0.4.1) | Yes (unchanged 0.4.0 runtime) | Published Bridge 0.4.0 on an isolated official npm WebUI: doctor 13/13, rendered editing, exact 484-character edited handoff to PTC, auto-open, paused goal, and a real approved-plan click that starts a new standard session and writes/read-verifies an exact 18-byte fixture. Live disable/enable preserves other styles; uninstall/restart removes package and command but retains a dangling CLI link. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md). |
+| 0.2.1-alpha.2 | Unreleased candidate | Unreleased candidate | Official npm WebUI: fresh current-directory placement at preview/confirmation/plan approval, real worker startup, text/Markdown round-trip, exact 2,009-character edited handoff to PTC, auto-open, paused goal, and approved-plan write/read/byte verification in the switched directory. Co-installed Jot, live toggles, removal and restart checked. See [candidate acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md). |
+
+The alpha.2 changes are not in published npm Bridge 0.4.1. This compatibility candidate adds exact `0.2.1-alpha.2` to `engines.dsh` and fixes two runtime issues: stale working-directory placement and false worker-start detection after a history window trims `turn/start`. A new Bridge release is required; this is not a README-only compatibility update. rc.2 Desktop and alpha.1 backward smoke checks are recorded separately from alpha.2 Web acceptance.
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -186,6 +189,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [DSH 0.1.7-rc.1 compatibility acceptance](docs/compatibility/dsh-0.1.7-rc.1-2026-09-24.md)
 - [DSH 0.2.0-rc.2 compatibility acceptance](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
 - [DSH 0.2.1-alpha.1 compatibility acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
+- [DSH 0.2.1-alpha.2 candidate acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development
@@ -195,7 +199,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 211 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs 280 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

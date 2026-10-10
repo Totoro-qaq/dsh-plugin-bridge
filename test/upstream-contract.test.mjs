@@ -10,6 +10,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
@@ -34,6 +35,16 @@ const REQUIRED_METHODS = [
   'goal.create',
   'goal.pause',
 ];
+
+test('DSH alpha.2 candidate support is exact and preserves legacy support plus the SDK baseline', async () => {
+  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
+  assert.deepEqual(pkg.engines.dsh.split('||').map(part => part.trim()), [
+    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2',
+  ]);
+  assert.equal(lock.packages[''].engines.dsh, pkg.engines.dsh);
+  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.1.6-alpha.2');
+});
 
 const CONFIG = {
   modelTier: 'pro',

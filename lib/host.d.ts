@@ -18,6 +18,10 @@ export interface SessionRow {
     running?: boolean;
     blank?: boolean;
     cwd?: string;
+    /** Current working directory, separate from the original cwd. Null means
+     * unchanged; absent is the legacy contract. Malformed-present adapter data
+     * must remain present (undefined) so placement refuses a silent fallback. */
+    currentCwd?: string | null;
     agentPreset?: string;
     parentSessionId?: string;
     projections?: {

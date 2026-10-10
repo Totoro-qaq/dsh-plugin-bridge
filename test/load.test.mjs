@@ -169,8 +169,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   }
   assert.equal(
     manifest.engines.dsh,
-    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1',
-    'engines.dsh 保留原范围，只追加本次验收的 0.2.1-alpha.1，不提前声明其他 0.2 版本',
+    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2',
+    'engines.dsh 保留原范围，只追加本次候选的 0.2.1-alpha.2，不提前声明其他 0.2 版本',
   );
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);

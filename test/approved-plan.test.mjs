@@ -20,8 +20,10 @@ function setup(options = {},deps = {}) {
   assert.equal(typeof plugin.createPlanApprovalBridge,'function','the approved-plan workflow is not implemented');
   const raw = createFakeHost(options);
   const fake = {...raw,...raw.state};
-  const host = createBridgeHostFromRpc(createApiProxyRpc(fake.apiProxy));
-  const service = plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG,...deps});
+  const base = createBridgeHostFromRpc(createApiProxyRpc(fake.apiProxy));
+  const { hostTransform, ...serviceDeps } = deps;
+  const host = hostTransform ? hostTransform(base, fake) : base;
+  const service = plugin.createPlanApprovalBridge({hostFor:()=>host,config:CONFIG,...serviceDeps});
   const command = createBridgeCommand({hostFor:()=>host,config:CONFIG,planApprovals:service});
   const review = deferred();
   const request = {agent:{session:{id:fake.sourceSessionId}},questions:[{
@@ -152,6 +154,79 @@ test('a create failure can retry the already-approved plan without cancelling ne
     assert.equal(s.fake.calls.filter(c=>c.method==='session.prompt').length,1);
     assert.equal(s.fake.goals[0].objective,PLAN);
   } finally {s.finish();}
+});
+
+function planDirectoryHost(state) {
+  return (base, fake) => ({ ...base, sessions: { ...base.sessions,
+    list: async request => {
+      const result = await base.sessions.list(request);
+      return { ...result, items: result.items.map(row => row.sessionId === fake.sourceSessionId
+        ? { ...row, currentCwd: state.currentCwd } : row) };
+    },
+    cancel: async request => {
+      const result = await base.sessions.cancel(request);
+      if (state.afterCancel !== undefined) state.currentCwd = state.afterCancel;
+      return result;
+    },
+  } });
+}
+
+test('approved-plan execution reads the switched directory after stopping the planning turn', async () => {
+  const state = { currentCwd: '/work/shop/.worktrees/review', afterCancel: '/work/shop/.worktrees/execution' };
+  const s = setup({}, { hostTransform: planDirectoryHost(state) });
+  try {
+    const result = await s.invoke(`--approve-plan64 ${payload()}`);
+    assert.equal(result.kind, 'success', result.text);
+    assert.deepEqual(s.fake.calls.find(call => call.method === 'session.create').payload, {
+      cwd: '/work/shop/.worktrees/execution', agentPreset: 'minimal',
+    });
+    assert.equal(s.fake.goals[0].objective, PLAN);
+    assert.equal(s.fake.pausedGoals.length, 1);
+    assert.ok(s.fake.calls.find(call => call.method === 'session.prompt').payload.content[0].text.includes(PLAN));
+    assert.equal(s.fake.calls.filter(call => call.method === 'session.cancel').length, 1);
+  } finally { s.finish(); }
+});
+
+test('approved-plan create retry uses the new directory without repeating source cancellation', async () => {
+  const state = { currentCwd: '/work/shop/.worktrees/first' };
+  const s = setup({ failTargetCreateOnce: 'minimal' }, { hostTransform: planDirectoryHost(state) });
+  try {
+    const first = await s.invoke(`--approve-plan64 ${payload()}`);
+    assert.equal(first.kind, 'error');
+    const token = /--approved-plan\s+([a-zA-Z0-9-]+)/.exec(first.text)?.[1];
+    assert.ok(token, first.text);
+    state.currentCwd = '/work/shop/.worktrees/retry';
+    const retry = await s.invoke(`--approved-plan ${token}`);
+    assert.equal(retry.kind, 'success', retry.text);
+    assert.deepEqual(s.fake.calls.filter(call => call.method === 'session.create').map(call => call.payload), [
+      { cwd: '/work/shop/.worktrees/first', agentPreset: 'minimal' },
+      { cwd: '/work/shop/.worktrees/retry', agentPreset: 'minimal' },
+    ]);
+    assert.equal(s.fake.calls.filter(call => call.method === 'session.cancel').length, 1);
+    assert.equal(s.fake.goals[0].objective, PLAN);
+  } finally { s.finish(); }
+});
+
+test('approved-plan malformed current directory never creates or starts an execution target', async () => {
+  const s = setup({}, { hostTransform: planDirectoryHost({ currentCwd: 'relative/worktree' }) });
+  try {
+    const result = await s.invoke(`--approve-plan64 ${payload()}`);
+    assert.equal(result.kind, 'error');
+    assert.match(result.text, /invalid-current-cwd/);
+    assert.equal(s.fake.calls.filter(call => call.method === 'session.create' || call.method === 'session.prompt').length, 0);
+    assert.equal(s.fake.goals.length, 0);
+  } finally { s.finish(); }
+});
+
+test('approved-plan unchanged directory still creates in the original workspace', async () => {
+  const s = setup({}, { hostTransform: planDirectoryHost({ currentCwd: null }) });
+  try {
+    const result = await s.invoke(`--approve-plan64 ${payload()}`);
+    assert.equal(result.kind, 'success', result.text);
+    assert.deepEqual(s.fake.calls.find(call => call.method === 'session.create').payload, {
+      workspaceId: 'ws-1', agentPreset: 'minimal',
+    });
+  } finally { s.finish(); }
 });
 
 test('source cancellation failure admits no execution session',async()=>{

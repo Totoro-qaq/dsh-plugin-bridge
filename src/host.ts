@@ -6,6 +6,7 @@
  * 再进入 migrate.ts。
  */
 import { RpcError, type Rpc } from './rpc.ts';
+import { withDshCurrentCwd } from './dsh-session-row.ts';
 import type { ImageAttachmentRef, SessionEvent } from './types.ts';
 
 export interface BridgeHostDescriptor {
@@ -20,6 +21,10 @@ export interface SessionRow {
   running?: boolean;
   blank?: boolean;
   cwd?: string;
+  /** Current working directory, separate from the original cwd. Null means
+   * unchanged; absent is the legacy contract. Malformed-present adapter data
+   * must remain present (undefined) so placement refuses a silent fallback. */
+  currentCwd?: string | null;
   agentPreset?: string;
   parentSessionId?: string;
   projections?: { values?: Record<string, unknown> };
@@ -166,7 +171,10 @@ export function createBridgeHostFromRpc(
   const host: BridgeHost = {
     descriptor: Object.freeze({ ...descriptor }),
     sessions: Object.freeze({
-      list: (input = {}) => rpc<{ items?: SessionRow[]; nextCursor?: string }>('session.list', input),
+      list: async (input = {}) => {
+        const result = await rpc<{ items?: SessionRow[]; nextCursor?: string }>('session.list', input);
+        return { ...result, ...(result.items ? { items: result.items.map(withDshCurrentCwd) } : {}) };
+      },
       create: input => rpc<{ sessionId: string; agentPreset?: string }>('session.create', input),
       history: (input, options) => rpc<{ events?: { event: SessionEvent }[]; hasMore?: boolean }>(
         'session.history', input, options?.timeoutMs,

@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc } from '../src/api-rpc.ts';
+import { createBridgeHostFromRpc } from '../src/host.ts';
 import { RpcError } from '../src/rpc.ts';
 import {
   executeMigration,
@@ -23,6 +24,25 @@ import {
 } from '../src/migrate.ts';
 
 const fast = { pollMs: 1, workerTimeoutMs: 3_000 };
+
+/** Semantic dynamic-directory host; projections are deliberately absent here. */
+function currentDirectoryHost(fake, currentCwd = '/work/shop/.worktrees/current') {
+  const base = createBridgeHostFromRpc(fake.rpc);
+  const state = { currentCwd, unavailable: false, missing: false, absent: false };
+  const host = { ...base, sessions: { ...base.sessions, list: async (request) => {
+    if (state.unavailable) throw new Error('fresh source lookup failed');
+    const result = await base.sessions.list(request);
+    return { ...result, items: result.items.flatMap(row => {
+      if (row.sessionId !== fake.sourceSessionId) return [row];
+      if (state.missing) return [];
+      return [{ ...row, ...(state.absent ? {} : { currentCwd: state.currentCwd }) }];
+    }) };
+  } } };
+  return { host, state };
+}
+
+const targetOptions = fake => ({ sessionId: fake.sourceSessionId, to: 'code', summary: '## 目标\nX', lang: 'zh' });
+const createsOf = fake => fake.state.calls.filter(call => call.method === 'session.create');
 
 test('preview：取材 → 起工人 → 收摘要 → 归档工人', async () => {
   const host = createFakeHost();
@@ -181,6 +201,106 @@ test('migrate：目标会话建在目标 preset 上，且落在同一工作区',
   assert.equal(result.agentPreset, 'code');
   const create = host.state.calls.filter((c) => c.method === 'session.create').at(-1);
   assert.equal(create.payload.workspaceId, 'ws-1');
+});
+
+test('migrate: a changed current directory overrides the original workspace, never sending both', async () => {
+  const fake = createFakeHost();
+  const { host } = currentDirectoryHost(fake);
+  await executeMigration(host, targetOptions(fake));
+  assert.deepEqual(createsOf(fake).at(-1).payload, { cwd: '/work/shop/.worktrees/current', agentPreset: 'code' });
+});
+
+for (const currentCwd of [null, '/work/shop']) {
+  test(`migrate: unchanged current directory ${String(currentCwd)} preserves the original workspace`, async () => {
+    const fake = createFakeHost();
+    const { host } = currentDirectoryHost(fake, currentCwd);
+    await executeMigration(host, targetOptions(fake));
+    assert.deepEqual(createsOf(fake).at(-1).payload, { workspaceId: 'ws-1', agentPreset: 'code' });
+  });
+}
+
+test('migrate: confirmation reads the current directory again instead of trusting preview.sourceSession', async () => {
+  const fake = createFakeHost();
+  const { host, state } = currentDirectoryHost(fake, '/work/shop/.worktrees/preview');
+  const preview = await previewMigration(host, { sessionId: fake.sourceSessionId, ...fast });
+  state.currentCwd = '/work/shop/.worktrees/confirmation';
+  await executeMigration(host, { ...targetOptions(fake), sourceSession: preview.sourceSession, summary: preview.summary });
+  assert.deepEqual(createsOf(fake).at(-1).payload, { cwd: state.currentCwd, agentPreset: 'code' });
+});
+
+test('migrate: the fresh directory read happens after asynchronous model selection reads', async () => {
+  const fake = createFakeHost();
+  const adapted = currentDirectoryHost(fake, '/work/shop/.worktrees/old');
+  const stale = (await adapted.host.sessions.list()).items[0];
+  const host = { ...adapted.host, sessions: { ...adapted.host.sessions, models: async request => {
+    adapted.state.currentCwd = '/work/shop/.worktrees/switched-during-model-read';
+    return adapted.host.sessions.models(request);
+  } } };
+  await executeMigration(host, { ...targetOptions(fake), sourceSession: stale });
+  assert.deepEqual(createsOf(fake).at(-1).payload, { cwd: adapted.state.currentCwd, agentPreset: 'code' });
+});
+
+test('preview: its one-shot worker also uses the current directory without original workspace attachment', async () => {
+  const fake = createFakeHost();
+  const { host } = currentDirectoryHost(fake);
+  await previewMigration(host, { sessionId: fake.sourceSessionId, ...fast });
+  assert.deepEqual(createsOf(fake)[0].payload, { cwd: '/work/shop/.worktrees/current', agentPreset: 'minimal' });
+});
+
+test('migrate: a retry after target-create failure re-reads the switched current directory', async () => {
+  const fake = createFakeHost({ failTargetCreateOnce: 'code' });
+  const { host, state } = currentDirectoryHost(fake, '/work/shop/.worktrees/first');
+  const stale = (await host.sessions.list()).items[0];
+  await assert.rejects(executeMigration(host, { ...targetOptions(fake), sourceSession: stale }), /临时无法创建/);
+  state.currentCwd = '/work/shop/.worktrees/retry';
+  await executeMigration(host, { ...targetOptions(fake), sourceSession: stale });
+  assert.deepEqual(createsOf(fake).map(call => call.payload), [
+    { cwd: '/work/shop/.worktrees/first', agentPreset: 'code' },
+    { cwd: '/work/shop/.worktrees/retry', agentPreset: 'code' },
+  ]);
+});
+
+for (const invalid of [undefined, 42, {}, [], '', '  ', 'relative/worktree', '/work/\0invalid']) {
+  test(`migrate: invalid present current directory ${JSON.stringify(invalid)} admits no target`, async () => {
+    const fake = createFakeHost();
+    // Passing undefined to a default argument uses its default; set the semantic field explicitly.
+    const adapted = currentDirectoryHost(fake);
+    adapted.state.currentCwd = invalid;
+    await assert.rejects(executeMigration(adapted.host, targetOptions(fake)), error => (
+      error instanceof RpcError && error.code === 'invalid-current-cwd'
+    ));
+    assert.equal(createsOf(fake).length, 0);
+    assert.equal(fake.state.goals.length, 0);
+    assert.equal(fake.state.calls.some(call => call.method === 'session.prompt'), false);
+  });
+}
+
+for (const condition of ['unavailable', 'missing', 'absent']) {
+  test(`migrate: a ${condition} fresh directory read cannot fall back to cached placement`, async () => {
+    const fake = createFakeHost();
+    const { host, state } = currentDirectoryHost(fake);
+    const stale = (await host.sessions.list()).items[0];
+    state[condition] = true;
+    await assert.rejects(executeMigration(host, { ...targetOptions(fake), sourceSession: stale }));
+    assert.equal(createsOf(fake).length, 0);
+  });
+}
+
+test('migrate: a valid absolute current directory is forwarded byte-for-byte, not normalized', async () => {
+  const fake = createFakeHost();
+  const path = '/work/./project/../target with spaces ';
+  const { host } = currentDirectoryHost(fake, path);
+  await executeMigration(host, targetOptions(fake));
+  assert.equal(createsOf(fake).at(-1).payload.cwd, path);
+});
+
+test('preview + execute: dynamic-directory freshness adds bounded reads, never worker polling', async () => {
+  const fake = createFakeHost({ replyAfterPolls: 30 });
+  const { host } = currentDirectoryHost(fake);
+  const preview = await previewMigration(host, { sessionId: fake.sourceSessionId, ...fast });
+  await executeMigration(host, { ...targetOptions(fake), sourceSession: preview.sourceSession, summary: preview.summary });
+  assert.equal(fake.state.calls.filter(call => call.method === 'session.list').length, 3,
+    'one preview source read plus one fresh read before each worker/target create, independent of polls');
 });
 
 test('migrate：preview worker 改过 host 默认模型也不会污染目标模型', async () => {
