@@ -7,7 +7,7 @@ Bridge 0.4.0 adds an optional action to the official DSH plan-review card. It se
 1. In a normal DSH conversation, enter `/plan` with the task you want planned.
 2. Wait for the model to submit the complete plan through `exit_plan_mode`. Review the original Markdown in the host's sidebar.
 3. Click **批准并在新会话执行 / Approve in new session**. The accessible name is **批准计划并在新会话执行 / Approve plan and execute in a new session**.
-4. Bridge stops the original planning turn, creates an independent session in the current preset and workspace, copies the selected provider/model/reasoning effort when available, transfers the approved plan verbatim, starts implementation, and opens that session automatically.
+4. Bridge stops the original planning turn, creates an independent session in the current preset and effective working directory, copies the selected provider/model/reasoning effort when available, transfers the approved plan verbatim, starts implementation, and opens that session automatically. On current-directory hosts such as DSH 0.2.1-alpha.2, the directory is read again immediately before creation. An unchanged directory retains the original workspace placement; a switched directory is passed as `cwd` alone because DSH rejects `workspaceId` and `cwd` together. Workspace grouping remains the host's responsibility.
 
 The original conversation retains its planning history and remains in plan mode. Its stopped `exit_plan_mode` invocation is not an in-place approval: the durable Bridge command outcome links to the separate execution session. The host's existing **同意执行 / Approve** control still executes in the original conversation; **要求修改 / Request changes** still belongs to the host.
 

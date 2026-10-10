@@ -17,6 +17,7 @@ import {
   type SessionRow,
 } from './host.ts'
 import { RpcError } from './rpc.ts'
+import { withDshCurrentCwd } from './dsh-session-row.ts'
 import type { SessionEvent } from './types.ts'
 
 type UnknownRecord = Record<string, unknown>
@@ -146,7 +147,7 @@ function sessionRow(row: unknown): SessionRow {
   const preset = typeof values.agentPreset === 'string'
     ? values.agentPreset
     : typeof source.agentPreset === 'string' ? source.agentPreset : undefined
-  return {
+  return withDshCurrentCwd({
     sessionId: String(source.sessionId ?? ''),
     ...(typeof source.running === 'boolean' ? { running: source.running } : {}),
     ...(typeof source.blank === 'boolean' ? { blank: source.blank } : {}),
@@ -154,7 +155,7 @@ function sessionRow(row: unknown): SessionRow {
     ...(preset === undefined ? {} : { agentPreset: preset }),
     ...(typeof source.parentSessionId === 'string' ? { parentSessionId: source.parentSessionId } : {}),
     ...Object.keys(values).length === 0 ? {} : { projections: { values } },
-  }
+  })
 }
 
 function currentModel(row: unknown): Partial<ModelSelection> | undefined {

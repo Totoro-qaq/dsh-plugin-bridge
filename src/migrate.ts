@@ -6,6 +6,7 @@
  * CLI（`cli.ts`）与客户端 GUI 都消费这里的函数，保证「被验证的」和
  * 「被交付的」是同一条代码路径。
  */
+import { isAbsolute } from 'node:path';
 import {
   buildBridgeInstruction,
   buildBridgeKickoff,
@@ -95,9 +96,30 @@ export function resolvePresetTarget(requested: string, presets: readonly PresetR
   return requested;
 }
 
-/** 新会话的落点：优先同工作区，否则同 cwd，再否则交给 host 默认。 */
+/** Current-directory hosts need a fresh placement read, not a preview's snapshot.
+ * Only legacy hosts retain the cached source optimization. These bounded reads
+ * are once per create, never part of worker polling. */
 async function placement(host: BridgeHost, source: SessionRow | undefined, sessionId: string): Promise<Record<string, string>> {
   const workspaceId = await findWorkspaceId(host, sessionId).catch(() => undefined);
+  if (source && Object.hasOwn(source, 'currentCwd')) {
+    let current: SessionRow | undefined;
+    try {
+      current = await findSession(host, sessionId);
+    } catch {
+      throw new RpcError('bridge.placement', 'current-cwd-unavailable', '无法读取最新工作目录，拒绝使用过期目录创建迁移会话。');
+    }
+    if (!current || !Object.hasOwn(current, 'currentCwd')) {
+      throw new RpcError('bridge.placement', 'current-cwd-unavailable', '最新会话记录没有当前工作目录，拒绝退回原项目创建迁移会话。');
+    }
+    const cwd = current.currentCwd;
+    if (cwd !== null && (typeof cwd !== 'string' || !cwd.trim() || cwd.includes('\0') || !isAbsolute(cwd))) {
+      throw new RpcError('bridge.placement', 'invalid-current-cwd', '当前工作目录必须是有效绝对路径，拒绝在其他目录创建迁移会话。');
+    }
+    // DSH rejects workspaceId + cwd together. A changed directory therefore
+    // creates by cwd alone; null or the original path retains workspace identity.
+    if (cwd !== null && cwd !== current.cwd) return { cwd };
+    source = current;
+  }
   if (workspaceId) return { workspaceId };
   if (source?.cwd) return { cwd: source.cwd };
   return {};
@@ -149,10 +171,16 @@ export async function resolveWorkerPreset(input: BridgeHostInput): Promise<strin
 
 const DEFAULT_WAIT_TIMEOUT_MS = 360_000;
 const DEFAULT_START_GRACE_MS = 25_000;
+/** A message-aligned tail may omit turn/start after injected context messages.
+ * These durable execution events also prove that this turn has begun. Queued
+ * user text and request/header configuration changes alone do not. */
+const TURN_PROGRESS_TYPES = new Set([
+  'turn/start', 'step/start', 'request/context', 'assistant/message', 'assistant/chunk',
+]);
 
 export interface WaitOptions {
   timeoutMs?: number;
-  /** 等待新 `turn/start` 的宽限期；超过仍未出现就按未启动处理。 */
+  /** 等待新一轮执行事件的宽限期；超过仍未出现就按未启动处理。 */
   startGraceMs?: number;
   pollMs?: number;
   /** 只观察这个事件序号之后的新一轮；worker 新建后通常为 0。 */
@@ -226,7 +254,7 @@ export async function waitIdle(
     await sleep(pollMs);
     const events = await tailSessionEvents(host, sessionId).catch(() => [] as SessionEvent[]);
     const fresh = events.filter((event) => typeof event.seq === 'number' && event.seq > afterSeq);
-    if (fresh.some((event) => event.type === 'turn/start')) started = true;
+    if (fresh.some((event) => typeof event.type === 'string' && TURN_PROGRESS_TYPES.has(event.type))) started = true;
     const ended = fresh.filter((event) => event.type === 'turn/end').at(-1);
     if (ended) {
       const end = turnEndOf(ended);
@@ -328,7 +356,7 @@ function workerFailure(settled: WaitResult, summary: string, bounds: { timeoutMs
 
 export interface PreviewOptions {
   sessionId: string;
-  /** 同一命令已经读取过的源会话行，避免重复扫描全局列表。 */
+  /** 同一命令读到的源会话快照；动态工作目录在创建前仍会重新读取。 */
   sourceSession?: SessionRow;
   tier?: ModelTier;
   provider?: string;
@@ -375,8 +403,8 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
   }
 
   const preset = await resolveWorkerPreset(host);
-  const where = await placement(host, sourceSession, options.sessionId);
   progress(`起压缩工人（${preset ?? '默认 preset'} / ${route.model || '会话默认模型'}）…`);
+  const where = await placement(host, sourceSession, options.sessionId);
   const worker = await host.sessions.create({
     ...where,
     ...(preset === undefined ? {} : { agentPreset: preset }),
@@ -444,7 +472,7 @@ export interface MigrateOptions {
   /** Quoted user context supplements a plan without rewriting its approved body. */
   sourceContext?: string;
   sessionId: string;
-  /** 同一流程已经读取过的源会话行，避免重复扫描全局列表。 */
+  /** 同一流程的源会话快照；不能作为动态工作目录的最终落点依据。 */
   sourceSession?: SessionRow;
   to: string;
   summary: string;
@@ -560,7 +588,6 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
   if (!summary.trim()) throw new RpcError('bridge.migrate', 'empty-summary', '摘要为空，拒绝迁移。');
 
   const sourceSession = options.sourceSession ?? await findSession(host, options.sessionId);
-  const where = await placement(host, sourceSession, options.sessionId);
   let sourceModel: ModelSelection | undefined;
   try {
     const models = await host.sessions.models({ sessionId: options.sessionId });
@@ -580,6 +607,7 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
   }
 
   progress(`在 ${options.to} 模式下新建会话…`);
+  const where = await placement(host, sourceSession, options.sessionId);
   const created = await host.sessions.create({
     ...where,
     agentPreset: options.to,
