@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Previewable cross-preset session migration for DeepSeek Harness with bounded, fixed-schema handoffs",
   "type": "module",
   "main": "lib/index.js",
@@ -91,7 +91,7 @@
       "ui:extend"
     ],
     "compatibility": {
-      "dshVersions": ["0.2.0-rc.2", "0.2.1-alpha.1"]
+      "dshVersions": ["0.2.0-rc.2", "0.2.1-alpha.1", "0.2.1-alpha.2"]
     },
     "capability": {
       "id": "bridge",
@@ -100,10 +100,10 @@
       "expected": "A native Bridge result card reports the selected adapter and 13/13 available host methods. This diagnostic alone does not prove a model-backed migration."
     },
     "evidence": {
-      "install": "docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md",
+      "install": "docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md",
       "failureIsolation": null,
       "hotReload": null,
-      "remove": "docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md"
+      "remove": "docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md"
     }
   },
   "engines": {

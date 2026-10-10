@@ -1,10 +1,13 @@
-# DSH 0.2.1-alpha.2 candidate acceptance
+# Bridge 0.4.2 — DSH 0.2.1-alpha.2 acceptance
 
 Date: 2026-10-10, Asia/Shanghai. Tested official npm
 `@deepseek-ai/dsh@0.2.1-alpha.2` on macOS ARM64 with Node 22.23.1.
-This is an **uncommitted, unpublished working-tree candidate**, based on Bridge
-`500ea6b` and still carrying package version `0.4.1`. It is not the published
-npm 0.4.1 package. No commit, push, PR, tag or publication is covered here.
+The tested working-tree candidate was based on Bridge `500ea6b` and carried
+package version `0.4.1`; it was not the published npm 0.4.1 package. The
+adaptation merged through PR #77. Release preparation names the same verified
+runtime **0.4.2**, updates package/docs and the bounded Workshop host declaration,
+and leaves the executable hashes below unchanged. CI, tag, publication and
+fresh registry-install proof are separate release gates.
 
 ## Why code changes were needed
 
