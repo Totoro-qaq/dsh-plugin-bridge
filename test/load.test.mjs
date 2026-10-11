@@ -163,9 +163,12 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
     );
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.1.6-alpha.2',
-      `${packageName} 的本地构建应锁定当前官方 0.1.6-alpha.2`,
+      '0.2.1-alpha.2',
+      `${packageName} 的本地构建应使用当前官方 0.2.1-alpha.2 SDK`,
     );
+    const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
+    assert.equal(installed.version, manifest.devDependencies[packageName],
+      `${packageName} 的实际类型版本必须与开发依赖一致`);
   }
   assert.equal(
     manifest.engines.dsh,
@@ -187,9 +190,12 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   ]) {
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.1.6-alpha.2',
-      `${packageName} 必须提供 0.1.6-alpha.2 的客户端类型契约`,
+      '0.2.1-alpha.2',
+      `${packageName} 必须提供 0.2.1-alpha.2 的客户端类型契约`,
     );
+    const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
+    assert.equal(installed.version, manifest.devDependencies[packageName],
+      `${packageName} 的实际类型版本必须与开发依赖一致`);
   }
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-chat'));
 

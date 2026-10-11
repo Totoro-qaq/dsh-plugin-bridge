@@ -2,6 +2,11 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.4.3 — 2026-10-11
+
+- Build and typecheck against the published DSH `0.2.1-alpha.2` SDK and its Cordis `4.0.5-alpha.1`, replacing the stale `0.1.6-alpha.2` development baseline. Keep the existing host support range and host-supplied SDK peers.
+- Check installed SDK versions as well as manifest pins. Exercise the built client against the official slot registry through owner collapse, remount and plugin unload. See [validation](docs/compatibility/sdk-baseline-2026-10-11.md).
+
 ## 0.4.2 — 2026-10-10
 
 - Support the tested DSH `0.2.1-alpha.2`, retaining older declarations and the existing SDK build baseline. The bounded Workshop host list includes alpha.2; no new required capability or direct runtime dependency is added.
