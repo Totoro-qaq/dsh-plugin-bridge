@@ -1,3 +1,4 @@
+import { type SummaryClaim } from './summary-file.ts';
 import { type InjectMode, type Lang, type ModelTier } from './migrate.ts';
 import { type BridgeHost, type BridgeHostProbe } from './host.ts';
 import { type Rpc } from './rpc.ts';
@@ -59,6 +60,11 @@ export interface BridgeCommandDeps {
     markDelivered?: (file: string, at: number) => void;
     /** 这份摘要在保留期内是不是已经交接过。缺省读上面的标记。 */
     wasDelivered?: (file: string) => boolean;
+    /**
+     * 迁移开始前独占摘要文件。缺省在临时目录里用 O_EXCL 占位，
+     * 另一个进程或另一条命令实例也能看见。
+     */
+    claimSummary?: (file: string, at: number) => SummaryClaim | 'delivered' | 'busy' | 'unavailable';
     /** 没有原生卡片的客户端靠它看到阶段进度。失败不能影响迁移。 */
     onProgress?: (message: string) => void;
     /** 长预览的进度间隔（毫秒）。默认 15 秒；测试可调小。0 表示不发心跳。 */

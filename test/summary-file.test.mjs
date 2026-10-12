@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
-import { noteSummaryIdle, noteSummaryInUse, removeOwnedSummaryFile, sameSummaryPath, SUMMARY_FILE_MAX_AGE_MS, sweepAgedSummaryFiles, writeSummaryFile } from '../src/summary-file.ts';
+import { claimSummaryFile, markSummaryDelivered, noteSummaryIdle, noteSummaryInUse, removeOwnedSummaryFile, sameSummaryPath, SUMMARY_CLAIM_STALE_MS, SUMMARY_FILE_MAX_AGE_MS, summaryAlreadyDelivered, sweepAgedSummaryFiles, writeSummaryFile } from '../src/summary-file.ts';
 
 const skipWithoutSymlink = process.platform === 'win32';
 
@@ -258,6 +259,151 @@ test('Windows 上不同分隔符指向同一份摘要', { skip: process.platform
   } finally {
     removeOwnedSummaryFile(file);
   }
+});
+
+function runIsolated(name, args = []) {
+  const script = fileURLToPath(new URL(`./${name}`, import.meta.url));
+  return spawnSync(process.execPath, ['--experimental-strip-types', ...args, script], { encoding: 'utf8' });
+}
+
+test('登记时 lstat 失败，已经写好的摘要仍然算保存成功', () => {
+  const result = runIsolated('remember-lstat.mjs', ['--experimental-test-module-mocks']);
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test('同一份摘要的磁盘认领是独占的，放开之后才能再领', () => {
+  const file = writeSummaryFile('claim', 'claim');
+  const first = claimSummaryFile(file);
+  try {
+    assert.equal(typeof first, 'object');
+    assert.equal(claimSummaryFile(file), 'busy');
+    first.release();
+    const second = claimSummaryFile(file);
+    assert.equal(typeof second, 'object');
+    second.release();
+    assert.equal(summaryAlreadyDelivered(file), false);
+  } finally {
+    if (typeof first !== 'string') first.release();
+    removeOwnedSummaryFile(file);
+  }
+});
+
+test('送达把占位改成已交付标记，保留标记会挡住别的进程但不是已交付', () => {
+  const delivered = writeSummaryFile('done', 'done');
+  const held = writeSummaryFile('held', 'held');
+  try {
+    const done = claimSummaryFile(delivered);
+    assert.equal(typeof done, 'object');
+    done.complete();
+    assert.equal(summaryAlreadyDelivered(delivered), true);
+    assert.equal(claimSummaryFile(delivered), 'delivered');
+    const seal = claimSummaryFile(held);
+    assert.equal(typeof seal, 'object');
+    seal.seal();
+    assert.equal(summaryAlreadyDelivered(held), false);
+    assert.equal(claimSummaryFile(held), 'delivered');
+  } finally {
+    removeOwnedSummaryFile(delivered);
+    removeOwnedSummaryFile(held);
+  }
+});
+
+test('过期的占位可以被另一个认领接手', () => {
+  const file = writeSummaryFile('stale', 'stale');
+  const stale = claimSummaryFile(file, Date.now() - SUMMARY_CLAIM_STALE_MS - 1_000);
+  try {
+    assert.equal(typeof stale, 'object');
+    const next = claimSummaryFile(file);
+    assert.equal(typeof next, 'object');
+    stale.release();
+    next.release();
+    const again = claimSummaryFile(file);
+    assert.equal(typeof again, 'object');
+    again.release();
+  } finally {
+    if (typeof stale !== 'string') stale.release();
+    removeOwnedSummaryFile(file);
+  }
+});
+
+test('符号链接占位不会被当成可接手的锁', { skip: skipWithoutSymlink }, () => {
+  const file = writeSummaryFile('link', 'link');
+  const marker = join(realpathSync(tmpdir()), 'dsh-bridge-delivered', createHash('sha256').update(resolve(file)).digest('hex'));
+  const target = writeSummaryFile('link-target', 'keep');
+  try {
+    mkdirSync(dirname(marker), { recursive: true });
+    if (existsSync(marker)) unlinkSync(marker);
+    symlinkSync(target, marker);
+    assert.equal(claimSummaryFile(file), 'busy');
+    assert.equal(readFileSync(target, 'utf8'), 'keep');
+  } finally {
+    if (existsSync(marker)) unlinkSync(marker);
+    removeOwnedSummaryFile(file);
+    removeOwnedSummaryFile(target);
+  }
+});
+
+test('锁目录不是真实目录时，认领失败关闭', () => {
+  const result = runIsolated('isolated-unavailable.mjs');
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test('未过期的交接占位和已保留标记不会被 7 天清扫删掉，已送达的超龄文件仍会删', () => {
+  const claimed = writeSummaryFile('claimed', 'claimed');
+  const sealed = writeSummaryFile('sealed', 'sealed');
+  const done = writeSummaryFile('delivered', 'delivered');
+  const past = new Date(Date.now() - 10_000);
+  utimesSync(claimed, past, past);
+  utimesSync(sealed, past, past);
+  utimesSync(done, past, past);
+  const claim = claimSummaryFile(claimed);
+  const seal = claimSummaryFile(sealed);
+  const finished = claimSummaryFile(done);
+  try {
+    assert.equal(typeof claim, 'object');
+    assert.equal(typeof seal, 'object');
+    assert.equal(typeof finished, 'object');
+    seal.seal();
+    finished.complete();
+    sweepAgedSummaryFiles(1_000);
+    assert.equal(readFileSync(claimed, 'utf8'), 'claimed');
+    assert.equal(readFileSync(sealed, 'utf8'), 'sealed');
+    assert.equal(existsSync(done), false);
+    claim.release();
+    sweepAgedSummaryFiles(1_000);
+    assert.equal(existsSync(claimed), false);
+  } finally {
+    if (typeof claim === 'object') claim.release();
+    if (existsSync(sealed)) removeOwnedSummaryFile(sealed);
+    rmSync(dirname(claimed), { recursive: true, force: true });
+    rmSync(dirname(done), { recursive: true, force: true });
+  }
+});
+
+test('清扫别的文件时不会删掉还新鲜的交接占位', () => {
+  const file = writeSummaryFile('prune', 'prune');
+  const other = join(dirname(file), 'summary-other.md');
+  writeFileSync(other, 'other');
+  const claim = claimSummaryFile(file);
+  try {
+    assert.equal(typeof claim, 'object');
+    markSummaryDelivered(other);
+    assert.equal(claimSummaryFile(file), 'busy');
+  } finally {
+    if (typeof claim === 'object') claim.release();
+    removeOwnedSummaryFile(file);
+    rmSync(dirname(file), { recursive: true, force: true });
+  }
+});
+
+test('别的进程的清扫不会删掉这份进程正在读的摘要', () => {
+  const result = runIsolated('isolated-lease.mjs');
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+test('另一个进程领不到已经被占住的摘要', () => {
+  const result = runIsolated('isolated-claim.mjs');
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
 });
 
 test('用户另存的普通文件即使放在临时目录里也不会被删', () => {

@@ -5,8 +5,8 @@
  * 当场删除只认本进程登记过的那一份。跨进程的 7 天清扫只认旁边的所有权标记
  * （或本进程登记表）并且会跳过正在读取的文件。符号链接一律不动。清理失败不抛出。
  */
-import { createHash } from 'node:crypto'
-import { closeSync, constants, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, rmdirSync, unlinkSync, writeFileSync, writeSync, type Stats } from 'node:fs'
+import { createHash, randomBytes } from 'node:crypto'
+import { closeSync, constants, fstatSync, ftruncateSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, realpathSync, rmdirSync, unlinkSync, writeFileSync, writeSync, type Stats } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
@@ -18,14 +18,19 @@ const DELIVERED_DIR_NAME = 'dsh-bridge-delivered'
 export const SUMMARY_FILE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 /** 已送达标记的有效期，和待确认预览的保留时间一致。 */
 export const DELIVERED_MARKER_TTL_MS = 30 * 60 * 1000
+/** 迁移占位和读取租约超过这个时间，别的进程可以接手或清扫。 */
+export const SUMMARY_CLAIM_STALE_MS = 10 * 60 * 1000
+const LEASE_DIR_NAME = 'dsh-bridge-leases'
+const CREATE_EXCL = constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0)
 /**
  * 本进程创建过的摘要。路径对应创建时的设备号和 inode：
  * 写完后如果真实路径暂时取不到，规范化路径仍在，文件不会变成孤儿。
  * 父目录后来被换成符号链接时，inode 对不上，不能删到链接对面的文件。
  */
 const createdByPath = new Map<string, string>()
-/** 本进程正在读取的摘要。清扫不能删这些路径，哪怕它们已经超龄。 */
+/** 本进程正在读取的摘要。别的进程靠磁盘租约看到同一件事。 */
 const inUseCounts = new Map<string, number>()
+const leases = new Map<string, { token: string, count: number }>()
 const DIR_FLAGS = constants.O_RDONLY | constants.O_DIRECTORY | (constants.O_NOFOLLOW ?? 0)
 const WRITE_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | (constants.O_NOFOLLOW ?? 0)
 
@@ -39,7 +44,13 @@ function sameFilePath(left: string, right: string): boolean {
 }
 
 function rememberCreated(file: string): void {
-  const st = lstatSync(file)
+  let st: Stats
+  try {
+    st = lstatSync(file)
+  } catch {
+    // 正文已经写好。登记失败不能让调用方以为摘要没有保存。
+    return
+  }
   if (!st.isFile() || st.isSymbolicLink()) return
   const inode = inodeKey(st)
   createdByPath.set(resolve(file), inode)
@@ -226,27 +237,58 @@ export function sameSummaryPath(left: string, right: string): boolean {
   return summaryPathKey(left) === summaryPathKey(right)
 }
 
+function digestKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex')
+}
+
 /** 这次调用还拿着摘要。7 天清扫会跳过它，直到配平的 `noteSummaryIdle`。 */
 export function noteSummaryInUse(file: string): void {
   const key = summaryPathKey(file)
-  inUseCounts.set(key, (inUseCounts.get(key) ?? 0) + 1)
+  const next = (inUseCounts.get(key) ?? 0) + 1
+  inUseCounts.set(key, next)
+  const stamp = Date.now()
+  let lease = leases.get(key)
+  if (!lease) {
+    const token = randomBytes(8).toString('hex')
+    if (writeLeaseToken(key, token, stamp)) {
+      lease = { token, count: 0 }
+      leases.set(key, lease)
+    }
+  } else {
+    refreshLeaseToken(key, lease.token, stamp)
+  }
+  if (lease) lease.count += 1
 }
 
 /** 放开一次 `noteSummaryInUse`。传入当时占住的路径；文件后来被删掉也按同一把钥匙减。 */
 export function noteSummaryIdle(file: string): void {
-  const keys = new Set([file, summaryPathKey(file)])
+  const canonical = summaryPathKey(file)
+  const keys = new Set([file, canonical])
   if (process.platform === 'win32') keys.add(file.toLowerCase())
   for (const key of keys) {
     if (!inUseCounts.has(key)) continue
     const left = (inUseCounts.get(key) ?? 1) - 1
     if (left > 0) inUseCounts.set(key, left)
     else inUseCounts.delete(key)
+    const leaseKey = leases.has(key) ? key : (leases.has(canonical) ? canonical : undefined)
+    if (leaseKey) {
+      const lease = leases.get(leaseKey)
+      if (lease) {
+        lease.count -= 1
+        if (left <= 0 || lease.count <= 0) {
+          leases.delete(leaseKey)
+          dropLeaseToken(leaseKey, lease.token)
+        }
+      }
+    }
     return
   }
 }
 
-function summaryBusy(file: string): boolean {
-  return (inUseCounts.get(summaryPathKey(file)) ?? 0) > 0
+function summaryBusy(file: string, now: number): boolean {
+  if ((inUseCounts.get(summaryPathKey(file)) ?? 0) > 0) return true
+  if (freshLease(file, now)) return true
+  return freshClaimOrHeld(file, now)
 }
 
 /** 把摘要写进系统临时目录。失败时抛出原始错误，由调用方决定怎么告诉用户。 */
@@ -306,8 +348,9 @@ export function removeOwnedSummaryFile(file: string): void {
  * 清掉系统临时目录里、超过 maxAgeMs、并且是本工具写过的临时摘要。
  *
  * 只进入名字以 `dsh-bridge-` 开头的真实目录，只删除其中带所有权标记（或本进程登记）
- * 的普通 `summary-*.md`。用户自己放进去的同名文件留下。正在被读取的、以及
- * `preserveFile`，即使超龄也跳过。不跟随符号链接，不递归。只有这次清扫刚删过摘要、
+ * 的普通 `summary-*.md`。用户自己放进去的同名文件留下。本进程正在读取的、
+ * 磁盘上还有未过期租约或交接占位的、以及 `preserveFile`，即使超龄也跳过。
+ * 不跟随符号链接，不递归。只有这次清扫刚删过摘要、
  * 目录因此变空时才删目录。
  */
 export function sweepAgedSummaryFiles(maxAgeMs = SUMMARY_FILE_MAX_AGE_MS, now = Date.now(), preserveFile?: string): void {
@@ -335,7 +378,7 @@ export function sweepAgedSummaryFiles(maxAgeMs = SUMMARY_FILE_MAX_AGE_MS, now = 
       const file = join(resolvedDir, entry)
       try {
         if (preserveKey && summaryPathKey(file) === preserveKey) continue
-        if (summaryBusy(file)) continue
+        if (summaryBusy(file, now)) continue
         const fileStat = lstatSync(file)
         if (!fileStat.isFile() || fileStat.isSymbolicLink()) continue
         if (fileStat.mtimeMs > cutoff) continue
@@ -344,7 +387,7 @@ export function sweepAgedSummaryFiles(maxAgeMs = SUMMARY_FILE_MAX_AGE_MS, now = 
           if (inodeKey(st) !== inodeKey(fileStat)) return false
           if (!sameFilePath(dirname(realFile), resolvedDir)) return false
           if (preserveKey && summaryPathKey(realFile) === preserveKey) return false
-          if (summaryBusy(realFile)) return false
+          if (summaryBusy(realFile, now)) return false
           if (!ownedByUs(realFile, st) && !ownedByUs(file, st)) return false
           return st.mtimeMs <= cutoff
         })
@@ -364,14 +407,17 @@ export function sweepAgedSummaryFiles(maxAgeMs = SUMMARY_FILE_MAX_AGE_MS, now = 
   }
 }
 
-function deliveredDirectory(): string | undefined {
+function openTempDir(name: string, create: boolean): string | undefined {
+  if (!name.startsWith(TEMP_PREFIX) || name.includes('/') || name.includes('\\') || name.includes('\0')) return undefined
   try {
     const root = realpathSync(tmpdir())
-    const dir = join(root, DELIVERED_DIR_NAME)
-    try {
-      mkdirSync(dir)
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return undefined
+    const dir = join(root, name)
+    if (create) {
+      try {
+        mkdirSync(dir)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return undefined
+      }
     }
     const st = lstatSync(dir)
     if (st.isSymbolicLink() || !st.isDirectory()) return undefined
@@ -383,10 +429,97 @@ function deliveredDirectory(): string | undefined {
   }
 }
 
+function ensureTempDir(name: string): string | undefined {
+  return openTempDir(name, true)
+}
+
+function existingTempDir(name: string): string | undefined {
+  return openTempDir(name, false)
+}
+
+function deliveredDirectory(): string | undefined {
+  return ensureTempDir(DELIVERED_DIR_NAME)
+}
+
 function markerNames(file: string): string[] {
   const keys = new Set<string>([resolve(file), summaryPathKey(file)])
   if (process.platform === 'win32') keys.add(resolve(file).toLowerCase())
-  return [...keys].map((key) => createHash('sha256').update(key).digest('hex'))
+  return [...new Set([...keys].map((key) => digestKey(key)))]
+}
+
+function leaseBucket(key: string, create: boolean): string | undefined {
+  const dir = create ? ensureTempDir(LEASE_DIR_NAME) : existingTempDir(LEASE_DIR_NAME)
+  if (!dir) return undefined
+  const bucket = join(dir, digestKey(key))
+  if (create) {
+    try {
+      mkdirSync(bucket)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return undefined
+    }
+  }
+  try {
+    const st = lstatSync(bucket)
+    if (st.isSymbolicLink() || !st.isDirectory()) return undefined
+    const real = realpathSync(bucket)
+    const rel = relative(dir, real)
+    if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return undefined
+    return real
+  } catch {
+    return undefined
+  }
+}
+
+function writeLeaseToken(key: string, token: string, now: number): boolean {
+  if (!/^[0-9a-f]{16}$/u.test(token)) return false
+  const bucket = leaseBucket(key, true)
+  if (!bucket) return false
+  let fd: number | undefined
+  try {
+    fd = openSync(join(bucket, token), CREATE_EXCL, 0o600)
+    writeSync(fd, String(now))
+    return true
+  } catch {
+    return false
+  } finally {
+    if (fd !== undefined) closeSync(fd)
+  }
+}
+
+function refreshLeaseToken(key: string, token: string, now: number): void {
+  const bucket = leaseBucket(key, false)
+  if (!bucket) return
+  writeRegularFile(join(bucket, token), String(now))
+}
+
+function dropLeaseToken(key: string, token: string): void {
+  const bucket = leaseBucket(key, false)
+  if (!bucket || !/^[0-9a-f]{16}$/u.test(token)) return
+  const path = join(bucket, token)
+  try {
+    const st = lstatSync(path)
+    if (st.isSymbolicLink() || !st.isFile()) return
+    unlinkSync(path)
+  } catch { /* 租约已经不在 */ }
+}
+
+function freshLease(file: string, now: number): boolean {
+  const bucket = leaseBucket(summaryPathKey(file), false)
+  if (!bucket) return false
+  let names: string[]
+  try { names = readdirSync(bucket) } catch { return false }
+  for (const name of names) {
+    if (!/^[0-9a-f]{16}$/u.test(name)) continue
+    try {
+      const path = join(bucket, name)
+      const st = lstatSync(path)
+      if (st.isSymbolicLink() || !st.isFile()) continue
+      const at = Number(readFileSync(path, 'utf8').trim())
+      if (!Number.isFinite(at)) continue
+      if (at > now || now - at < SUMMARY_CLAIM_STALE_MS) return true
+    } catch { /* 下一份租约 */ }
+  }
+  return false
 }
 
 function readMarkerAt(marker: string): number | undefined {
@@ -400,19 +533,78 @@ function readMarkerAt(marker: string): number | undefined {
   }
 }
 
+type MarkerKind = 'absent' | 'delivered' | 'claim' | 'held' | 'stale' | 'blocked'
+
+function freshStamp(at: number, now: number, ttl: number): boolean {
+  return at > now || now - at < ttl
+}
+
+function classifyMarkerText(text: string, now: number): MarkerKind {
+  const claim = /^claim (\d+) ([0-9a-f]+)\n?$/u.exec(text)
+  if (claim) {
+    const at = Number(claim[1])
+    if (!Number.isFinite(at) || freshStamp(at, now, SUMMARY_CLAIM_STALE_MS)) return 'claim'
+    return 'stale'
+  }
+  const held = /^held (\d+)\n?$/u.exec(text)
+  if (held) {
+    const at = Number(held[1])
+    if (!Number.isFinite(at) || freshStamp(at, now, DELIVERED_MARKER_TTL_MS)) return 'held'
+    return 'stale'
+  }
+  const trimmed = text.trim()
+  if (/^\d+$/u.test(trimmed)) {
+    const at = Number(trimmed)
+    if (Number.isFinite(at) && freshStamp(at, now, DELIVERED_MARKER_TTL_MS)) return 'delivered'
+    return 'stale'
+  }
+  return 'stale'
+}
+
+function classifyMarker(path: string, now: number): MarkerKind {
+  let st: Stats
+  try {
+    st = lstatSync(path)
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'absent' : 'blocked'
+  }
+  if (st.isSymbolicLink() || !st.isFile()) return 'blocked'
+  try {
+    return classifyMarkerText(readFileSync(path, 'utf8'), now)
+  } catch {
+    return 'blocked'
+  }
+}
+
+function claimStatusOf(kind: MarkerKind): 'delivered' | 'busy' | undefined {
+  if (kind === 'delivered' || kind === 'held') return 'delivered'
+  if (kind === 'claim' || kind === 'blocked') return 'busy'
+  return undefined
+}
+
+function freshClaimOrHeld(file: string, now: number): boolean {
+  const dir = existingTempDir(DELIVERED_DIR_NAME)
+  if (!dir) return false
+  for (const name of markerNames(file)) {
+    const kind = classifyMarker(join(dir, name), now)
+    if (kind === 'claim' || kind === 'held') return true
+  }
+  return false
+}
+
 function pruneDeliveredMarkers(dir: string, now: number): void {
   let names: string[]
   try { names = readdirSync(dir) } catch { return }
   for (const name of names) {
     if (!/^[a-f0-9]{64}$/u.test(name)) continue
     const marker = join(dir, name)
-    const at = readMarkerAt(marker)
-    if (at === undefined || now - at >= DELIVERED_MARKER_TTL_MS) {
-      try {
-        const st = lstatSync(marker)
-        if (st.isSymbolicLink() || st.isFile()) unlinkSync(marker)
-      } catch { /* 别的进程已经清过 */ }
-    }
+    const kind = classifyMarker(marker, now)
+    if (kind === 'claim' || kind === 'held' || kind === 'delivered' || kind === 'absent') continue
+    try {
+      const st = lstatSync(marker)
+      if (st.isDirectory()) continue
+      if (st.isSymbolicLink() || st.isFile()) unlinkSync(marker)
+    } catch { /* 别的进程已经清过 */ }
   }
 }
 
@@ -437,4 +629,123 @@ export function summaryAlreadyDelivered(file: string, now = Date.now()): boolean
     if (at !== undefined && at <= now && now - at < DELIVERED_MARKER_TTL_MS) return true
   }
   return false
+}
+
+/** 迁移开始前占住的摘要。成功后变成已送达标记，失败则放开，会话建好但没送达则改成保留。 */
+export interface SummaryClaim {
+  release(): void
+  complete(at?: number): void
+  seal(at?: number): void
+}
+
+function rewriteClaimFd(fd: number, body: string): void {
+  ftruncateSync(fd, 0)
+  writeSync(fd, body, 0)
+}
+
+function releaseClaimFd(path: string, fd: number, nonce: string): void {
+  try {
+    const opened = fstatSync(fd)
+    let text = ''
+    try {
+      const size = Math.min(Number(opened.size) || 0, 4096)
+      if (size > 0) {
+        const buf = Buffer.alloc(size)
+        const n = readSync(fd, buf, 0, size, 0)
+        text = buf.subarray(0, n).toString('utf8')
+      }
+    } catch { /* 读不到就不当成自己的占位 */ }
+    if (text.includes(nonce)) {
+      try {
+        const current = lstatSync(path)
+        if (!current.isSymbolicLink() && current.isFile() && current.dev === opened.dev && current.ino === opened.ino) {
+          unlinkSync(path)
+        }
+      } catch { /* 占位已经不在 */ }
+    }
+  } finally {
+    try { closeSync(fd) } catch { /* 已经关上 */ }
+  }
+}
+
+function acquireMarker(path: string, now: number, nonce: string): { fd: number } | 'delivered' | 'busy' | 'unavailable' {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const denied = claimStatusOf(classifyMarker(path, now))
+    if (denied) return denied
+    const kind = classifyMarker(path, now)
+    if (kind === 'stale') {
+      const deniedAgain = claimStatusOf(classifyMarker(path, now))
+      if (deniedAgain) return deniedAgain
+      if (classifyMarker(path, now) === 'stale') {
+        try {
+          const st = lstatSync(path)
+          if (st.isSymbolicLink() || !st.isFile()) return 'busy'
+          unlinkSync(path)
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return 'busy'
+        }
+      }
+    }
+    let fd: number | undefined
+    try {
+      fd = openSync(path, CREATE_EXCL, 0o600)
+      writeSync(fd, `claim ${now} ${nonce}\n`)
+      return { fd }
+    } catch (error) {
+      if (fd !== undefined) {
+        try { unlinkSync(path) } catch { /* 留下的空文件下次可以接手 */ }
+        try { closeSync(fd) } catch { /* 已经关上 */ }
+        fd = undefined
+      }
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') return 'unavailable'
+      const raced = claimStatusOf(classifyMarker(path, now))
+      if (raced) return raced
+    }
+  }
+  return 'busy'
+}
+
+/**
+ * 在迁移开始前独占这份摘要。两个进程不能同时越过「还没送达」的检查。
+ * 返回的句柄在送达时改成数字标记，在会话已创建但没送达时改成保留标记，失败则删掉自己的占位。
+ * 新鲜的保留标记对别的进程来说和已经送达一样。锁不上目录时失败关闭，不开始迁移。
+ */
+export function claimSummaryFile(file: string, now = Date.now()): SummaryClaim | 'delivered' | 'busy' | 'unavailable' {
+  const dir = ensureTempDir(DELIVERED_DIR_NAME)
+  if (!dir) return 'unavailable'
+  const nonce = randomBytes(8).toString('hex')
+  const held: Array<{ path: string, fd: number }> = []
+  for (const name of markerNames(file)) {
+    const path = join(dir, name)
+    const acquired = acquireMarker(path, now, nonce)
+    if (typeof acquired === 'string') {
+      for (const item of held) releaseClaimFd(item.path, item.fd, nonce)
+      return acquired
+    }
+    held.push({ path, fd: acquired.fd })
+  }
+  let settled = false
+  const finish = (kind: 'release' | 'complete' | 'seal', at?: number): void => {
+    if (settled) return
+    settled = true
+    const stamp = at ?? Date.now()
+    for (const item of held) {
+      try {
+        if (kind === 'complete') rewriteClaimFd(item.fd, String(stamp))
+        else if (kind === 'seal') rewriteClaimFd(item.fd, `held ${stamp}\n`)
+        else releaseClaimFd(item.path, item.fd, nonce)
+      } catch { /* 这一份写不进去就继续处理其余别名 */ }
+      if (kind !== 'release') {
+        try { closeSync(item.fd) } catch { /* 已经关上 */ }
+      }
+    }
+    if (kind === 'complete') {
+      try { markSummaryDelivered(file, stamp) } catch { /* 占位已经改成数字 */ }
+    }
+  }
+  return {
+    release: () => { finish('release') },
+    complete: (at?: number) => { finish('complete', at) },
+    seal: (at?: number) => { finish('seal', at) },
+  }
 }

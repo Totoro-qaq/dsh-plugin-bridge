@@ -12,7 +12,7 @@ import { mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { markSummaryDelivered, summaryPathKey } from '../src/summary-file.ts';
+import { claimSummaryFile, markSummaryDelivered, summaryPathKey } from '../src/summary-file.ts';
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
 import { createBridgeCommand, parseBridgeInput } from '../src/command.ts';
@@ -993,6 +993,7 @@ test('超过 8 份时不挤掉正在使用或标记保留的摘要', async () =>
   const removed = [];
   const files = new Map();
   let n = 0;
+  const capDir = `/tmp/dsh-bridge-cap-${randomBytes(4).toString('hex')}`;
   const host = createFakeHost({ failTargetPromptOnce: 'code', replyAfterPolls: 1 });
   const command = createBridgeCommand({
     rpcFor: () => createApiProxyRpc(host.apiProxy),
@@ -1001,7 +1002,7 @@ test('超过 8 份时不挤掉正在使用或标记保留的摘要', async () =>
     progressHeartbeatMs: 0,
     writeSummary: (_sessionId, summary) => {
       n += 1;
-      const path = `/tmp/dsh-bridge-cap/summary-${n}.md`;
+      const path = `${capDir}/summary-${n}.md`;
       files.set(path, summary);
       return path;
     },
@@ -1033,7 +1034,7 @@ test('超过 8 份时不挤掉正在使用或标记保留的摘要', async () =>
   const ids = [];
   for (let index = 0; index < 8; index += 1) ids.push(previewIdFrom((await invoke('code')).text));
   assert.equal(removed.includes(firstFile), false, '保留标记和占用中的文件不能被挤掉');
-  assert.equal(removed.includes(`/tmp/dsh-bridge-cap/summary-2.md`), true);
+  assert.equal(removed.includes(`${capDir}/summary-2.md`), true);
   const kept = await invoke(`code --go --preview-id ${firstId} --summary64 ${Buffer.from('## 目标\n换一份', 'utf8').toString('base64url')}`);
   assert.equal(kept.kind, 'error', kept.text);
   assert.match(kept.text, /没有完整送达/);
@@ -1127,6 +1128,7 @@ test('已交付记录有上限，超出后最旧的一条不再挡住再迁', as
     },
     markDelivered: () => {},
     wasDelivered: () => false,
+    claimSummary: () => ({ release() {}, complete() {}, seal() {} }),
   });
   const invoke = (rawInput) => command.handler({
     agent: { session: { id: host.sourceSessionId } },
@@ -1163,4 +1165,102 @@ test('WebUI 完成缓存有上限，最旧的一条不再重放', async () => {
   assert.equal(replay.kind, 'error', replay.text);
   assert.match(replay.text, /没有绑定有效预览/);
   assert.equal(host.state.goals.length, 33);
+});
+
+test('用 --file 确认最新预览后，手打 --go 不会再迁旧的一份', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const older = previewIdFrom((await invoke('code')).text);
+  const newer = await invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(newer.text)?.[1];
+  const viaFile = await invoke(`code --go --file ${file}`);
+  assert.equal(viaFile.kind, 'success', viaFile.text);
+  const typed = await invoke('code --go');
+  assert.equal(typed.kind, 'error', typed.text);
+  assert.match(typed.text, /没有可用的摘要/);
+  assert.equal(host.state.goals.length, 1);
+  const explicit = await invoke(`code --go --preview-id ${older} --summary64 ${base64url('## 目标\n旧卡仍可确认')}`);
+  assert.equal(explicit.kind, 'success', explicit.text);
+  assert.equal(host.state.goals.length, 2);
+});
+
+test('用 WebUI 卡片确认最新预览后，手打 --go 不会再迁旧的一份', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const older = previewIdFrom((await invoke('code')).text);
+  const newer = previewIdFrom((await invoke('code')).text);
+  const viaCard = await invoke(`code --go --preview-id ${newer} --summary64 ${base64url('## 目标\n最新卡片')}`);
+  assert.equal(viaCard.kind, 'success', viaCard.text);
+  const typed = await invoke('code --go');
+  assert.equal(typed.kind, 'error', typed.text);
+  assert.match(typed.text, /没有可用的摘要/);
+  assert.equal(host.state.goals.length, 1);
+  const explicit = await invoke(`code --go --preview-id ${older} --summary64 ${base64url('## 目标\n旧卡仍可确认')}`);
+  assert.equal(explicit.kind, 'success', explicit.text);
+  assert.equal(host.state.goals.length, 2);
+});
+
+test('文件锁不上时，不会把同目标的其他预览标成跳过', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  await invoke('code');
+  const newer = await invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(newer.text)?.[1];
+  const claim = claimSummaryFile(file);
+  try {
+    assert.equal(typeof claim, 'object');
+    const viaFile = await invoke(`code --go --file ${file}`);
+    assert.equal(viaFile.kind, 'error', viaFile.text);
+    assert.match(viaFile.text, /正在交接/);
+  } finally {
+    if (typeof claim === 'object') claim.release();
+  }
+  const typed = await invoke('code --go');
+  assert.equal(typed.kind, 'success', typed.text);
+  assert.equal(host.state.goals.length, 1);
+});
+
+function commandForFile(host, files) {
+  const command = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host.apiProxy),
+    config: CONFIG,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    readSummary: (path) => {
+      const summary = files.get(path);
+      if (summary === undefined) throw new Error('ENOENT');
+      return summary;
+    },
+  });
+  return (rawInput) => command.handler({
+    agent: { session: { id: host.sourceSessionId } },
+    rawInput,
+    attachments: [],
+  });
+}
+
+test('两个命令实例同时用 --file 确认，只会建成一个目标', async () => {
+  const path = `/tmp/dsh-bridge-race-${randomBytes(4).toString('hex')}.md`;
+  const files = new Map([[path, '## 目标\n同一份']]);
+  const firstHost = createFakeHost({ replyAfterPolls: 1 });
+  const secondHost = createFakeHost({ replyAfterPolls: 1 });
+  const [first, second] = await Promise.all([
+    commandForFile(firstHost, files)(`code --go --file ${path}`),
+    commandForFile(secondHost, files)(`code --go --file ${path}`),
+  ]);
+  const results = [first, second];
+  assert.equal(results.filter((result) => result.kind === 'success').length, 1, results.map((result) => result.text).join('\n'));
+  const error = results.find((result) => result.kind === 'error');
+  assert.match(error.text, /正在交接/);
+  assert.equal(firstHost.state.goals.length + secondHost.state.goals.length, 1);
+});
+
+test('交接失败会放开磁盘认领，另一个实例可以再迁同一份文件', async () => {
+  const path = `/tmp/dsh-bridge-retry-${randomBytes(4).toString('hex')}.md`;
+  const files = new Map([[path, '## 目标\n失败后重试']]);
+  const firstHost = createFakeHost({ failTargetCreateOnce: 'code', replyAfterPolls: 1 });
+  const secondHost = createFakeHost({ replyAfterPolls: 1 });
+  const failed = await commandForFile(firstHost, files)(`code --go --file ${path}`);
+  assert.equal(failed.kind, 'error', failed.text);
+  const retried = await commandForFile(secondHost, files)(`code --go --file ${path}`);
+  assert.equal(retried.kind, 'success', retried.text);
+  assert.equal(firstHost.state.goals.length, 0);
+  assert.equal(secondHost.state.goals.length, 1);
 });

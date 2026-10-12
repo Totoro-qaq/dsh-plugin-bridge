@@ -148,7 +148,7 @@ const PRIMITIVE_LABELS = {
 } satisfies Record<'zh' | 'en', { markdown: MarkdownLabels; json: JsonTreeLabels }>
 
 /** 礼貌播报区先空着挂上，文案在挂载后写入，这样第一次变化也会被读屏读到。 */
-function PoliteStatus({ text }: { text: string }) {
+export function PoliteStatus({ text }: { text: string }) {
   const [announced, setAnnounced] = useState('')
   useEffect(() => { setAnnounced(text) }, [text])
   return <div className={announced ? 'dsh-bridge-status' : undefined} aria-live="polite" aria-atomic="true">{announced}</div>

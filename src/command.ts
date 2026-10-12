@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { clearInterval, setInterval } from 'node:timers';
 
 import { estimateSummaryTokens } from './compression.ts';
-import { markSummaryDelivered, noteSummaryIdle, noteSummaryInUse, sameSummaryPath, summaryAlreadyDelivered, summaryPathKey } from './summary-file.ts';
+import { claimSummaryFile, markSummaryDelivered, noteSummaryIdle, noteSummaryInUse, sameSummaryPath, summaryAlreadyDelivered, summaryPathKey, type SummaryClaim } from './summary-file.ts';
 import {
   executeMigration,
   findSession,
@@ -87,6 +87,11 @@ export interface BridgeCommandDeps {
   markDelivered?: (file: string, at: number) => void;
   /** 这份摘要在保留期内是不是已经交接过。缺省读上面的标记。 */
   wasDelivered?: (file: string) => boolean;
+  /**
+   * 迁移开始前独占摘要文件。缺省在临时目录里用 O_EXCL 占位，
+   * 另一个进程或另一条命令实例也能看见。
+   */
+  claimSummary?: (file: string, at: number) => SummaryClaim | 'delivered' | 'busy' | 'unavailable';
   /** 没有原生卡片的客户端靠它看到阶段进度。失败不能影响迁移。 */
   onProgress?: (message: string) => void;
   /** 长预览的进度间隔（毫秒）。默认 15 秒；测试可调小。0 表示不发心跳。 */
@@ -538,7 +543,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     pending.delete(entry.id);
     retireSummaryFile(entry.file);
   };
-  /** 手打 --go 领走最新一份后，同目标的旧预览不再自动迁。显式预览卡仍可确认。 */
+  /** 这份目标的一份预览已经被确认领走。其余同目标预览不再自动迁。显式预览卡仍可确认。 */
   const skipOlderAutomatic = (sessionId: string, target: string): void => {
     for (const entry of pending.values()) {
       if (entry.sessionId === sessionId && entry.preset === target) entry.skipAutomatic = true;
@@ -837,8 +842,6 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           if (usedPending) {
             summary = usedPending.summary;
             pendingLang = usedPending.lang;
-            // 同一次同步领走里标记其余预览，并发的第二次手打 --go 看不到它们。
-            skipOlderAutomatic(sessionId, target);
           }
         }
         const runLang = parsed.lang === 'en' || parsed.lang === 'zh' ? parsed.lang : pendingLang ?? initialLang;
@@ -847,6 +850,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           : parsed.file ?? (runLang === 'en' ? 'the reviewed preview' : '暂存的预览');
         if (!summary?.trim()) {
           restorePending(consumedPending ?? usedPending);
+          if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
           return {
             kind: 'error',
             text: runLang === 'en'
@@ -854,6 +858,19 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               : `没有可用的摘要（预览可能已过期）。先跑 /bridge ${target} 看一眼，确认后再 --go。`,
           };
         }
+        const fileToLock = (usedPending ?? consumedPending)?.file ?? parsed.file;
+        let diskClaim: SummaryClaim | undefined;
+        if (fileToLock) {
+          const locked = (deps.claimSummary ?? claimSummaryFile)(fileToLock, now());
+          if (typeof locked === 'string') {
+            restorePending(consumedPending ?? usedPending);
+            if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
+            return claimDenied(locked, runLang);
+          }
+          diskClaim = locked;
+        }
+        // 磁盘锁到手之后、下一次 await 之前标记其余预览。锁失败不会走到这里。
+        if (usedPending || consumedPending) skipOlderAutomatic(sessionId, target);
         try {
           const sourceTitle = titleOf(sourceSession);
           const targetTitle = sourceTitle ? migratedTitle(sourceTitle, target) : (runLang === 'en' ? `Migrated to ${target}` : migratedTitle(sourceTitle, target));
@@ -870,17 +887,21 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             onProgress: reportProgress,
           });
           if (result.kickoffSent) {
+            diskClaim?.complete(now());
             const delivered = usedPending ?? consumedPending;
             if (delivered) completeDelivery(delivered);
             else if (parsed.file) rememberDeliveredFile(parsed.file);
-          } else if (usedPending) {
-            usedPending.retainFile = true;
-            untrackInFlight(usedPending);
-            pending.set(usedPending.id, usedPending);
-          } else if (consumedPending) {
-            consumedPending.retainFile = true;
-            untrackInFlight(consumedPending);
-            if (!pending.has(consumedPending.id)) pending.set(consumedPending.id, consumedPending);
+          } else {
+            diskClaim?.seal(now());
+            if (usedPending) {
+              usedPending.retainFile = true;
+              untrackInFlight(usedPending);
+              pending.set(usedPending.id, usedPending);
+            } else if (consumedPending) {
+              consumedPending.retainFile = true;
+              untrackInFlight(consumedPending);
+              if (!pending.has(consumedPending.id)) pending.set(consumedPending.id, consumedPending);
+            }
           }
           const lines = runLang === 'en'
             ? [
@@ -922,6 +943,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           }
           return commandResult;
         } catch (error) {
+          diskClaim?.release();
           if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
           // 没送达就不删文件。放置失败、创建失败和其他错误都把预览放回去，方便重试。
           restorePending(consumedPending ?? usedPending);
@@ -1049,6 +1071,31 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         releaseSummary(heldSummary);
       }
     },
+  };
+}
+
+function claimDenied(status: 'delivered' | 'busy' | 'unavailable', lang: DisplayLang): BridgeResult {
+  if (status === 'delivered') {
+    return {
+      kind: 'error',
+      text: lang === 'en'
+        ? 'This preview was already handed off. Open that target session instead of migrating the same file again.'
+        : '这份预览已经交接过了。请打开目标会话，不要用同一份文件再迁一次。',
+    };
+  }
+  if (status === 'busy') {
+    return {
+      kind: 'error',
+      text: lang === 'en'
+        ? 'This preview is already being migrated. Wait for that handoff to finish.'
+        : '这份预览正在交接，请等它结束。',
+    };
+  }
+  return {
+    kind: 'error',
+    text: lang === 'en'
+      ? 'This summary file could not be locked. Try again in a moment.'
+      : '暂时无法锁定这份摘要，请稍后再试。',
   };
 }
 

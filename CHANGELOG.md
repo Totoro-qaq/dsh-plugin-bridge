@@ -21,6 +21,11 @@
 - A summary file can be migrated once. `--file` claims the preview that owns that file even when the requested preset is different, and a bare `--go` will not automatically migrate an older preview of the same target after a newer one was claimed. An explicit preview card can still confirm that older preview.
 - A delivered summary is recorded under the system temp directory for 30 minutes, including when CLI migrate cannot delete another process's file. A later command in another process will not migrate that file again.
 - The in-memory delivered-file list and the WebUI completion replay cache drop expired entries and stay within a fixed cap.
+- Confirming one preview of a target with `--file` or the WebUI card also stops a later bare `--go` from migrating an older preview of that same target. An explicit preview card can still confirm the older one. A `--file` that matches no pending preview does not skip the others.
+- A summary is claimed on disk with an exclusive placeholder before migration starts, so two processes cannot both pass the delivered check. Success turns that placeholder into the delivered marker; a created session whose kickoff was not sent keeps a hold marker; a failure before that deletes only the claim this call created. A claim or hold older than 10 minutes can be taken over. The same-process "do not migrate this file again" message for an undelivered handoff is unchanged.
+- The 7-day sweep also skips a summary another process still has open. That process keeps a lease file beside the claim, and a fresh claim or hold marker is left in place as well.
+- Failing to record a summary's inode after the bytes are on disk does not report that the summary file failed to save.
+- The required `build` check now also waits for the macOS and Windows cleanup jobs.
 
 ## 0.4.3 — 2026-10-11
 

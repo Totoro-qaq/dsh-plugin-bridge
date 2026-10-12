@@ -2,6 +2,8 @@
 export declare const SUMMARY_FILE_MAX_AGE_MS: number;
 /** 已送达标记的有效期，和待确认预览的保留时间一致。 */
 export declare const DELIVERED_MARKER_TTL_MS: number;
+/** 迁移占位和读取租约超过这个时间，别的进程可以接手或清扫。 */
+export declare const SUMMARY_CLAIM_STALE_MS: number;
 /**
  * 把两条路径收成同一身份。
  * 文件还在时用真实路径，这样 `/var` 与 `/private/var`、目录符号链接和 `..` 会对上；
@@ -28,8 +30,9 @@ export declare function removeOwnedSummaryFile(file: string): void;
  * 清掉系统临时目录里、超过 maxAgeMs、并且是本工具写过的临时摘要。
  *
  * 只进入名字以 `dsh-bridge-` 开头的真实目录，只删除其中带所有权标记（或本进程登记）
- * 的普通 `summary-*.md`。用户自己放进去的同名文件留下。正在被读取的、以及
- * `preserveFile`，即使超龄也跳过。不跟随符号链接，不递归。只有这次清扫刚删过摘要、
+ * 的普通 `summary-*.md`。用户自己放进去的同名文件留下。本进程正在读取的、
+ * 磁盘上还有未过期租约或交接占位的、以及 `preserveFile`，即使超龄也跳过。
+ * 不跟随符号链接，不递归。只有这次清扫刚删过摘要、
  * 目录因此变空时才删目录。
  */
 export declare function sweepAgedSummaryFiles(maxAgeMs?: number, now?: number, preserveFile?: string): void;
@@ -41,3 +44,15 @@ export declare function sweepAgedSummaryFiles(maxAgeMs?: number, now?: number, p
 export declare function markSummaryDelivered(file: string, now?: number): void;
 /** 保留期内，这份摘要是不是已经交接过。时钟由调用方传入，便于和预览有效期对齐。 */
 export declare function summaryAlreadyDelivered(file: string, now?: number): boolean;
+/** 迁移开始前占住的摘要。成功后变成已送达标记，失败则放开，会话建好但没送达则改成保留。 */
+export interface SummaryClaim {
+    release(): void;
+    complete(at?: number): void;
+    seal(at?: number): void;
+}
+/**
+ * 在迁移开始前独占这份摘要。两个进程不能同时越过「还没送达」的检查。
+ * 返回的句柄在送达时改成数字标记，在会话已创建但没送达时改成保留标记，失败则删掉自己的占位。
+ * 新鲜的保留标记对别的进程来说和已经送达一样。锁不上目录时失败关闭，不开始迁移。
+ */
+export declare function claimSummaryFile(file: string, now?: number): SummaryClaim | 'delivered' | 'busy' | 'unavailable';

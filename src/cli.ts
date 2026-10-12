@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { markSummaryDelivered, removeOwnedSummaryFile, summaryAlreadyDelivered, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts';
+import { claimSummaryFile, removeOwnedSummaryFile, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts';
 
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET, estimateSummaryTokens } from './compression.ts';
 import {
@@ -293,33 +293,45 @@ async function main(argv: string[]): Promise<number> {
       const to = requireTarget(args);
       const file = str(args, 'summary-file');
       if (!file) throw new UsageError('缺少 --summary-file <path>（先跑 `dsh-bridge preview --to ' + to + '`）。');
-      if (summaryAlreadyDelivered(file)) {
+      const claim = claimSummaryFile(file);
+      if (claim === 'delivered') {
         throw new UsageError(`摘要 ${file} 已经交接过了。请打开目标会话，不要用同一份文件再迁一次。`);
       }
+      if (claim === 'busy') throw new UsageError(`摘要 ${file} 正在交接，请等它结束。`);
+      if (claim === 'unavailable') throw new UsageError('暂时无法锁定这份摘要，请稍后再试。');
       let summary: string;
       try {
         summary = readFileSync(file, 'utf8');
       } catch (error) {
+        claim.release();
         throw new UsageError(`读不到摘要文件 ${file}：${error instanceof Error ? error.message : String(error)}`);
       }
       const source = await findSession(host, sessionId).catch(() => undefined);
-      const result = await executeMigration(host, {
-        sessionId,
-        sourceSession: source,
-        to,
-        summary,
-        goalRounds: num(args, 'goal-rounds'),
-        inject: injectOf(args),
-        kickoff: !bool(args, 'no-kickoff'),
-        autoContinue: bool(args, 'continue'),
-        title: str(args, 'title') ?? migratedTitle(titleOf(source), to),
-        onProgress: progress,
-      });
+      let result: Awaited<ReturnType<typeof executeMigration>>;
+      try {
+        result = await executeMigration(host, {
+          sessionId,
+          sourceSession: source,
+          to,
+          summary,
+          goalRounds: num(args, 'goal-rounds'),
+          inject: injectOf(args),
+          kickoff: !bool(args, 'no-kickoff'),
+          autoContinue: bool(args, 'continue'),
+          title: str(args, 'title') ?? migratedTitle(titleOf(source), to),
+          onProgress: progress,
+        });
+      } catch (error) {
+        claim.release();
+        throw error;
+      }
       // 另一次进程里的 preview 留下的路径不在本进程登记表里，这里不会删用户的文件。
-      // 交接没有送达时同样保留，方便照着警告再试一次。
+      // 交接没有送达时放开占位，方便照着警告再试一次。
       if (result.kickoffSent) {
-        markSummaryDelivered(file);
+        claim.complete();
         removeOwnedSummaryFile(file);
+      } else {
+        claim.release();
       }
       out(result, () => {
         const lines = [`已在 ${result.agentPreset} 模式下建好新会话：${result.sessionId}`];

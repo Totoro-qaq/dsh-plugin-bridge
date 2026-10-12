@@ -43,10 +43,11 @@ jobs:
       - run: npm run build
       - run: node --experimental-strip-types --test test/summary-file.test.mjs
 
-  # 聚合闸：分支保护要求的检查名是 `build`，矩阵会把它拆成 build (22)/(24)，
-  # 因此用这个与矩阵同结果的汇聚 job 提供字面名为 build 的检查。
+  # 聚合闸：分支保护要求的检查名是 `build`。矩阵会把它拆成 build (22)/(24)，
+  # 因此用这个字面名为 build 的汇聚 job。macOS / Windows 的清理也必须绿，
+  # 否则清理失败会被需要 `build` 的分支保护放过。
   build:
     runs-on: ubuntu-latest
-    needs: build-matrix
+    needs: [build-matrix, cleanup]
     steps:
-      - run: echo "build-matrix green on node 22 & 24"
+      - run: echo "build-matrix green on node 22 & 24; cleanup green on macOS and Windows"
