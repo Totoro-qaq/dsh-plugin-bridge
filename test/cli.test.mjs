@@ -9,18 +9,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createFakeHost } from './fake-host.mjs';
-import { summaryAlreadyDelivered } from '../src/summary-file.ts';
-
-function stampOwned(file) {
-  const st = lstatSync(file);
-  writeFileSync(`${file}.dsh-owned`, `${st.dev}:${st.ino}`);
-}
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
@@ -96,7 +88,6 @@ test('preview → migrate 的完整链路（CLI 进程 + HTTP 网关）', async 
     (c) => c.method === 'session.prompt' && c.payload.sessionId === migrated.sessionId,
   );
   assert.ok(kickoff.payload.content[0].text.includes('7101'));
-  assert.equal(summaryAlreadyDelivered(previewed.summaryFile), true, 'CLI 送达后要留下跨进程标记');
   const again = await runCli(['migrate', '--to', 'code', '--summary-file', previewed.summaryFile, '--json'], env);
   assert.equal(again.code, 2, again.stdout);
   assert.match(again.stderr, /已经交接过了/);
@@ -209,69 +200,18 @@ test('--help 有输出且退出码 0', async () => {
   assert.match(res.stdout, /dsh-bridge preview --to/);
 });
 
-test('migrate 先解析参数，不会清掉自己正在用的旧摘要', async (t) => {
-  const { host, api, close } = await serveFakeHost();
+test('kickoff 没送达时 migrate 保留认领，再跑一次不会建第二个目标', async (t) => {
+  const { host, api, close } = await serveFakeHost({ failTargetPromptOnce: 'code' });
   t.after(close);
-  const privateTmp = mkdtempSync(join(tmpdir(), 'dsh-cli-tmp-'));
-  const dir = mkdtempSync(join(privateTmp, 'dsh-bridge-'));
-  const used = join(dir, 'summary-used.md');
-  const other = join(dir, 'summary-other.md');
-  const stranger = join(dir, 'summary-stranger.md');
-  writeFileSync(used, '## 目标\n一周前的摘要仍然要能迁移');
-  writeFileSync(other, 'old');
-  writeFileSync(stranger, 'user');
-  stampOwned(other);
-  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
-  utimesSync(used, past, past);
-  utimesSync(other, past, past);
-  utimesSync(stranger, past, past);
-  try {
-    const res = await runCli(
-      ['migrate', '--to', 'code', '--summary-file', used, '--json'],
-      { TMPDIR: privateTmp, DSH_API: api, DSH_SESSION_ID: host.sourceSessionId },
-    );
-    assert.equal(res.code, 0, res.stderr);
-    assert.equal(existsSync(used), true);
-    assert.equal(existsSync(other), false);
-    assert.equal(readFileSync(stranger, 'utf8'), 'user');
-    assert.equal(host.state.goals.length, 1);
-  } finally {
-    rmSync(privateTmp, { recursive: true, force: true });
-  }
-});
-
-test('--help 会清掉超过 7 天、本工具写过的临时摘要', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
-  const oldFile = join(dir, 'summary-cli-old.md');
-  const freshFile = join(dir, 'summary-cli-fresh.md');
-  const userFile = join(dir, 'summary-cli-user.md');
-  const notes = join(dir, 'notes.md');
-  writeFileSync(oldFile, 'old');
-  writeFileSync(freshFile, 'fresh');
-  writeFileSync(userFile, 'user');
-  writeFileSync(notes, 'keep');
-  stampOwned(oldFile);
-  stampOwned(freshFile);
-  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
-  utimesSync(oldFile, past, past);
-  utimesSync(userFile, past, past);
-  const secretDir = mkdtempSync(join(tmpdir(), 'not-bridge-'));
-  const secret = join(secretDir, 'summary-secret.md');
-  writeFileSync(secret, 'secret');
-  utimesSync(secret, past, past);
-  const linkDir = join(tmpdir(), `dsh-bridge-cli-link-${Date.now()}`);
-  symlinkSync(secretDir, linkDir);
-  try {
-    const res = await runCli(['--help']);
-    assert.equal(res.code, 0, res.stderr);
-    assert.equal(existsSync(oldFile), false);
-    assert.equal(existsSync(freshFile), true);
-    assert.equal(readFileSync(userFile, 'utf8'), 'user');
-    assert.equal(existsSync(notes), true);
-    assert.equal(readFileSync(secret, 'utf8'), 'secret');
-  } finally {
-    try { unlinkSync(linkDir); } catch { /* 已经不在 */ }
-    rmSync(dir, { recursive: true, force: true });
-    rmSync(secretDir, { recursive: true, force: true });
-  }
+  const env = { DSH_API: api, DSH_SESSION_ID: host.sourceSessionId };
+  const preview = await runCli(['preview', '--to', 'code', '--json', '--poll-ms', '5'], env);
+  assert.equal(preview.code, 0, preview.stderr);
+  const { summaryFile } = JSON.parse(preview.stdout);
+  const partial = await runCli(['migrate', '--to', 'code', '--summary-file', summaryFile, '--json'], env);
+  assert.equal(partial.code, 0, partial.stderr);
+  assert.equal(JSON.parse(partial.stdout).kickoffSent, false);
+  const again = await runCli(['migrate', '--to', 'code', '--summary-file', summaryFile, '--json'], env);
+  assert.equal(again.code, 2, again.stdout);
+  assert.match(again.stderr, /没有完整送达/);
+  assert.equal(host.state.goals.length, 1);
 });

@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { clearInterval, setInterval } from 'node:timers';
 
 import { estimateSummaryTokens } from './compression.ts';
-import { claimSummaryFile, markSummaryDelivered, noteSummaryIdle, noteSummaryInUse, sameSummaryPath, summaryAlreadyDelivered, summaryPathKey, type SummaryClaim } from './summary-file.ts';
+import { claimSummaryFile, lostClaimWarning, sameSummaryPath, summaryPathKey, type SummaryClaim, type SummaryClaimDenied } from './summary-file.ts';
 import {
   executeMigration,
   findSession,
@@ -83,15 +83,11 @@ export interface BridgeCommandDeps {
   readSummary?: (path: string) => string;
   /** 删掉本命令创建的临时摘要。只在预览被用掉、过期或被挤掉时调用。 */
   removeSummary?: (path: string) => void;
-  /** 交接送达后记下这份摘要。缺省写临时目录里的标记，另一个进程也能看见。 */
-  markDelivered?: (file: string, at: number) => void;
-  /** 这份摘要在保留期内是不是已经交接过。缺省读上面的标记。 */
-  wasDelivered?: (file: string) => boolean;
   /**
-   * 迁移开始前独占摘要文件。缺省在临时目录里用 O_EXCL 占位，
-   * 另一个进程或另一条命令实例也能看见。
+   * 迁移开始前认领摘要文件。缺省在系统临时目录里留一条记录，
+   * 另一个进程或另一条命令实例由此看到正在交接、已经送达或没有送达。
    */
-  claimSummary?: (file: string, at: number) => SummaryClaim | 'delivered' | 'busy' | 'unavailable';
+  claimSummary?: (file: string) => SummaryClaim | SummaryClaimDenied;
   /** 没有原生卡片的客户端靠它看到阶段进度。失败不能影响迁移。 */
   onProgress?: (message: string) => void;
   /** 长预览的进度间隔（毫秒）。默认 15 秒；测试可调小。0 表示不发心跳。 */
@@ -134,7 +130,7 @@ interface CompletedWebUiConfirmation {
 const PENDING_TTL_MS = 30 * 60_000;
 /** 每个会话同时保留的待确认预览上限；超出时挤掉最旧的一份。 */
 const MAX_PENDING_PER_SESSION = 8;
-/** 本进程记住的已送达路径上限。超了就忘掉最旧的一条；磁盘标记仍在保留期内有效。 */
+/** 本进程记住的已送达路径上限。超了就忘掉最旧的一条；磁盘记录仍在保留期内有效。 */
 const DELIVERED_MEMORY_LIMIT = 64;
 /** WebUI 完成回放的上限。超了就丢掉最旧的一条，旧卡片不再重放第一次的结果。 */
 const COMPLETED_WEB_UI_LIMIT = 32;
@@ -423,20 +419,16 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
    * 正在读取的摘要按真实路径计数。一次调用结束只减一，
    * 另一路还拿着同一份文件时不能把保护摘掉。
    */
-  /** 同一条 `--file` 路径同时只允许一次 `--go`，避免两路都拿着文件内容各建一个会话。 */
-  const fileMigrations = new Set<string>();
   const inUseSummaryCounts = new Map<string, number>();
   /** 送达时还有人拿着文件，就等最后一次放开再删。 */
   const retireFiles = new Map<string, string>();
   const holdSummary = (file: string): string => {
     const key = summaryPathKey(file);
-    noteSummaryInUse(file);
     inUseSummaryCounts.set(key, (inUseSummaryCounts.get(key) ?? 0) + 1);
     return key;
   };
   const releaseSummary = (key: string | undefined): void => {
     if (!key) return;
-    noteSummaryIdle(key);
     const left = (inUseSummaryCounts.get(key) ?? 1) - 1;
     if (left > 0) inUseSummaryCounts.set(key, left);
     else {
@@ -449,11 +441,10 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     }
   };
   /**
-   * 同一份预览只允许一条确认路径领走。
-   * 手打 --go、--file 和 WebUI 共用这一张表，领走之后别人就迁不了。
+   * 本进程里正在迁移的摘要文件，按真实路径记。手打 --go、--file 和 WebUI 共用，
+   * 与跨进程记录无关：记录过期被别人接手，本进程也不会再迁同一份文件。
    */
-  const inFlightById = new Map<string, Pending>();
-  const inFlightByFile = new Map<string, string>();
+  const migratingFiles = new Set<string>();
   const deliveredFiles = new Map<string, number>();
   const fileKeyOf = (file: string): string => summaryPathKey(file);
   const pruneDeliveredMemory = (): void => {
@@ -483,49 +474,26 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       completedWebUi.delete(oldestKey);
     }
   };
-  const rememberInFlight = (entry: Pending): void => {
-    inFlightById.set(entry.id, entry);
-    if (entry.file) inFlightByFile.set(fileKeyOf(entry.file), entry.id);
-  };
-  const untrackInFlight = (entry: Pending): void => {
-    inFlightById.delete(entry.id);
-    if (!entry.file) return;
-    const key = fileKeyOf(entry.file);
-    if (inFlightByFile.get(key) === entry.id) inFlightByFile.delete(key);
-  };
   /** 同步领走一份预览。领走之后、下一次 await 之前，别人就看不到它。 */
   const claimPending = (entry: Pending | undefined): Pending | undefined => {
-    if (!entry || !pending.has(entry.id) || inFlightById.has(entry.id)) return undefined;
+    if (!entry || !pending.has(entry.id)) return undefined;
     pending.delete(entry.id);
-    rememberInFlight(entry);
     return entry;
   };
   const restorePending = (entry: Pending | undefined): void => {
-    if (!entry) return;
-    untrackInFlight(entry);
-    if (!pending.has(entry.id)) pending.set(entry.id, entry);
+    if (entry && !pending.has(entry.id)) pending.set(entry.id, entry);
   };
-  const fileInFlight = (file: string): boolean => inFlightByFile.has(fileKeyOf(file));
+  const fileInFlight = (file: string): boolean => migratingFiles.has(fileKeyOf(file));
   const fileDelivered = (file: string): boolean => {
     pruneDeliveredMemory();
     const at = deliveredFiles.get(fileKeyOf(file));
-    if (at !== undefined && now() - at < PENDING_TTL_MS) return true;
-    try {
-      if (deps.wasDelivered) return Boolean(deps.wasDelivered(file));
-      return summaryAlreadyDelivered(file, now());
-    } catch {
-      return false;
-    }
+    return at !== undefined && now() - at < PENDING_TTL_MS;
   };
   const rememberDeliveredFile = (file: string): void => {
     const key = fileKeyOf(file);
     deliveredFiles.delete(key);
     deliveredFiles.set(key, now());
     pruneDeliveredMemory();
-    try {
-      const mark = deps.markDelivered ?? markSummaryDelivered;
-      mark(file, now());
-    } catch { /* 标记失败不能让已经送达的迁移失败 */ }
   };
   const retireSummaryFile = (file: string | undefined): void => {
     if (!file) return;
@@ -539,7 +507,6 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   const completeDelivery = (entry: Pending | undefined): void => {
     if (!entry) return;
     if (entry.file) rememberDeliveredFile(entry.file);
-    untrackInFlight(entry);
     pending.delete(entry.id);
     retireSummaryFile(entry.file);
   };
@@ -602,21 +569,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       const initialLang = explicitDisplayLang(rawInput) ?? displayLang(parsed.lang ?? deps.config.lang);
       // 第一次 await（拉 preset / 会话）之前就占住文件，避免这段时间里的清扫把过期摘要删掉。
       const heldSummary = parsed.file ? holdSummary(parsed.file) : undefined;
-      const migrationKey = parsed.go && parsed.file ? summaryPathKey(parsed.file) : undefined;
-      let lockedMigration = false;
       try {
-      if (migrationKey) {
-        if (fileMigrations.has(migrationKey)) {
-          return {
-            kind: 'error',
-            text: initialLang === 'en'
-              ? 'This summary file is already being used for another handoff. Wait for that one to finish.'
-              : '这份摘要文件正在用于另一次交接，请等它结束。',
-          };
-        }
-        fileMigrations.add(migrationKey);
-        lockedMigration = true;
-      }
       sweepExpired(parsed.file);
       if (parsed.error) return { kind: 'error', text: parseErrorText(parsed.error, initialLang) };
 
@@ -859,17 +812,19 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           };
         }
         const fileToLock = (usedPending ?? consumedPending)?.file ?? parsed.file;
+        const lockKey = fileToLock ? fileKeyOf(fileToLock) : undefined;
         let diskClaim: SummaryClaim | undefined;
-        if (fileToLock) {
-          const locked = (deps.claimSummary ?? claimSummaryFile)(fileToLock, now());
+        if (fileToLock && lockKey) {
+          const locked = migratingFiles.has(lockKey) ? 'busy' : (deps.claimSummary ?? claimSummaryFile)(fileToLock);
           if (typeof locked === 'string') {
             restorePending(consumedPending ?? usedPending);
             if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
             return claimDenied(locked, runLang);
           }
           diskClaim = locked;
+          migratingFiles.add(lockKey);
         }
-        // 磁盘锁到手之后、下一次 await 之前标记其余预览。锁失败不会走到这里。
+        // 认领到手之后、下一次 await 之前标记其余预览。认领失败不会走到这里。
         if (usedPending || consumedPending) skipOlderAutomatic(sessionId, target);
         try {
           const sourceTitle = titleOf(sourceSession);
@@ -886,21 +841,17 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             lang: runLang,
             onProgress: reportProgress,
           });
+          const kept = result.kickoffSent ? diskClaim?.complete() : diskClaim?.seal();
+          if (kept === false) result.warnings.push(lostClaimWarning(runLang));
           if (result.kickoffSent) {
-            diskClaim?.complete(now());
             const delivered = usedPending ?? consumedPending;
             if (delivered) completeDelivery(delivered);
             else if (parsed.file) rememberDeliveredFile(parsed.file);
           } else {
-            diskClaim?.seal(now());
-            if (usedPending) {
-              usedPending.retainFile = true;
-              untrackInFlight(usedPending);
-              pending.set(usedPending.id, usedPending);
-            } else if (consumedPending) {
-              consumedPending.retainFile = true;
-              untrackInFlight(consumedPending);
-              if (!pending.has(consumedPending.id)) pending.set(consumedPending.id, consumedPending);
+            const undelivered = usedPending ?? consumedPending;
+            if (undelivered) {
+              undelivered.retainFile = true;
+              pending.set(undelivered.id, undelivered);
             }
           }
           const lines = runLang === 'en'
@@ -948,6 +899,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           // 没送达就不删文件。放置失败、创建失败和其他错误都把预览放回去，方便重试。
           restorePending(consumedPending ?? usedPending);
           return { kind: 'error', text: describe(error) };
+        } finally {
+          if (lockKey) migratingFiles.delete(lockKey);
         }
       }
 
@@ -1067,20 +1020,27 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         if (heartbeat) clearInterval(heartbeat);
       }
       } finally {
-        if (lockedMigration && migrationKey) fileMigrations.delete(migrationKey);
         releaseSummary(heldSummary);
       }
     },
   };
 }
 
-function claimDenied(status: 'delivered' | 'busy' | 'unavailable', lang: DisplayLang): BridgeResult {
+function claimDenied(status: SummaryClaimDenied, lang: DisplayLang): BridgeResult {
   if (status === 'delivered') {
     return {
       kind: 'error',
       text: lang === 'en'
         ? 'This preview was already handed off. Open that target session instead of migrating the same file again.'
         : '这份预览已经交接过了。请打开目标会话，不要用同一份文件再迁一次。',
+    };
+  }
+  if (status === 'held') {
+    return {
+      kind: 'error',
+      text: lang === 'en'
+        ? 'This preview was already used for a handoff that did not fully start. Open that target session instead of migrating the same file again.'
+        : '这份预览已经用于一次没有完整送达的交接。请打开已创建的目标会话，不要用同一份文件再迁一次。',
     };
   }
   if (status === 'busy') {

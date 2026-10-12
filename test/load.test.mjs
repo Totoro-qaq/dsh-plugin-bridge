@@ -6,8 +6,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +14,6 @@ import { fileURLToPath } from 'node:url';
 import { Context } from '@deepseek-ai/cordis';
 
 import plugin, { name, inject, Config, apply, commandConfigOf } from '../lib/index.js';
-import { writeSummaryFile } from '../lib/summary-file.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -42,26 +40,6 @@ test('入口导出形状符合 cordis 插件约定', () => {
 
 test('inject 只锁定跨版本入口，host adapter 在调用时选择', () => {
   assert.deepEqual([...inject], ['commands']);
-});
-
-test('插件启动只清掉自己写过、并且超过 7 天的临时摘要', () => {
-  const owned = writeSummaryFile('plugin-old', 'old');
-  const ownedDir = dirname(owned);
-  const userFile = join(ownedDir, 'summary-plugin-user.md');
-  writeFileSync(userFile, 'user');
-  const fresh = writeSummaryFile('plugin-fresh', 'fresh');
-  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
-  utimesSync(owned, past, past);
-  utimesSync(userFile, past, past);
-  try {
-    register();
-    assert.equal(existsSync(owned), false);
-    assert.equal(existsSync(userFile), true);
-    assert.equal(existsSync(fresh), true);
-  } finally {
-    rmSync(ownedDir, { recursive: true, force: true });
-    rmSync(dirname(fresh), { recursive: true, force: true });
-  }
 });
 
 test('注册的是一个 /bridge 命令，不是技能', () => {

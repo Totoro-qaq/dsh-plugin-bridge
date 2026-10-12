@@ -18,7 +18,7 @@ import { createBridgeCommand } from './command.ts'
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } from './compression.ts'
 import { probeDshHost, resolveDshHost } from './dsh-alpha-host.ts'
 import { createPlanApprovalBridge, type PlanReviewRequest } from './approved-plan.ts'
-import { markSummaryDelivered, removeOwnedSummaryFile, summaryAlreadyDelivered, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts'
+import { removeOwnedSummaryFile, writeSummaryFile } from './summary-file.ts'
 export { createPlanApprovalBridge } from './approved-plan.ts'
 
 export const name = 'dsh-plugin-bridge'
@@ -86,8 +86,6 @@ export function commandConfigOf(config: Config = {}) {
 }
 
 export function apply(ctx: Context, config: Config = {}): void {
-  // CLI 的预览和迁移不在同一进程，刚写的文件不能互相删。超过 7 天的残留在这里收。
-  try { sweepAgedSummaryFiles() } catch { /* 旧文件清不掉不影响本次启动 */ }
   const plans = createPlanApprovalBridge({
     hostFor: signal => resolveDshHost(ctx as unknown as Parameters<typeof resolveDshHost>[0],signal),
     config: commandConfigOf(config),
@@ -105,8 +103,6 @@ export function apply(ctx: Context, config: Config = {}): void {
     writeSummary: writeSummaryFile,
     readSummary: (path) => readFileSync(path, 'utf8'),
     removeSummary: removeOwnedSummaryFile,
-    markDelivered: markSummaryDelivered,
-    wasDelivered: summaryAlreadyDelivered,
     // 宿主命令协议只在结束时返回结果。没有原生卡片时，阶段进度写进宿主日志，
     // 长等待里命令还会每 15 秒补一条带耗时的进度。
     onProgress: (message) => {

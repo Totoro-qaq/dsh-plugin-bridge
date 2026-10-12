@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { claimSummaryFile, removeOwnedSummaryFile, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts';
+import { claimSummaryFile, lostClaimWarning, writeSummaryFile } from './summary-file.ts';
 
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET, estimateSummaryTokens } from './compression.ts';
 import {
@@ -163,8 +163,6 @@ function requireTarget(args: Args): string {
 
 async function main(argv: string[]): Promise<number> {
   const args = parseArgs(argv);
-  // 参数先解析。migrate 正在用的 --summary-file 即使超过 7 天也不能被这次清扫删掉。
-  try { sweepAgedSummaryFiles(undefined, undefined, str(args, 'summary-file')); } catch { /* 旧文件清不掉不影响这次命令 */ }
   if (args.command === 'help' || bool(args, 'help')) {
     process.stdout.write(HELP);
     return 0;
@@ -297,6 +295,9 @@ async function main(argv: string[]): Promise<number> {
       if (claim === 'delivered') {
         throw new UsageError(`摘要 ${file} 已经交接过了。请打开目标会话，不要用同一份文件再迁一次。`);
       }
+      if (claim === 'held') {
+        throw new UsageError(`摘要 ${file} 已经用于一次没有完整送达的交接。请打开已创建的目标会话，不要用同一份文件再迁一次。`);
+      }
       if (claim === 'busy') throw new UsageError(`摘要 ${file} 正在交接，请等它结束。`);
       if (claim === 'unavailable') throw new UsageError('暂时无法锁定这份摘要，请稍后再试。');
       let summary: string;
@@ -322,17 +323,14 @@ async function main(argv: string[]): Promise<number> {
           onProgress: progress,
         });
       } catch (error) {
+        // executeMigration 建好目标会话之后只记警告不抛出，走到这里说明还没有目标会话。
         claim.release();
         throw error;
       }
-      // 另一次进程里的 preview 留下的路径不在本进程登记表里，这里不会删用户的文件。
-      // 交接没有送达时放开占位，方便照着警告再试一次。
-      if (result.kickoffSent) {
-        claim.complete();
-        removeOwnedSummaryFile(file);
-      } else {
-        claim.release();
-      }
+      // preview 是另一次进程，文件留给用户。目标会话已经建好但没送达时保留记录，
+      // 再跑一次 migrate 会被挡住，不会再建第二个目标。
+      const kept = result.kickoffSent ? claim.complete() : claim.seal();
+      if (!kept) result.warnings.push(lostClaimWarning('zh'));
       out(result, () => {
         const lines = [`已在 ${result.agentPreset} 模式下建好新会话：${result.sessionId}`];
         if (result.kickoffSent) {

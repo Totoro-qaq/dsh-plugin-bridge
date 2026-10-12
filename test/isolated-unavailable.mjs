@@ -8,7 +8,7 @@ const privateTmp = mkdtempSync(join(tmpdir(), 'dsh-claim-dir-'));
 process.env.TMPDIR = privateTmp;
 process.env.TMP = privateTmp;
 process.env.TEMP = privateTmp;
-writeFileSync(join(privateTmp, 'dsh-bridge-delivered'), 'not-a-directory');
+writeFileSync(join(privateTmp, 'dsh-bridge-claims'), 'not-a-directory');
 const file = join(privateTmp, 'summary.md');
 writeFileSync(file, 'x');
 const result = claimSummaryFile(file);
