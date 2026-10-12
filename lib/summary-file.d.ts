@@ -23,7 +23,7 @@ export declare function removeOwnedSummaryFile(file: string): void;
  *
  * 只进入名字以 `dsh-bridge-` 开头的真实目录，只删除其中的普通 `summary-*.md`。
  * 不跟随符号链接，不递归。只有这次清扫刚删过摘要、目录因此变空时才删目录；
- * 刚创建的空目录留下。给跨进程的 CLI「先预览、再迁移」兜底：
- * 那两次进程互不认识对方刚写的文件，但一周前的残留可以收。
+ * 刚创建的空目录留下。`preserveFile` 是这次命令正在读的摘要，即使超龄也跳过。
+ * 给跨进程的 CLI「先预览、再迁移」兜底：那两次进程互不认识对方刚写的文件，但一周前的残留可以收。
  */
-export declare function sweepAgedSummaryFiles(maxAgeMs?: number, now?: number): void;
+export declare function sweepAgedSummaryFiles(maxAgeMs?: number, now?: number, preserveFile?: string): void;

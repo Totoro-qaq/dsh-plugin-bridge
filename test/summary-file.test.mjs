@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, rmSync, rmdirSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
@@ -128,6 +128,60 @@ test('超过 7 天的临时摘要会被清掉，新文件、其他名字和符�
     rmSync(oldDir, { recursive: true, force: true });
     if (existsSync(fresh)) removeOwnedSummaryFile(fresh);
     if (existsSync(recent)) removeOwnedSummaryFile(recent);
+  }
+});
+
+test('父目录被换成符号链接后，不会删到对面的同名文件', () => {
+  const file = writeSummaryFile('session', 'owned');
+  const dir = dirname(file);
+  const name = basename(file);
+  const other = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
+  const precious = join(other, name);
+  writeFileSync(precious, 'keep');
+  const moved = `${dir}-real`;
+  renameSync(dir, moved);
+  const alias = dir;
+  symlinkSync(other, alias);
+  try {
+    removeOwnedSummaryFile(join(alias, name));
+    assert.equal(readFileSync(precious, 'utf8'), 'keep');
+    assert.equal(readFileSync(join(moved, name), 'utf8'), 'owned');
+  } finally {
+    try { unlinkSync(alias); } catch { /* 链接已不在 */ }
+    rmSync(moved, { recursive: true, force: true });
+    rmSync(other, { recursive: true, force: true });
+  }
+});
+
+test('暂时没有权限时不会忘掉登记，权限恢复后仍能删掉自己的摘要', () => {
+  const file = writeSummaryFile('session', 'secret');
+  const dir = dirname(file);
+  chmodSync(dir, 0);
+  try {
+    removeOwnedSummaryFile(file);
+    sweepAgedSummaryFiles(0);
+  } finally {
+    chmodSync(dir, 0o700);
+  }
+  assert.equal(readFileSync(file, 'utf8'), 'secret');
+  removeOwnedSummaryFile(file);
+  assert.equal(existsSync(file), false);
+  assert.equal(existsSync(dir), false);
+});
+
+test('7 天清扫会跳过这次调用明确保留的摘要', () => {
+  const used = writeSummaryFile('used', 'used');
+  const other = writeSummaryFile('other', 'other');
+  const past = new Date(Date.now() - 5_000);
+  utimesSync(used, past, past);
+  utimesSync(other, past, past);
+  try {
+    sweepAgedSummaryFiles(1_000, Date.now(), used);
+    assert.equal(readFileSync(used, 'utf8'), 'used');
+    assert.equal(existsSync(other), false);
+  } finally {
+    if (existsSync(used)) removeOwnedSummaryFile(used);
+    rmSync(dirname(other), { recursive: true, force: true });
   }
 });
 

@@ -198,6 +198,32 @@ test('--help 有输出且退出码 0', async () => {
   assert.match(res.stdout, /dsh-bridge preview --to/);
 });
 
+test('migrate 先解析参数，不会清掉自己正在用的旧摘要', async (t) => {
+  const { host, api, close } = await serveFakeHost();
+  t.after(close);
+  const privateTmp = mkdtempSync(join(tmpdir(), 'dsh-cli-tmp-'));
+  const dir = mkdtempSync(join(privateTmp, 'dsh-bridge-'));
+  const used = join(dir, 'summary-used.md');
+  const other = join(dir, 'summary-other.md');
+  writeFileSync(used, '## 目标\n一周前的摘要仍然要能迁移');
+  writeFileSync(other, 'old');
+  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  utimesSync(used, past, past);
+  utimesSync(other, past, past);
+  try {
+    const res = await runCli(
+      ['migrate', '--to', 'code', '--summary-file', used, '--json'],
+      { TMPDIR: privateTmp, DSH_API: api, DSH_SESSION_ID: host.sourceSessionId },
+    );
+    assert.equal(res.code, 0, res.stderr);
+    assert.equal(existsSync(used), true);
+    assert.equal(existsSync(other), false);
+    assert.equal(host.state.goals.length, 1);
+  } finally {
+    rmSync(privateTmp, { recursive: true, force: true });
+  }
+});
+
 test('--help 会清掉超过 7 天的 dsh-bridge 临时摘要', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
   const oldFile = join(dir, 'summary-cli-old.md');

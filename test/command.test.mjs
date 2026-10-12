@@ -901,3 +901,141 @@ test('没有完整送达的预览不能换编辑稿或同一文件再交接', as
   assert.equal(host.state.goals.length, 1);
   assert.deepEqual(removed, []);
 });
+
+function parkNextPresetList(host) {
+  const original = host.apiProxy.agentPresets.list;
+  let release;
+  let park = true;
+  host.apiProxy.agentPresets.list = async (request, signal) => {
+    if (park) {
+      park = false;
+      await new Promise((resolve) => { release = resolve; });
+    }
+    return original(request, signal);
+  };
+  return {
+    release: () => release(),
+    parked: () => typeof release === 'function',
+  };
+}
+
+test('手打 --go 和 --file 共用同一次认领，只会建成一个目标', async () => {
+  const { host, invoke } = setup({}, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const preview = await invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  const original = host.apiProxy.agentPresets.list;
+  const gates = [];
+  host.apiProxy.agentPresets.list = async (request, signal) => {
+    await new Promise((resolve) => gates.push(resolve));
+    return original(request, signal);
+  };
+  const typed = invoke('code --go');
+  const viaFile = invoke(`code --go --file ${file}`);
+  assert.equal(gates.length, 2);
+  gates[0]();
+  gates[1]();
+  const results = await Promise.all([typed, viaFile]);
+  assert.equal(results.filter((result) => result.kind === 'success').length, 1, results.map((result) => result.text).join('\n'));
+  assert.equal(results.filter((result) => result.kind === 'error').length, 1);
+  assert.match(results.find((result) => result.kind === 'error').text, /正在交接|已经交接/);
+  assert.equal(host.state.goals.length, 1);
+});
+
+test('WebUI 确认和 --file 共用同一次认领，只会建成一个目标', async () => {
+  const { host, invoke } = setup({}, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  const payload = Buffer.from('## 目标\n卡片上的这一份', 'utf8').toString('base64url');
+  const original = host.apiProxy.agentPresets.list;
+  const gates = [];
+  host.apiProxy.agentPresets.list = async (request, signal) => {
+    await new Promise((resolve) => gates.push(resolve));
+    return original(request, signal);
+  };
+  const web = invoke(`code --go --preview-id ${previewId} --summary64 ${payload}`);
+  const viaFile = invoke(`code --go --file ${file}`);
+  assert.equal(gates.length, 2);
+  gates[0]();
+  gates[1]();
+  const results = await Promise.all([web, viaFile]);
+  assert.equal(results.filter((result) => result.kind === 'success').length, 1, results.map((result) => result.text).join('\n'));
+  assert.equal(results.filter((result) => result.kind === 'error').length, 1);
+  assert.equal(host.state.goals.length, 1);
+});
+
+test('送达时另一路还拿着摘要文件，就不会把它删掉', async () => {
+  const removed = [];
+  const { host, invoke } = setup({}, {}, {
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    removeSummary: (file) => { removed.push(file); },
+  });
+  const preview = await invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  const gate = parkNextPresetList(host);
+  const holder = invoke(`code --file ${file}`);
+  assert.equal(gate.parked(), true);
+  const migrated = await invoke('code --go');
+  assert.equal(migrated.kind, 'success', migrated.text);
+  assert.deepEqual(removed, []);
+  assert.equal(host.state.goals.length, 1);
+  gate.release();
+  const held = await holder;
+  assert.equal(held.kind, 'success', held.text);
+  assert.deepEqual(removed, [file]);
+  assert.equal(host.state.goals.length, 1);
+});
+
+test('超过 8 份时不挤掉正在使用或标记保留的摘要', async () => {
+  const removed = [];
+  const files = new Map();
+  let n = 0;
+  const host = createFakeHost({ failTargetPromptOnce: 'code', replyAfterPolls: 1 });
+  const command = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host.apiProxy),
+    config: CONFIG,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    writeSummary: (_sessionId, summary) => {
+      n += 1;
+      const path = `/tmp/dsh-bridge-cap/summary-${n}.md`;
+      files.set(path, summary);
+      return path;
+    },
+    readSummary: (path) => {
+      const summary = files.get(path);
+      if (summary === undefined) throw new Error('ENOENT');
+      return summary;
+    },
+    removeSummary: (path) => {
+      removed.push(path);
+      files.delete(path);
+    },
+  });
+  const invoke = (rawInput) => command.handler({
+    agent: { session: { id: host.sourceSessionId } },
+    rawInput,
+    attachments: [],
+  });
+  const first = await invoke('code');
+  const firstId = previewIdFrom(first.text);
+  const firstFile = /编辑 (\S+) 之后/.exec(first.text)?.[1];
+  const payload = Buffer.from('## 目标\n先到但没送达', 'utf8').toString('base64url');
+  const partial = await invoke(`code --go --preview-id ${firstId} --summary64 ${payload}`);
+  assert.equal(partial.kind, 'success', partial.text);
+  assert.deepEqual(removed, []);
+  const gate = parkNextPresetList(host);
+  const holder = invoke(`code --file ${firstFile}`);
+  assert.equal(gate.parked(), true);
+  const ids = [];
+  for (let index = 0; index < 8; index += 1) ids.push(previewIdFrom((await invoke('code')).text));
+  assert.equal(removed.includes(firstFile), false, '保留标记和占用中的文件不能被挤掉');
+  assert.equal(removed.includes(`/tmp/dsh-bridge-cap/summary-2.md`), true);
+  const kept = await invoke(`code --go --preview-id ${firstId} --summary64 ${Buffer.from('## 目标\n换一份', 'utf8').toString('base64url')}`);
+  assert.equal(kept.kind, 'error', kept.text);
+  assert.match(kept.text, /没有完整送达/);
+  assert.equal(host.state.goals.length, 1);
+  gate.release();
+  await holder;
+});

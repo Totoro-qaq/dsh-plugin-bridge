@@ -398,11 +398,6 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     if (!file) return;
     try { deps.removeSummary?.(file); } catch { /* 清理失败不能让迁移失败 */ }
   };
-  /** 丢掉一份不再保留的预览，并删掉它对应的临时摘要。 */
-  const forgetPending = (entry: Pending): void => {
-    pending.delete(entry.id);
-    dropSummaryFile(entry.file);
-  };
   /**
    * 正在读取的摘要按真实路径计数。一次调用结束只减一，
    * 另一路还拿着同一份文件时不能把保护摘掉。
@@ -410,6 +405,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   /** 同一条 `--file` 路径同时只允许一次 `--go`，避免两路都拿着文件内容各建一个会话。 */
   const fileMigrations = new Set<string>();
   const inUseSummaryCounts = new Map<string, number>();
+  /** 送达时还有人拿着文件，就等最后一次放开再删。 */
+  const retireFiles = new Map<string, string>();
   const holdSummary = (file: string): string => {
     const key = summaryPathKey(file);
     inUseSummaryCounts.set(key, (inUseSummaryCounts.get(key) ?? 0) + 1);
@@ -419,13 +416,74 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     if (!key) return;
     const left = (inUseSummaryCounts.get(key) ?? 1) - 1;
     if (left > 0) inUseSummaryCounts.set(key, left);
-    else inUseSummaryCounts.delete(key);
+    else {
+      inUseSummaryCounts.delete(key);
+      const file = retireFiles.get(key);
+      if (file) {
+        retireFiles.delete(key);
+        dropSummaryFile(file);
+      }
+    }
+  };
+  /**
+   * 同一份预览只允许一条确认路径领走。
+   * 手打 --go、--file 和 WebUI 共用这一张表，领走之后别人就迁不了。
+   */
+  const inFlightById = new Map<string, Pending>();
+  const inFlightByFile = new Map<string, string>();
+  const deliveredFiles = new Set<string>();
+  const fileKeyOf = (file: string): string => summaryPathKey(file);
+  const rememberInFlight = (entry: Pending): void => {
+    inFlightById.set(entry.id, entry);
+    if (entry.file) inFlightByFile.set(fileKeyOf(entry.file), entry.id);
+  };
+  const untrackInFlight = (entry: Pending): void => {
+    inFlightById.delete(entry.id);
+    if (!entry.file) return;
+    const key = fileKeyOf(entry.file);
+    if (inFlightByFile.get(key) === entry.id) inFlightByFile.delete(key);
   };
   /** 同步领走一份预览。领走之后、下一次 await 之前，别人就看不到它。 */
   const claimPending = (entry: Pending | undefined): Pending | undefined => {
-    if (!entry || !pending.has(entry.id)) return undefined;
+    if (!entry || !pending.has(entry.id) || inFlightById.has(entry.id)) return undefined;
     pending.delete(entry.id);
+    rememberInFlight(entry);
     return entry;
+  };
+  const restorePending = (entry: Pending | undefined): void => {
+    if (!entry) return;
+    untrackInFlight(entry);
+    if (!pending.has(entry.id)) pending.set(entry.id, entry);
+  };
+  const fileInFlight = (file: string): boolean => inFlightByFile.has(fileKeyOf(file));
+  const fileDelivered = (file: string): boolean => deliveredFiles.has(fileKeyOf(file));
+  const retireSummaryFile = (file: string | undefined): void => {
+    if (!file) return;
+    const key = fileKeyOf(file);
+    if ((inUseSummaryCounts.get(key) ?? 0) > 0) {
+      retireFiles.set(key, file);
+      return;
+    }
+    dropSummaryFile(file);
+  };
+  const completeDelivery = (entry: Pending | undefined): void => {
+    if (!entry) return;
+    if (entry.file) deliveredFiles.add(fileKeyOf(entry.file));
+    untrackInFlight(entry);
+    pending.delete(entry.id);
+    retireSummaryFile(entry.file);
+  };
+  const evictionBlocked = (entry: Pending): boolean => {
+    if (entry.retainFile) return true;
+    const key = entry.file ? fileKeyOf(entry.file) : undefined;
+    return Boolean(key && inUseSummaryCounts.has(key));
+  };
+  /** 丢掉一份不再保留的预览。正在用或标记保留的文件留在原地，记录也不挤掉。 */
+  const evictPending = (entry: Pending): boolean => {
+    if (evictionBlocked(entry)) return false;
+    pending.delete(entry.id);
+    dropSummaryFile(entry.file);
+    return true;
   };
   /**
    * 过期预览不再能被自动确认。正在用 `--file` 读取的那一份保留记录和文件：
@@ -445,7 +503,13 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     sweepExpired();
     pending.set(entry.id, entry);
     const own = [...pending.values()].filter((old) => old.sessionId === entry.sessionId).sort((a, b) => a.at - b.at);
-    for (const old of own.slice(0, Math.max(0, own.length - MAX_PENDING_PER_SESSION))) forgetPending(old);
+    let overflow = own.length - MAX_PENDING_PER_SESSION;
+    for (const old of own) {
+      if (overflow <= 0) break;
+      if (old.id === entry.id) continue;
+      if (!evictPending(old)) continue;
+      overflow -= 1;
+    }
   };
 
   return {
@@ -632,11 +696,30 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               text: initialLang === 'en' ? 'The edited WebUI handoff payload is invalid.' : 'WebUI 编辑后的摘要载荷无效。',
             };
           }
-          // Consume before the first await below so concurrent confirmations cannot create duplicates.
-          consumedPending = bound;
-          pending.delete(bound.id);
+          // 和手打 --go、--file 共用同一次认领，下一次 await 之前别人就迁不了这份预览。
+          consumedPending = claimPending(bound);
+          if (!consumedPending) {
+            return {
+              kind: 'error',
+              text: initialLang === 'en'
+                ? 'This preview is already being migrated. Wait for that handoff to finish.'
+                : '这份预览正在交接，请等它结束。',
+            };
+          }
           inFlightWebUi.add(webUiConfirmationKey);
         } else if (parsed.file) {
+          if (fileDelivered(parsed.file) || fileInFlight(parsed.file)) {
+            return {
+              kind: 'error',
+              text: fileDelivered(parsed.file)
+                ? (initialLang === 'en'
+                  ? 'This preview was already handed off. Open that target session instead of migrating the same file again.'
+                  : '这份预览已经交接过了。请打开目标会话，不要用同一份文件再迁一次。')
+                : (initialLang === 'en'
+                  ? 'This preview is already being migrated. Wait for that handoff to finish.'
+                  : '这份预览正在交接，请等它结束。'),
+            };
+          }
           try {
             summary = deps.readSummary?.(parsed.file);
           } catch (error) {
@@ -672,8 +755,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           ? (runLang === 'en' ? 'the edited WebUI preview' : 'WebUI 里编辑后的预览')
           : parsed.file ?? (runLang === 'en' ? 'the reviewed preview' : '暂存的预览');
         if (!summary?.trim()) {
-          const claimed = consumedPending ?? usedPending;
-          if (claimed && !pending.has(claimed.id)) pending.set(claimed.id, claimed);
+          restorePending(consumedPending ?? usedPending);
           return {
             kind: 'error',
             text: runLang === 'en'
@@ -697,14 +779,15 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             onProgress: reportProgress,
           });
           if (result.kickoffSent) {
-            if (usedPending) forgetPending(usedPending);
-            else dropSummaryFile(consumedPending?.file);
+            completeDelivery(usedPending ?? consumedPending);
           } else if (usedPending) {
             usedPending.retainFile = true;
+            untrackInFlight(usedPending);
             pending.set(usedPending.id, usedPending);
-          } else if (consumedPending && !pending.has(consumedPending.id)) {
+          } else if (consumedPending) {
             consumedPending.retainFile = true;
-            pending.set(consumedPending.id, consumedPending);
+            untrackInFlight(consumedPending);
+            if (!pending.has(consumedPending.id)) pending.set(consumedPending.id, consumedPending);
           }
           const lines = runLang === 'en'
             ? [
@@ -748,8 +831,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         } catch (error) {
           if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
           // 没送达就不删文件。放置失败、创建失败和其他错误都把预览放回去，方便重试。
-          const claimed = consumedPending ?? usedPending;
-          if (claimed && !pending.has(claimed.id)) pending.set(claimed.id, claimed);
+          restorePending(consumedPending ?? usedPending);
           return { kind: 'error', text: describe(error) };
         }
       }
