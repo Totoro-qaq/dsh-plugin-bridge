@@ -2,7 +2,7 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
-## Unreleased
+## 0.4.4 — 2026-10-12
 
 - Tell the user when the preview summary file cannot be saved, including the reason and the next command to run. The preview itself still succeeds. A warning line that mentions `--file` is not parsed as the saved path, and failing to record the file's inode after the bytes are on disk does not count as a failed save.
 - Forward `/bridge` stage updates in the command language. Clients without the native card get those stages in the host log, plus a 15-second elapsed update while the summary worker is still running.
