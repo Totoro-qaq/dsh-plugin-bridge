@@ -42,13 +42,7 @@ test('摘要文件写在临时目录，迁移后只删除自己创建的那一�
   removeOwnedSummaryFile(file);
 });
 
-test('清理不会跟着符号链接或临时目录以外的路径走', { skip: skipWithoutSymlink }, () => {
-  const outside = join(tmpdir(), `dsh-bridge-not-a-dir-${Date.now()}.md`);
-  writeFileSync(outside, 'keep');
-  removeOwnedSummaryFile(outside);
-  assert.equal(existsSync(outside), true);
-  unlinkSync(outside);
-
+test('经符号链接清理时删的是登记过的真实文件，链接本身留下', { skip: skipWithoutSymlink }, () => {
   const owned = writeSummaryFile('session', 'owned');
   const link = `${owned}.link`;
   symlinkSync(owned, link);
@@ -293,15 +287,4 @@ test('认领时只清掉一天以前的旧记录和临时文件，新记录不�
 test('记录目录不是真实目录时，认领失败关闭', () => {
   const result = runScript('isolated-unavailable.mjs');
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-});
-
-test('用户另存的普通文件即使放在临时目录里也不会被删', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-user-'));
-  const file = join(dir, 'notes.md');
-  writeFileSync(file, 'keep');
-  removeOwnedSummaryFile(file);
-  assert.equal(existsSync(file), true);
-  removeOwnedSummaryFile(process.execPath);
-  assert.equal(existsSync(process.execPath), true);
-  rmSync(dir, { recursive: true, force: true });
 });

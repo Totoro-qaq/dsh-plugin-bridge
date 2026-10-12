@@ -726,71 +726,26 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               text: initialLang === 'en' ? 'The edited WebUI handoff payload is invalid.' : 'WebUI 编辑后的摘要载荷无效。',
             };
           }
-          if (bound.file && fileDelivered(bound.file)) {
-            return {
-              kind: 'error',
-              text: initialLang === 'en'
-                ? 'This preview was already handed off. Open that target session instead of migrating the same file again.'
-                : '这份预览已经交接过了。请打开目标会话，不要用同一份文件再迁一次。',
-            };
-          }
+          if (bound.file && fileDelivered(bound.file)) return claimDenied('delivered', initialLang);
           // 和手打 --go、--file 共用同一次认领，下一次 await 之前别人就迁不了这份预览。
           consumedPending = claimPending(bound);
-          if (!consumedPending) {
-            return {
-              kind: 'error',
-              text: initialLang === 'en'
-                ? 'This preview is already being migrated. Wait for that handoff to finish.'
-                : '这份预览正在交接，请等它结束。',
-            };
-          }
+          if (!consumedPending) return claimDenied('busy', initialLang);
           inFlightWebUi.add(webUiConfirmationKey);
         } else if (parsed.file) {
-          if (fileDelivered(parsed.file) || fileInFlight(parsed.file)) {
-            return {
-              kind: 'error',
-              text: fileDelivered(parsed.file)
-                ? (initialLang === 'en'
-                  ? 'This preview was already handed off. Open that target session instead of migrating the same file again.'
-                  : '这份预览已经交接过了。请打开目标会话，不要用同一份文件再迁一次。')
-                : (initialLang === 'en'
-                  ? 'This preview is already being migrated. Wait for that handoff to finish.'
-                  : '这份预览正在交接，请等它结束。'),
-            };
-          }
+          if (fileDelivered(parsed.file)) return claimDenied('delivered', initialLang);
+          if (fileInFlight(parsed.file)) return claimDenied('busy', initialLang);
           try {
             summary = deps.readSummary?.(parsed.file);
           } catch (error) {
             return { kind: 'error', text: initialLang === 'en' ? `Cannot read ${parsed.file}: ${describe(error)}` : `读不到 ${parsed.file}：${describe(error)}` };
           }
           const matched = pendingForFile(parsed.file, sessionId);
-          if (matched?.retainFile) {
-            return {
-              kind: 'error',
-              text: initialLang === 'en'
-                ? 'This preview was already used for a handoff that did not fully start. Open that target session instead of migrating the same file again.'
-                : '这份预览已经用于一次没有完整送达的交接。请打开已创建的目标会话，不要用同一份文件再迁一次。',
-            };
-          }
+          if (matched?.retainFile) return claimDenied('held', initialLang);
           usedPending = claimPending(matched);
-          if (matched && !usedPending) {
-            return {
-              kind: 'error',
-              text: initialLang === 'en'
-                ? 'This preview is already being migrated. Wait for that handoff to finish.'
-                : '这份预览正在交接，请等它结束。',
-            };
-          }
+          if (matched && !usedPending) return claimDenied('busy', initialLang);
         } else {
           const candidate = newestPending(sessionId, target);
-          if (candidate?.file && fileDelivered(candidate.file)) {
-            return {
-              kind: 'error',
-              text: initialLang === 'en'
-                ? 'This preview was already handed off. Open that target session instead of migrating the same file again.'
-                : '这份预览已经交接过了。请打开目标会话，不要用同一份文件再迁一次。',
-            };
-          }
+          if (candidate?.file && fileDelivered(candidate.file)) return claimDenied('delivered', initialLang);
           usedPending = claimPending(candidate);
           if (usedPending) {
             summary = usedPending.summary;
