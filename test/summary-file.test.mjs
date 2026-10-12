@@ -266,6 +266,6 @@ test('用户另存的普通文件即使放在临时目录里也不会被删', ()
   writeFileSync(file, 'keep');
   removeOwnedSummaryFile(file);
   assert.equal(existsSync(file), true);
-  removeOwnedSummaryFile('/etc/hosts');
-  assert.equal(existsSync('/etc/hosts'), true);
+  removeOwnedSummaryFile(process.execPath);
+  assert.equal(existsSync(process.execPath), true);
 });
