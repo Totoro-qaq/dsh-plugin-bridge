@@ -11,9 +11,10 @@ import { claimSummaryFile, removeOwnedSummaryFile, sameSummaryPath, SUMMARY_CLAI
 
 const skipWithoutSymlink = process.platform === 'win32';
 const HOST_ID = createHash('sha256').update(hostname()).digest('hex').slice(0, 12);
+const CLAIM_DIR = `dsh-bridge-claims${typeof process.getuid === 'function' ? `-${process.getuid()}` : ''}`;
 
 function recordPath(file) {
-  const dir = join(realpathSync(tmpdir()), 'dsh-bridge-claims');
+  const dir = join(realpathSync(tmpdir()), CLAIM_DIR);
   mkdirSync(dir, { recursive: true });
   return join(dir, createHash('sha256').update(summaryPathKey(file)).digest('hex'));
 }
@@ -85,6 +86,16 @@ test('本进程创建的摘要可以用另一条真实路径删掉', { skip: ski
   }
 });
 
+test('用户改过内容的摘要归用户所有，不会被删', () => {
+  const file = writeSummaryFile('edited', '## 目标\n原稿');
+  writeFileSync(file, '## 目标\n用户改了半小时的稿子');
+  removeOwnedSummaryFile(file);
+  assert.equal(readFileSync(file, 'utf8'), '## 目标\n用户改了半小时的稿子');
+  removeOwnedSummaryFile(file);
+  assert.equal(existsSync(file), true, '改过一次之后不再登记，之后也不会删');
+  rmSync(dirname(file), { recursive: true, force: true });
+});
+
 test('外部删掉后又在同路径重建的文件不再算本进程的摘要', () => {
   const file = writeSummaryFile('session', 'owned');
   const dir = dirname(file);
@@ -151,6 +162,7 @@ test('同一份摘要的认领是独占的，放开之后才能再领', () => {
   const file = uniqueFile('exclusive');
   const first = claimSummaryFile(file);
   assert.equal(typeof first, 'object');
+  assert.equal(first.interrupted, false);
   assert.equal(claimSummaryFile(file), 'busy');
   first.release();
   assert.equal(existsSync(recordPath(file)), false);
@@ -196,7 +208,21 @@ test('另一个进程的认领挡住这里；那个进程退出后可以马上�
   assert.match(readFileSync(recordPath(file), 'utf8'), /^claim /u, '子进程退出时没有放开记录');
   const after = claimSummaryFile(file);
   assert.equal(typeof after, 'object', '同一台机器上持有进程已经退出，不必等 10 分钟');
+  assert.equal(after.interrupted, true, '那次交接没有正常结束，要提醒检查是否已经建过目标');
   after.release();
+  const retry = claimSummaryFile(file);
+  assert.equal(retry.interrupted, true, '接手后在建目标前失败，下一次重试仍要提醒');
+  retry.complete();
+  assert.equal(claimSummaryFile(file), 'delivered');
+});
+
+test('送达记录过了保留期可以再迁，这不算中断', () => {
+  const file = uniqueFile('expired');
+  writeFileSync(recordPath(file), `delivered ${Date.now() - 31 * 60 * 1000} ${'a'.repeat(16)} 1 ${HOST_ID}\n`);
+  const again = claimSummaryFile(file);
+  assert.equal(typeof again, 'object');
+  assert.equal(again.interrupted, false);
+  again.release();
 });
 
 test('别的机器留下的认领按时间判断', () => {

@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { clearInterval, setInterval } from 'node:timers';
 
 import { estimateSummaryTokens } from './compression.ts';
-import { claimSummaryFile, lostClaimWarning, sameSummaryPath, summaryPathKey, type SummaryClaim, type SummaryClaimDenied } from './summary-file.ts';
+import { claimSummaryFile, claimWarning, sameSummaryPath, summaryPathKey, type SummaryClaim, type SummaryClaimDenied } from './summary-file.ts';
 import {
   executeMigration,
   findSession,
@@ -842,7 +842,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             onProgress: reportProgress,
           });
           const kept = result.kickoffSent ? diskClaim?.complete() : diskClaim?.seal();
-          if (kept === false) result.warnings.push(lostClaimWarning(runLang));
+          if (diskClaim?.interrupted) result.warnings.push(claimWarning('interrupted', runLang));
+          if (kept === false) result.warnings.push(claimWarning('lost', runLang));
           if (result.kickoffSent) {
             const delivered = usedPending ?? consumedPending;
             if (delivered) completeDelivery(delivered);

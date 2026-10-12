@@ -1248,18 +1248,23 @@ test('本进程里同一份文件同时只迁一次，不依赖磁盘记录', as
   assert.equal(host.state.goals.length, 1);
 });
 
-test('交接期间认领被别的进程换掉时，结果里提醒检查多出来的目标', async () => {
-  const path = `/tmp/dsh-bridge-lost-${randomBytes(4).toString('hex')}.md`;
-  const host = createFakeHost({ replyAfterPolls: 1 });
-  const command = createBridgeCommand({
-    rpcFor: () => createApiProxyRpc(host.apiProxy),
-    config: CONFIG,
-    pollMs: 1,
-    progressHeartbeatMs: 0,
-    readSummary: () => '## 目标\n被接手',
-    claimSummary: () => ({ release() {}, complete: () => false, seal: () => false }),
-  });
-  const result = await command.handler({ agent: { session: { id: host.sourceSessionId } }, rawInput: `code --go --file ${path}`, attachments: [] });
-  assert.equal(result.kind, 'success', result.text);
-  assert.match(result.text, /另一个 Bridge 进程也接手了同一份摘要/);
+test('认领被换掉或接手的是中断过的交接时，结果里提醒检查多出来的目标', async () => {
+  for (const [claim, expected] of [
+    [{ interrupted: false, release() {}, complete: () => false, seal: () => false }, /另一个 Bridge 进程也接手了同一份摘要/],
+    [{ interrupted: true, release() {}, complete: () => true, seal: () => true }, /之前用这份摘要的一次交接没有正常结束/],
+  ]) {
+    const path = `/tmp/dsh-bridge-lost-${randomBytes(4).toString('hex')}.md`;
+    const host = createFakeHost({ replyAfterPolls: 1 });
+    const command = createBridgeCommand({
+      rpcFor: () => createApiProxyRpc(host.apiProxy),
+      config: CONFIG,
+      pollMs: 1,
+      progressHeartbeatMs: 0,
+      readSummary: () => '## 目标\n被接手',
+      claimSummary: () => claim,
+    });
+    const result = await command.handler({ agent: { session: { id: host.sourceSessionId } }, rawInput: `code --go --file ${path}`, attachments: [] });
+    assert.equal(result.kind, 'success', result.text);
+    assert.match(result.text, expected);
+  }
 });

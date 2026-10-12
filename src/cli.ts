@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { claimSummaryFile, lostClaimWarning, writeSummaryFile } from './summary-file.ts';
+import { claimSummaryFile, claimWarning, writeSummaryFile } from './summary-file.ts';
 
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET, estimateSummaryTokens } from './compression.ts';
 import {
@@ -330,7 +330,8 @@ async function main(argv: string[]): Promise<number> {
       // preview 是另一次进程，文件留给用户。目标会话已经建好但没送达时保留记录，
       // 再跑一次 migrate 会被挡住，不会再建第二个目标。
       const kept = result.kickoffSent ? claim.complete() : claim.seal();
-      if (!kept) result.warnings.push(lostClaimWarning('zh'));
+      if (claim.interrupted) result.warnings.push(claimWarning('interrupted', 'zh'));
+      if (!kept) result.warnings.push(claimWarning('lost', 'zh'));
       out(result, () => {
         const lines = [`已在 ${result.agentPreset} 模式下建好新会话：${result.sessionId}`];
         if (result.kickoffSent) {
