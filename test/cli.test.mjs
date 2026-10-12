@@ -9,12 +9,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createFakeHost } from './fake-host.mjs';
+import { summaryAlreadyDelivered } from '../src/summary-file.ts';
+
+function stampOwned(file) {
+  const st = lstatSync(file);
+  writeFileSync(`${file}.dsh-owned`, `${st.dev}:${st.ino}`);
+}
 
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 
@@ -90,6 +96,11 @@ test('preview → migrate 的完整链路（CLI 进程 + HTTP 网关）', async 
     (c) => c.method === 'session.prompt' && c.payload.sessionId === migrated.sessionId,
   );
   assert.ok(kickoff.payload.content[0].text.includes('7101'));
+  assert.equal(summaryAlreadyDelivered(previewed.summaryFile), true, 'CLI 送达后要留下跨进程标记');
+  const again = await runCli(['migrate', '--to', 'code', '--summary-file', previewed.summaryFile, '--json'], env);
+  assert.equal(again.code, 2, again.stdout);
+  assert.match(again.stderr, /已经交接过了/);
+  assert.equal(host.state.goals.length, 1);
 });
 
 test('人工编辑过的摘要会被原样采用', async (t) => {
@@ -205,11 +216,15 @@ test('migrate 先解析参数，不会清掉自己正在用的旧摘要', async 
   const dir = mkdtempSync(join(privateTmp, 'dsh-bridge-'));
   const used = join(dir, 'summary-used.md');
   const other = join(dir, 'summary-other.md');
+  const stranger = join(dir, 'summary-stranger.md');
   writeFileSync(used, '## 目标\n一周前的摘要仍然要能迁移');
   writeFileSync(other, 'old');
+  writeFileSync(stranger, 'user');
+  stampOwned(other);
   const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   utimesSync(used, past, past);
   utimesSync(other, past, past);
+  utimesSync(stranger, past, past);
   try {
     const res = await runCli(
       ['migrate', '--to', 'code', '--summary-file', used, '--json'],
@@ -218,22 +233,28 @@ test('migrate 先解析参数，不会清掉自己正在用的旧摘要', async 
     assert.equal(res.code, 0, res.stderr);
     assert.equal(existsSync(used), true);
     assert.equal(existsSync(other), false);
+    assert.equal(readFileSync(stranger, 'utf8'), 'user');
     assert.equal(host.state.goals.length, 1);
   } finally {
     rmSync(privateTmp, { recursive: true, force: true });
   }
 });
 
-test('--help 会清掉超过 7 天的 dsh-bridge 临时摘要', async () => {
+test('--help 会清掉超过 7 天、本工具写过的临时摘要', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
   const oldFile = join(dir, 'summary-cli-old.md');
   const freshFile = join(dir, 'summary-cli-fresh.md');
+  const userFile = join(dir, 'summary-cli-user.md');
   const notes = join(dir, 'notes.md');
   writeFileSync(oldFile, 'old');
   writeFileSync(freshFile, 'fresh');
+  writeFileSync(userFile, 'user');
   writeFileSync(notes, 'keep');
+  stampOwned(oldFile);
+  stampOwned(freshFile);
   const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   utimesSync(oldFile, past, past);
+  utimesSync(userFile, past, past);
   const secretDir = mkdtempSync(join(tmpdir(), 'not-bridge-'));
   const secret = join(secretDir, 'summary-secret.md');
   writeFileSync(secret, 'secret');
@@ -245,6 +266,7 @@ test('--help 会清掉超过 7 天的 dsh-bridge 临时摘要', async () => {
     assert.equal(res.code, 0, res.stderr);
     assert.equal(existsSync(oldFile), false);
     assert.equal(existsSync(freshFile), true);
+    assert.equal(readFileSync(userFile, 'utf8'), 'user');
     assert.equal(existsSync(notes), true);
     assert.equal(readFileSync(secret, 'utf8'), 'secret');
   } finally {

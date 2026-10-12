@@ -25,6 +25,24 @@ jobs:
       # generated-artifact sync, datasets, then install/import the actual tarball.
       - run: npm run verify
 
+  # 摘要删除在 Linux 上走目录 fd，在 macOS / Windows 上改走删除前再核对 inode。
+  # 全量 verify 仍只在 ubuntu 跑；这里只跑清理测试，确认那条回退真的能删掉文件。
+  cleanup:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --experimental-strip-types --test test/summary-file.test.mjs
+
   # 聚合闸：分支保护要求的检查名是 `build`，矩阵会把它拆成 build (22)/(24)，
   # 因此用这个与矩阵同结果的汇聚 job 提供字面名为 build 的检查。
   build:

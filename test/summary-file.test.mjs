@@ -1,17 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, lstatSync, lutimesSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, rmdirSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { removeOwnedSummaryFile, sameSummaryPath, SUMMARY_FILE_MAX_AGE_MS, sweepAgedSummaryFiles, writeSummaryFile } from '../src/summary-file.ts';
+import { noteSummaryIdle, noteSummaryInUse, removeOwnedSummaryFile, sameSummaryPath, SUMMARY_FILE_MAX_AGE_MS, sweepAgedSummaryFiles, writeSummaryFile } from '../src/summary-file.ts';
+
+const skipWithoutSymlink = process.platform === 'win32';
 
 test('摘要文件写在临时目录，迁移后只删除自己创建的那一份', () => {
   const file = writeSummaryFile('../../s-42', '## 目标\n保留');
-  assert.match(file, /\/dsh-bridge-[^/]+\/summary-s-42\.md$/u);
+  assert.equal(basename(file), 'summary-s-42.md');
+  assert.match(basename(dirname(file)), /^dsh-bridge-/u);
   assert.equal(file.includes('..'), false);
   assert.equal(existsSync(file), true);
-  const dir = file.slice(0, file.lastIndexOf('/'));
+  const st = lstatSync(file);
+  assert.equal(readFileSync(`${file}.dsh-owned`, 'utf8').trim(), `${st.dev}:${st.ino}`);
+  const dir = dirname(file);
 
   removeOwnedSummaryFile(file);
   assert.equal(existsSync(file), false);
@@ -19,7 +26,7 @@ test('摘要文件写在临时目录，迁移后只删除自己创建的那一�
   removeOwnedSummaryFile(file);
 });
 
-test('清理不会跟着符号链接或临时目录以外的路径走', () => {
+test('清理不会跟着符号链接或临时目录以外的路径走', { skip: skipWithoutSymlink }, () => {
   const outside = join(tmpdir(), `dsh-bridge-not-a-dir-${Date.now()}.md`);
   writeFileSync(outside, 'keep');
   removeOwnedSummaryFile(outside);
@@ -49,7 +56,7 @@ test('名字和位置都像临时摘要，但不是本进程写的，不会被�
   assert.equal(sameSummaryPath(file, join(dir, '..', basename(dir), 'summary-user.md')), true);
 });
 
-test('本进程创建的摘要可以用另一条真实路径删掉', () => {
+test('本进程创建的摘要可以用另一条真实路径删掉', { skip: skipWithoutSymlink }, () => {
   const file = writeSummaryFile('session', 'owned');
   const dir = dirname(file);
   const alias = join(tmpdir(), `dsh-bridge-alias-${Date.now()}`);
@@ -82,30 +89,35 @@ test('超过 7 天的临时摘要会被清掉，新文件、其他名字和符�
   const notes = join(oldDir, 'notes.md');
   writeFileSync(notes, 'keep');
   const fresh = writeSummaryFile('fresh', 'fresh');
+  const userSummary = join(oldDir, 'summary-user.md');
+  writeFileSync(userSummary, 'user');
   const linkFile = join(oldDir, 'summary-alias.md');
-  symlinkSync(fresh, linkFile);
+  if (!skipWithoutSymlink) symlinkSync(fresh, linkFile);
   mkdirSync(join(oldDir, 'nested'));
   const nested = join(oldDir, 'nested', 'summary-nested.md');
   writeFileSync(nested, 'nested');
   const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
   utimesSync(old, past, past);
+  utimesSync(userSummary, past, past);
   utimesSync(nested, past, past);
-  lutimesSync(linkFile, past, past);
+  if (!skipWithoutSymlink) lutimesSync(linkFile, past, past);
   const secretDir = mkdtempSync(join(tmpdir(), 'not-bridge-'));
   const secret = join(secretDir, 'summary-secret.md');
   writeFileSync(secret, 'secret');
   utimesSync(secret, past, past);
   const linkDir = join(tmpdir(), `dsh-bridge-symlink-${Date.now()}`);
-  symlinkSync(secretDir, linkDir);
+  if (!skipWithoutSymlink) symlinkSync(secretDir, linkDir);
   const recent = writeSummaryFile('recent', 'recent');
   const sixDays = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
   utimesSync(recent, sixDays, sixDays);
   try {
     sweepAgedSummaryFiles();
     assert.equal(existsSync(old), false);
+    assert.equal(existsSync(`${old}.dsh-owned`), false);
+    assert.equal(readFileSync(userSummary, 'utf8'), 'user');
     assert.equal(existsSync(notes), true);
     assert.equal(existsSync(fresh), true);
-    assert.equal(lstatSync(linkFile).isSymbolicLink(), true);
+    if (!skipWithoutSymlink) assert.equal(lstatSync(linkFile).isSymbolicLink(), true);
     assert.equal(existsSync(nested), true);
     assert.equal(readFileSync(secret, 'utf8'), 'secret');
     assert.equal(existsSync(recent), true, '不到 7 天的摘要要留下');
@@ -122,8 +134,10 @@ test('超过 7 天的临时摘要会被清掉，新文件、其他名字和符�
       rmSync(dirname(onlyOld), { recursive: true, force: true });
     }
   } finally {
-    try { unlinkSync(linkFile); } catch { /* 已经不在 */ }
-    try { unlinkSync(linkDir); } catch { /* 已经不在 */ }
+    if (!skipWithoutSymlink) {
+      try { unlinkSync(linkFile); } catch { /* 已经不在 */ }
+      try { unlinkSync(linkDir); } catch { /* 已经不在 */ }
+    }
     rmSync(secretDir, { recursive: true, force: true });
     rmSync(oldDir, { recursive: true, force: true });
     if (existsSync(fresh)) removeOwnedSummaryFile(fresh);
@@ -131,7 +145,7 @@ test('超过 7 天的临时摘要会被清掉，新文件、其他名字和符�
   }
 });
 
-test('父目录被换成符号链接后，不会删到对面的同名文件', () => {
+test('父目录被换成符号链接后，不会删到对面的同名文件', { skip: skipWithoutSymlink }, () => {
   const file = writeSummaryFile('session', 'owned');
   const dir = dirname(file);
   const name = basename(file);
@@ -153,7 +167,7 @@ test('父目录被换成符号链接后，不会删到对面的同名文件', ()
   }
 });
 
-test('暂时没有权限时不会忘掉登记，权限恢复后仍能删掉自己的摘要', () => {
+test('暂时没有权限时不会忘掉登记，权限恢复后仍能删掉自己的摘要', { skip: process.platform === 'win32' }, () => {
   const file = writeSummaryFile('session', 'secret');
   const dir = dirname(file);
   chmodSync(dir, 0);
@@ -182,6 +196,67 @@ test('7 天清扫会跳过这次调用明确保留的摘要', () => {
   } finally {
     if (existsSync(used)) removeOwnedSummaryFile(used);
     rmSync(dirname(other), { recursive: true, force: true });
+  }
+});
+
+test('正在读取的超龄摘要不会被清扫删掉', () => {
+  const held = writeSummaryFile('held', 'held');
+  const idle = writeSummaryFile('idle', 'idle');
+  const past = new Date(Date.now() - 10_000);
+  utimesSync(held, past, past);
+  utimesSync(idle, past, past);
+  noteSummaryInUse(held);
+  try {
+    sweepAgedSummaryFiles(1_000);
+    assert.equal(readFileSync(held, 'utf8'), 'held');
+    assert.equal(existsSync(idle), false);
+  } finally {
+    noteSummaryIdle(held);
+    if (existsSync(held)) removeOwnedSummaryFile(held);
+    rmSync(dirname(idle), { recursive: true, force: true });
+  }
+});
+
+test('新进程只清掉带所有权标记、且没人占用的超龄摘要', () => {
+  const privateTmp = mkdtempSync(join(tmpdir(), 'dsh-sweep-fresh-'));
+  const ownedDir = mkdtempSync(join(privateTmp, 'dsh-bridge-'));
+  const heldDir = mkdtempSync(join(privateTmp, 'dsh-bridge-'));
+  const userDir = mkdtempSync(join(privateTmp, 'dsh-bridge-'));
+  const owned = join(ownedDir, 'summary-owned.md');
+  const held = join(heldDir, 'summary-held.md');
+  const user = join(userDir, 'summary-user.md');
+  writeFileSync(owned, 'owned');
+  writeFileSync(held, 'held');
+  writeFileSync(user, 'user');
+  for (const file of [owned, held]) {
+    const st = lstatSync(file);
+    writeFileSync(`${file}.dsh-owned`, `${st.dev}:${st.ino}`);
+  }
+  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  utimesSync(owned, past, past);
+  utimesSync(held, past, past);
+  utimesSync(user, past, past);
+  const script = fileURLToPath(new URL('./sweep-fresh.mjs', import.meta.url));
+  try {
+    const result = spawnSync(process.execPath, ['--experimental-strip-types', script, held], {
+      encoding: 'utf8',
+      env: { ...process.env, TMPDIR: privateTmp, TMP: privateTmp, TEMP: privateTmp },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(owned), false);
+    assert.equal(readFileSync(held, 'utf8'), 'held');
+    assert.equal(readFileSync(user, 'utf8'), 'user');
+  } finally {
+    rmSync(privateTmp, { recursive: true, force: true });
+  }
+});
+
+test('Windows 上不同分隔符指向同一份摘要', { skip: process.platform !== 'win32' }, () => {
+  const file = writeSummaryFile('session', 'owned');
+  try {
+    assert.equal(sameSummaryPath(file, file.replaceAll('\\', '/')), true);
+  } finally {
+    removeOwnedSummaryFile(file);
   }
 });
 

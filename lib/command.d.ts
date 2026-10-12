@@ -55,6 +55,10 @@ export interface BridgeCommandDeps {
     readSummary?: (path: string) => string;
     /** 删掉本命令创建的临时摘要。只在预览被用掉、过期或被挤掉时调用。 */
     removeSummary?: (path: string) => void;
+    /** 交接送达后记下这份摘要。缺省写临时目录里的标记，另一个进程也能看见。 */
+    markDelivered?: (file: string, at: number) => void;
+    /** 这份摘要在保留期内是不是已经交接过。缺省读上面的标记。 */
+    wasDelivered?: (file: string) => boolean;
     /** 没有原生卡片的客户端靠它看到阶段进度。失败不能影响迁移。 */
     onProgress?: (message: string) => void;
     /** 长预览的进度间隔（毫秒）。默认 15 秒；测试可调小。0 表示不发心跳。 */

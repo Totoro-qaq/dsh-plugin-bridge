@@ -7,11 +7,12 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { summaryPathKey } from '../src/summary-file.ts';
+import { markSummaryDelivered, summaryPathKey } from '../src/summary-file.ts';
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
 import { createBridgeCommand, parseBridgeInput } from '../src/command.ts';
@@ -36,7 +37,7 @@ function setup(hostOptions = {}, overrides = {}, extraDeps = {}) {
     probe: () => probeApiProxy(host.apiProxy),
     config: { ...CONFIG, ...overrides },
     writeSummary: (sessionId, summary) => {
-      const path = `/tmp/fake-${sessionId}.md`;
+      const path = `/tmp/fake-${sessionId}-${randomBytes(8).toString('hex')}.md`;
       files.set(path, summary);
       return path;
     },
@@ -601,7 +602,7 @@ test('迁移成功后清掉临时摘要；创建失败时保留，过期且未�
     pollMs: 1,
     progressHeartbeatMs: 0,
     writeSummary: (sessionId, summary) => {
-      const path = `/tmp/dsh-bridge-expired/summary-${sessionId}.md`;
+      const path = `/tmp/dsh-bridge-expired-${randomBytes(4).toString('hex')}/summary-${sessionId}.md`;
       files.set(path, summary);
       return path;
     },
@@ -647,7 +648,7 @@ test('--file 对不上活预览时，不删除另一份仍有效的摘要', asyn
     progressHeartbeatMs: 0,
     writeSummary: (sessionId, summary) => {
       n += 1;
-      const path = `/tmp/fake-${sessionId}-${n}.md`;
+      const path = `/tmp/fake-${sessionId}-${randomBytes(4).toString('hex')}-${n}.md`;
       files.set(path, summary);
       return path;
     },
@@ -670,8 +671,9 @@ test('--file 对不上活预览时，不删除另一份仍有效的摘要', asyn
   const codeFile = /编辑 (\S+) 之后/.exec(codePreview.text)?.[1];
   const cordisPreview = await invoke('cordis');
   const cordisFile = /编辑 (\S+) 之后/.exec(cordisPreview.text)?.[1];
-  files.set('/tmp/user-edited.md', '## 目标\n用户自己的文件');
-  const migrated = await invoke('code --go --file /tmp/user-edited.md');
+  const userFile = `/tmp/user-edited-${randomBytes(4).toString('hex')}.md`;
+  files.set(userFile, '## 目标\n用户自己的文件');
+  const migrated = await invoke(`code --go --file ${userFile}`);
   assert.equal(migrated.kind, 'success', migrated.text);
   assert.ok(host.state.goals.at(-1).objective.includes('用户自己的文件'));
   assert.deepEqual(removed, []);
@@ -1038,4 +1040,127 @@ test('超过 8 份时不挤掉正在使用或标记保留的摘要', async () =>
   assert.equal(host.state.goals.length, 1);
   gate.release();
   await holder;
+});
+
+test('同一目标的两份预览，手打 --go 只迁最新的一份', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const older = previewIdFrom((await invoke('code')).text);
+  await invoke('code');
+  const first = await invoke('code --go');
+  assert.equal(first.kind, 'success', first.text);
+  const second = await invoke('code --go');
+  assert.equal(second.kind, 'error', second.text);
+  assert.match(second.text, /没有可用的摘要/);
+  assert.equal(host.state.goals.length, 1);
+  const explicit = await invoke(`code --go --preview-id ${older} --summary64 ${base64url('## 目标\n旧卡仍可确认')}`);
+  assert.equal(explicit.kind, 'success', explicit.text);
+  assert.equal(host.state.goals.length, 2);
+});
+
+test('两份预览同时手打 --go 也只会建成一个目标', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  await invoke('code');
+  await invoke('code');
+  const [first, second] = await Promise.all([invoke('code --go'), invoke('code --go')]);
+  const results = [first, second];
+  assert.equal(results.filter((result) => result.kind === 'success').length, 1, results.map((result) => result.text).join('\n'));
+  assert.equal(results.filter((result) => result.kind === 'error').length, 1);
+  assert.equal(host.state.goals.length, 1);
+});
+
+test('换一个目标模式去迁同一份文件，也会把原来的预览领走', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const preview = await invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  const viaCordis = await invoke(`cordis --go --file ${file}`);
+  assert.equal(viaCordis.kind, 'success', viaCordis.text);
+  assert.match(viaCordis.text, /cordis/);
+  const again = await invoke('code --go');
+  assert.equal(again.kind, 'error', again.text);
+  assert.match(again.text, /没有可用的摘要|已经交接/);
+  assert.equal(host.state.goals.length, 1);
+});
+
+test('已交付标记会挡住手打、WebUI 和另一条命令再迁同一份文件', async () => {
+  const { host, invoke, files } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const preview = await invoke('code');
+  const previewId = previewIdFrom(preview.text);
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  markSummaryDelivered(file);
+  const typed = await invoke('code --go');
+  assert.equal(typed.kind, 'error', typed.text);
+  assert.match(typed.text, /已经交接/);
+  const web = await invoke(`code --go --preview-id ${previewId} --summary64 ${base64url('## 目标\n卡片再确认')}`);
+  assert.equal(web.kind, 'error', web.text);
+  assert.match(web.text, /已经交接/);
+  const host2 = createFakeHost({ replyAfterPolls: 1 });
+  const command2 = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host2.apiProxy),
+    config: CONFIG,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    readSummary: (path) => files.get(path) ?? '## 目标\n不该再用',
+  });
+  const again = await command2.handler({
+    agent: { session: { id: host2.sourceSessionId } },
+    rawInput: `code --go --file ${file}`,
+    attachments: [],
+  });
+  assert.equal(again.kind, 'error', again.text);
+  assert.match(again.text, /已经交接/);
+  assert.equal(host.state.goals.length, 0);
+  assert.equal(host2.state.goals.length, 0);
+});
+
+test('已交付记录有上限，超出后最旧的一条不再挡住再迁', async () => {
+  const files = new Map();
+  const host = createFakeHost({ replyAfterPolls: 1 });
+  const command = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host.apiProxy),
+    config: CONFIG,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    readSummary: (path) => {
+      const summary = files.get(path);
+      if (summary === undefined) throw new Error('ENOENT');
+      return summary;
+    },
+    markDelivered: () => {},
+    wasDelivered: () => false,
+  });
+  const invoke = (rawInput) => command.handler({
+    agent: { session: { id: host.sourceSessionId } },
+    rawInput,
+    attachments: [],
+  });
+  const paths = [];
+  for (let index = 0; index < 65; index += 1) {
+    const path = `/tmp/delivered-cap-${index}-${randomBytes(4).toString('hex')}.md`;
+    files.set(path, `## 目标\n第 ${index} 份`);
+    paths.push(path);
+    const result = await invoke(`code --go --file ${path}`);
+    assert.equal(result.kind, 'success', result.text);
+  }
+  const oldest = await invoke(`code --go --file ${paths[0]}`);
+  assert.equal(oldest.kind, 'success', oldest.text);
+  const newest = await invoke(`code --go --file ${paths[64]}`);
+  assert.equal(newest.kind, 'error', newest.text);
+  assert.match(newest.text, /已经交接/);
+});
+
+test('WebUI 完成缓存有上限，最旧的一条不再重放', async () => {
+  const { host, invoke } = setup({ replyAfterPolls: 1 }, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const firstPayload = base64url('## 目标\n第一张完成缓存');
+  const firstPreview = previewIdFrom((await invoke('code')).text);
+  const first = await invoke(`code --go --preview-id ${firstPreview} --summary64 ${firstPayload}`);
+  assert.equal(first.kind, 'success', first.text);
+  for (let index = 0; index < 32; index += 1) {
+    const id = previewIdFrom((await invoke('code')).text);
+    const result = await invoke(`code --go --preview-id ${id} --summary64 ${base64url(`## 目标\n后续 ${index}`)}`);
+    assert.equal(result.kind, 'success', result.text);
+  }
+  const replay = await invoke(`code --go --preview-id ${firstPreview} --summary64 ${firstPayload}`);
+  assert.equal(replay.kind, 'error', replay.text);
+  assert.match(replay.text, /没有绑定有效预览/);
+  assert.equal(host.state.goals.length, 33);
 });

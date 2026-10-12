@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { Context } from '@deepseek-ai/cordis';
 
 import plugin, { name, inject, Config, apply, commandConfigOf } from '../lib/index.js';
+import { writeSummaryFile } from '../lib/summary-file.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -43,20 +44,23 @@ test('inject 只锁定跨版本入口，host adapter 在调用时选择', () => 
   assert.deepEqual([...inject], ['commands']);
 });
 
-test('插件启动会清掉超过 7 天的临时摘要', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
-  const oldFile = join(dir, 'summary-plugin-old.md');
-  const freshFile = join(dir, 'summary-plugin-fresh.md');
-  writeFileSync(oldFile, 'old');
-  writeFileSync(freshFile, 'fresh');
+test('插件启动只清掉自己写过、并且超过 7 天的临时摘要', () => {
+  const owned = writeSummaryFile('plugin-old', 'old');
+  const ownedDir = dirname(owned);
+  const userFile = join(ownedDir, 'summary-plugin-user.md');
+  writeFileSync(userFile, 'user');
+  const fresh = writeSummaryFile('plugin-fresh', 'fresh');
   const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
-  utimesSync(oldFile, past, past);
+  utimesSync(owned, past, past);
+  utimesSync(userFile, past, past);
   try {
     register();
-    assert.equal(existsSync(oldFile), false);
-    assert.equal(existsSync(freshFile), true);
+    assert.equal(existsSync(owned), false);
+    assert.equal(existsSync(userFile), true);
+    assert.equal(existsSync(fresh), true);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(ownedDir, { recursive: true, force: true });
+    rmSync(dirname(fresh), { recursive: true, force: true });
   }
 });
 

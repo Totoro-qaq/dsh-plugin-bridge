@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { removeOwnedSummaryFile, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts';
+import { markSummaryDelivered, removeOwnedSummaryFile, summaryAlreadyDelivered, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts';
 
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET, estimateSummaryTokens } from './compression.ts';
 import {
@@ -293,6 +293,9 @@ async function main(argv: string[]): Promise<number> {
       const to = requireTarget(args);
       const file = str(args, 'summary-file');
       if (!file) throw new UsageError('缺少 --summary-file <path>（先跑 `dsh-bridge preview --to ' + to + '`）。');
+      if (summaryAlreadyDelivered(file)) {
+        throw new UsageError(`摘要 ${file} 已经交接过了。请打开目标会话，不要用同一份文件再迁一次。`);
+      }
       let summary: string;
       try {
         summary = readFileSync(file, 'utf8');
@@ -314,7 +317,10 @@ async function main(argv: string[]): Promise<number> {
       });
       // 另一次进程里的 preview 留下的路径不在本进程登记表里，这里不会删用户的文件。
       // 交接没有送达时同样保留，方便照着警告再试一次。
-      if (result.kickoffSent) removeOwnedSummaryFile(file);
+      if (result.kickoffSent) {
+        markSummaryDelivered(file);
+        removeOwnedSummaryFile(file);
+      }
       out(result, () => {
         const lines = [`已在 ${result.agentPreset} 模式下建好新会话：${result.sessionId}`];
         if (result.kickoffSent) {
