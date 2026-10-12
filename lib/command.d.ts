@@ -50,9 +50,15 @@ export interface BridgeCommandDeps {
     /** 自检：这套 host adapter 是否提供 Bridge 所需的能力。 */
     probe?: () => BridgeHostProbe[];
     config: BridgeCommandConfig;
-    /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
+    /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败应抛出，命令会写成警告而不是假装没有文件。 */
     writeSummary?: (sessionId: string, summary: string) => string | undefined;
     readSummary?: (path: string) => string;
+    /** 删掉本命令创建的临时摘要。只在预览被用掉、过期或被挤掉时调用。 */
+    removeSummary?: (path: string) => void;
+    /** 没有原生卡片的客户端靠它看到阶段进度。失败不能影响迁移。 */
+    onProgress?: (message: string) => void;
+    /** 长预览的进度间隔（毫秒）。默认 15 秒；测试可调小。0 表示不发心跳。 */
+    progressHeartbeatMs?: number;
     now?: () => number;
     /** 轮询压缩工人的间隔（毫秒），默认 750；测试里调小。 */
     pollMs?: number;
@@ -72,8 +78,34 @@ interface ParsedInput {
     summary64?: string;
     previewId?: string;
     help: boolean;
-    error?: string;
+    error?: BridgeParseError;
 }
+/** 参数错误用稳定代码保存，真正给用户看的句子在命令语言里现拼。 */
+export type BridgeParseError = {
+    code: 'extra-argument';
+    token: string;
+} | {
+    code: 'approve-plan64-missing';
+} | {
+    code: 'approved-plan-invalid';
+} | {
+    code: 'tier';
+} | {
+    code: 'lang';
+} | {
+    code: 'inject';
+} | {
+    code: 'goal-rounds';
+} | {
+    code: 'file-missing';
+} | {
+    code: 'summary64-missing';
+} | {
+    code: 'preview-id';
+} | {
+    code: 'unknown-option';
+    key: string;
+};
 /** `<preset> [--go] [--continue] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
 export declare function parseBridgeInput(rawInput: string): ParsedInput;
 /** 建一个 `/bridge` 命令定义。返回值形状对齐上游 `CommandDefinition`。 */

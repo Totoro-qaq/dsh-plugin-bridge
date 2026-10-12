@@ -14,9 +14,9 @@
  *   node <pkg>/lib/cli.js migrate --to code --summary-file <预览给出的路径>
  *   node <pkg>/lib/cli.js doctor
  */
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+
+import { removeOwnedSummaryFile, writeSummaryFile } from './summary-file.ts';
 
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET, estimateSummaryTokens } from './compression.ts';
 import {
@@ -157,13 +157,6 @@ function requireTarget(args: Args): string {
   const to = str(args, 'to');
   if (!to) throw new UsageError('缺少 --to <preset>。先跑 `dsh-bridge presets` 看有哪些模式。');
   return to;
-}
-
-function writeSummaryFile(sessionId: string, summary: string): string {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
-  const file = join(dir, `summary-${sessionId.slice(0, 12)}.md`);
-  writeFileSync(file, summary, 'utf8');
-  return file;
 }
 
 /* ------------------------------------------------------------------ 命令 */
@@ -317,6 +310,7 @@ async function main(argv: string[]): Promise<number> {
         title: str(args, 'title') ?? migratedTitle(titleOf(source), to),
         onProgress: progress,
       });
+      removeOwnedSummaryFile(file);
       out(result, () => {
         const lines = [`已在 ${result.agentPreset} 模式下建好新会话：${result.sessionId}`];
         if (result.kickoffSent) {

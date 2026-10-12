@@ -164,12 +164,15 @@ function RunningCard() {
     const timer = window.setInterval(() => { setSeconds(Math.floor((Date.now() - started) / 1000)) }, 1000)
     return () => { window.clearInterval(timer) }
   }, [])
-  return <div className="dsh-bridge-card" aria-live="polite">
+  return <div className="dsh-bridge-card">
     <Header lang={lang} />
     <div className="dsh-bridge-body">
-      <div className="dsh-bridge-copy">{copy.preparing} · {seconds}s</div>
+      <div className="dsh-bridge-copy">
+        <span aria-live="polite" aria-atomic="true">{copy.preparing}</span>
+        <span aria-hidden="true">{` · ${seconds}s`}</span>
+      </div>
       <div className="dsh-bridge-status">{copy.safe}</div>
-      <div className="dsh-bridge-progress" aria-hidden />
+      <div className="dsh-bridge-progress" aria-hidden="true" />
     </div>
   </div>
 }

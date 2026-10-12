@@ -9,7 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createFakeHost } from './fake-host.mjs';
@@ -80,6 +80,7 @@ test('preview → migrate 的完整链路（CLI 进程 + HTTP 网关）', async 
 
   const migrate = await runCli(['migrate', '--to', 'code', '--summary-file', previewed.summaryFile, '--json'], env);
   assert.equal(migrate.code, 0, migrate.stderr);
+  assert.equal(existsSync(previewed.summaryFile), false, '迁移成功后应清掉 Bridge 自己创建的临时摘要');
   const migrated = JSON.parse(migrate.stdout);
   assert.equal(migrated.agentPreset, 'code');
   assert.equal(host.state.goals.at(-1).maxGoalRounds, 1);

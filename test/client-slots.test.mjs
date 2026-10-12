@@ -92,3 +92,14 @@ test('current official slot registry restores Bridge contributions across owner 
     owner?.();
   }
 });
+
+test('running card announces the stable status politely and hides the ticking seconds', async () => {
+  const source = await readFile(new URL('../src/client.tsx', import.meta.url), 'utf8');
+  const running = source.slice(source.indexOf('function RunningCard'), source.indexOf('function SummaryView'));
+  assert.ok(running.includes('function RunningCard'));
+  const live = /aria-live="polite"[^>]*>([^<]*)</u.exec(running);
+  assert.ok(live, 'the polite live region must be a stable status, not the whole card');
+  assert.equal(live[1].includes('seconds'), false);
+  assert.match(running, /aria-hidden="true">\{` · \$\{seconds\}s`\}/);
+  assert.doesNotMatch(running, /<div className="dsh-bridge-card" aria-live=/u);
+});

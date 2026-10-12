@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
 import { createBridgeCommand, parseBridgeInput } from '../src/command.ts';
+import { estimateSummaryTokens } from '../src/compression.ts';
 import { parseBridgeCard } from '../src/client-contract.ts';
 
 const CONFIG = {
@@ -27,7 +28,6 @@ function setup(hostOptions = {}, overrides = {}, extraDeps = {}) {
   const host = createFakeHost(hostOptions);
   const files = new Map();
   const command = createBridgeCommand({
-    ...extraDeps,
     rpcFor: (signal) => createApiProxyRpc(host.apiProxy, signal),
     probe: () => probeApiProxy(host.apiProxy),
     config: { ...CONFIG, ...overrides },
@@ -40,6 +40,7 @@ function setup(hostOptions = {}, overrides = {}, extraDeps = {}) {
       if (!files.has(path)) throw new Error('ENOENT');
       return files.get(path);
     },
+    ...extraDeps,
   });
   // attachments 是 rc.8 起注册表必传的字段，这里跟着传，免得测试比真实调用更宽松。
   const invoke = (rawInput, sessionId = host.sourceSessionId) =>
@@ -465,8 +466,8 @@ test('参数解析', () => {
   assert.equal(webUi.previewId, 'preview-12345678');
   assert.equal(webUi.summary64, 'eyJvayI6dHJ1ZX0');
   assert.equal(parseBridgeInput('  code   --goal-rounds 3 ').goalRounds, 3);
-  assert.match(parseBridgeInput('code --nope').error, /不认识的参数/);
-  assert.match(parseBridgeInput('code extra').error, /多余的参数/);
+  assert.equal(parseBridgeInput('code --nope').error.code, 'unknown-option');
+  assert.equal(parseBridgeInput('code extra').error.code, 'extra-argument');
   assert.equal(parseBridgeInput('').preset, undefined);
 });
 
@@ -484,4 +485,142 @@ test('apiProxy 适配器：网关业务错误原样透出', async () => {
   const { host } = setup();
   const rpc = createApiProxyRpc(host.apiProxy);
   await assert.rejects(() => rpc('session.create', { agentPreset: 'nope' }), /agent-preset-not-found|未知 preset/);
+});
+
+test('参数错误和缺少会话身份跟随命令语言', async () => {
+  const { command } = setup({}, { lang: 'en' });
+  const invoke = (rawInput, session) => command.handler({
+    agent: session ? { session: { id: session } } : {},
+    rawInput,
+    attachments: [],
+  });
+  const unknown = await invoke('code --nope', 's-1');
+  assert.equal(unknown.kind, 'error');
+  assert.match(unknown.text, /Unknown option --nope/);
+  assert.match(unknown.text, /Use \/bridge to see the available syntax/);
+  assert.doesNotMatch(unknown.text, /[\u3400-\u9fff]/u);
+
+  const lateLang = await setup().invoke('code --nope --lang en');
+  assert.match(lateLang.text, /Unknown option --nope/);
+  assert.doesNotMatch(lateLang.text, /不认识的参数/);
+
+  const missing = await invoke('--lang zh');
+  assert.match(missing.text, /会话身份/);
+  const missingEn = await invoke('--lang en');
+  assert.match(missingEn.text, /session identity is unavailable/);
+  assert.doesNotMatch(missingEn.text, /[\u3400-\u9fff]/u);
+});
+
+test('摘要文件写失败时预览仍成功，并给出下一步', async () => {
+  const progress = [];
+  const { invoke } = setup({}, {}, {
+    pollMs: 1,
+    writeSummary: () => { throw new Error('ENOSPC: no space left on device'); },
+    onProgress: (message) => { progress.push(message); },
+    progressHeartbeatMs: 0,
+  });
+  const zh = await invoke('code');
+  assert.equal(zh.kind, 'success', zh.text);
+  assert.match(zh.text, /摘要文件没有保存（ENOSPC: no space left on device）/);
+  assert.match(zh.text, /下一步：核对上面的摘要后执行 \/bridge code --go/);
+  assert.match(zh.text, /--file <路径>/);
+  assert.doesNotMatch(zh.text, /要改：编辑/);
+  const card = parseBridgeCard(zh);
+  assert.equal(card.phase, 'preview');
+  assert.equal(card.summaryFile, undefined);
+  assert.match(card.warnings.join('\n'), /摘要文件没有保存/);
+
+  const en = await invoke('code --lang en');
+  assert.match(en.text, /The summary file was not saved \(ENOSPC: no space left on device\)/);
+  assert.match(en.text, /Next: review the summary above and run \/bridge code --go/);
+  assert.doesNotMatch(en.text, /摘要文件没有保存|下一步：|要改：编辑/);
+
+  assert.ok(progress.some((message) => message === '拉取并折叠会话历史…'));
+  assert.ok(progress.some((message) => message === '等待摘要…'));
+  assert.ok(progress.some((message) => message === 'Reading and folding session history…'));
+  assert.ok(progress.some((message) => message === 'Waiting for the summary…'));
+  assert.ok(progress.some((message) => message.startsWith('Starting the summary worker')));
+
+  const slow = [];
+  const waiting = setup({ replyAfterPolls: 8 }, { previewTimeoutMs: 5_000 }, {
+    pollMs: 30,
+    progressHeartbeatMs: 20,
+    onProgress: (message) => { slow.push(message); },
+  });
+  const slowResult = await waiting.invoke('code');
+  assert.equal(slowResult.kind, 'success', slowResult.text);
+  assert.ok(slow.some((message) => message.startsWith('仍在进行：')), slow.join('\n'));
+});
+
+test('预览卡片展示可核对的摘要预算，不展示粗估输入费用', async () => {
+  const { invoke } = setup({}, {}, { pollMs: 1, progressHeartbeatMs: 0 });
+  const result = await invoke('code');
+  const chars = Number(/取材 (\d+) 字符/.exec(result.text)?.[1]);
+  const budget = estimateSummaryTokens(chars, { summaryCharBudget: CONFIG.summaryCharBudget }).output;
+  assert.match(result.text, new RegExp(`摘要预算 ≤${budget} tokens`));
+  assert.doesNotMatch(result.text, /输入 tokens|input tokens|estimatedTokens/);
+  const card = parseBridgeCard(result);
+  assert.match(card.stats, new RegExp(`摘要预算 ≤${budget} tokens`));
+});
+
+test('迁移成功后清掉临时摘要；创建失败时保留，过期且未被读取时清掉', async () => {
+  const removed = [];
+  const kept = setup({ failTargetCreateOnce: 'code' }, {}, {
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    removeSummary: (file) => { removed.push(file); },
+  });
+  const preview = await kept.invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  assert.ok(file);
+  const failed = await kept.invoke('code --go');
+  assert.equal(failed.kind, 'error');
+  assert.deepEqual(removed, []);
+  const retried = await kept.invoke('code --go');
+  assert.equal(retried.kind, 'success', retried.text);
+  assert.deepEqual(removed, [file]);
+
+  let clock = 1_000;
+  const expiredRemoved = [];
+  const host = createFakeHost();
+  const files = new Map();
+  const command = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host.apiProxy),
+    config: CONFIG,
+    now: () => clock,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    writeSummary: (sessionId, summary) => {
+      const path = `/tmp/dsh-bridge-expired/summary-${sessionId}.md`;
+      files.set(path, summary);
+      return path;
+    },
+    readSummary: (path) => {
+      const summary = files.get(path);
+      if (summary === undefined) throw new Error('ENOENT');
+      return summary;
+    },
+    removeSummary: (path) => {
+      expiredRemoved.push(path);
+      files.delete(path);
+    },
+  });
+  const invoke = (rawInput) => command.handler({
+    agent: { session: { id: host.sourceSessionId } },
+    rawInput,
+    attachments: [],
+  });
+  const first = await invoke('code');
+  const expiredFile = /编辑 (\S+) 之后/.exec(first.text)?.[1];
+  clock += 31 * 60_000;
+  const doctor = await invoke('--doctor');
+  assert.equal(doctor.kind, 'success');
+  assert.deepEqual(expiredRemoved, [expiredFile]);
+
+  const second = await invoke('code');
+  const keptFile = /编辑 (\S+) 之后/.exec(second.text)?.[1];
+  clock += 31 * 60_000;
+  const migrated = await invoke(`code --go --file ${keptFile}`);
+  assert.equal(migrated.kind, 'success', migrated.text);
+  assert.ok(expiredRemoved.includes(keptFile), '读过并迁移成功后才删除这份过期摘要');
 });

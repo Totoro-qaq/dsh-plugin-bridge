@@ -14,7 +14,9 @@
  * model.」——所以在官方 WebUI 的输入框里打 `/bridge code` 就能用。
  */
 import { randomUUID } from 'node:crypto';
+import { clearInterval, setInterval } from 'node:timers';
 
+import { estimateSummaryTokens } from './compression.ts';
 import {
   executeMigration,
   findSession,
@@ -75,9 +77,15 @@ export interface BridgeCommandDeps {
   /** 自检：这套 host adapter 是否提供 Bridge 所需的能力。 */
   probe?: () => BridgeHostProbe[];
   config: BridgeCommandConfig;
-  /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败返回 undefined。 */
+  /** 摘要落盘，返回路径；给「改完再执行」这条路用。失败应抛出，命令会写成警告而不是假装没有文件。 */
   writeSummary?: (sessionId: string, summary: string) => string | undefined;
   readSummary?: (path: string) => string;
+  /** 删掉本命令创建的临时摘要。只在预览被用掉、过期或被挤掉时调用。 */
+  removeSummary?: (path: string) => void;
+  /** 没有原生卡片的客户端靠它看到阶段进度。失败不能影响迁移。 */
+  onProgress?: (message: string) => void;
+  /** 长预览的进度间隔（毫秒）。默认 15 秒；测试可调小。0 表示不发心跳。 */
+  progressHeartbeatMs?: number;
   now?: () => number;
   /** 轮询压缩工人的间隔（毫秒），默认 750；测试里调小。 */
   pollMs?: number;
@@ -106,6 +114,8 @@ interface CompletedWebUiConfirmation {
 const PENDING_TTL_MS = 30 * 60_000;
 /** 每个会话同时保留的待确认预览上限；超出时挤掉最旧的一份。 */
 const MAX_PENDING_PER_SESSION = 8;
+/** 摘要工人等待期间，给没有原生卡片的客户端补一条带耗时的进度。 */
+const DEFAULT_PROGRESS_HEARTBEAT_MS = 15_000;
 
 interface ParsedInput {
   approvePlan64?: string;
@@ -122,8 +132,22 @@ interface ParsedInput {
   summary64?: string;
   previewId?: string;
   help: boolean;
-  error?: string;
+  error?: BridgeParseError;
 }
+
+/** 参数错误用稳定代码保存，真正给用户看的句子在命令语言里现拼。 */
+export type BridgeParseError =
+  | { code: 'extra-argument'; token: string }
+  | { code: 'approve-plan64-missing' }
+  | { code: 'approved-plan-invalid' }
+  | { code: 'tier' }
+  | { code: 'lang' }
+  | { code: 'inject' }
+  | { code: 'goal-rounds' }
+  | { code: 'file-missing' }
+  | { code: 'summary64-missing' }
+  | { code: 'preview-id' }
+  | { code: 'unknown-option'; key: string };
 
 /** `<preset> [--go] [--continue] [--tier x] [--lang l] [--inject m] [--goal-rounds n] [--file p]` */
 export function parseBridgeInput(rawInput: string): ParsedInput {
@@ -133,7 +157,7 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
     const token = tokens[i] as string;
     if (!token.startsWith('--')) {
       if (out.preset === undefined) out.preset = token;
-      else return { ...out, error: `多余的参数 "${token}"` };
+      else return { ...out, error: { code: 'extra-argument', token } };
       continue;
     }
     const eq = token.indexOf('=');
@@ -153,62 +177,62 @@ export function parseBridgeInput(rawInput: string): ParsedInput {
       case 'continue': out.autoContinue = true; break;
       case 'approve-plan64': {
         const value = take();
-        if (!value) return {...out,error:'--approve-plan64 需要完整计划批准载荷'};
+        if (!value) return { ...out, error: { code: 'approve-plan64-missing' } };
         out.approvePlan64 = value;
         break;
       }
       case 'approved-plan': {
         const value = take();
-        if (!value || !/^[A-Za-z0-9-]{8,}$/u.test(value)) return {...out,error:'--approved-plan 批准记录无效'};
+        if (!value || !/^[A-Za-z0-9-]{8,}$/u.test(value)) return { ...out, error: { code: 'approved-plan-invalid' } };
         out.approvedPlanId = value;
         break;
       }
       case 'tier': {
         const value = take();
         if (value !== 'flash' && value !== 'current' && value !== 'pro') {
-          return { ...out, error: `--tier 只能是 flash / current / pro` };
+          return { ...out, error: { code: 'tier' } };
         }
         out.tier = value;
         break;
       }
       case 'lang': {
         const value = take();
-        if (value !== 'zh' && value !== 'en' && value !== 'auto') return { ...out, error: '--lang 只能是 zh / en / auto' };
+        if (value !== 'zh' && value !== 'en' && value !== 'auto') return { ...out, error: { code: 'lang' } };
         out.lang = value;
         break;
       }
       case 'inject': {
         const value = take();
-        if (value !== 'goal' && value !== 'prompt' && value !== 'both') return { ...out, error: '--inject 只能是 goal / prompt / both' };
+        if (value !== 'goal' && value !== 'prompt' && value !== 'both') return { ...out, error: { code: 'inject' } };
         out.inject = value;
         break;
       }
       case 'goal-rounds': {
         const value = Number(take());
-        if (!Number.isFinite(value) || value < 1) return { ...out, error: '--goal-rounds 需要一个 ≥1 的数字' };
+        if (!Number.isFinite(value) || value < 1) return { ...out, error: { code: 'goal-rounds' } };
         out.goalRounds = value;
         break;
       }
       case 'file': {
         const value = take();
-        if (!value) return { ...out, error: '--file 需要一个路径' };
+        if (!value) return { ...out, error: { code: 'file-missing' } };
         out.file = value;
         break;
       }
       case 'summary64': {
         const value = take();
-        if (!value) return { ...out, error: '--summary64 需要 WebUI 生成的摘要载荷' };
+        if (!value) return { ...out, error: { code: 'summary64-missing' } };
         out.summary64 = value;
         break;
       }
       case 'preview-id': {
         const value = take();
-        if (!value || !/^[A-Za-z0-9-]{8,}$/u.test(value)) return { ...out, error: '--preview-id 无效' };
+        if (!value || !/^[A-Za-z0-9-]{8,}$/u.test(value)) return { ...out, error: { code: 'preview-id' } };
         out.previewId = value;
         break;
       }
       default:
-        return { ...out, error: `不认识的参数 --${key}` };
+        return { ...out, error: { code: 'unknown-option', key } };
     }
   }
   return out;
@@ -218,6 +242,58 @@ type DisplayLang = 'zh' | 'en';
 
 function displayLang(lang: Lang | undefined): DisplayLang {
   return lang === 'en' ? 'en' : 'zh';
+}
+
+/**
+ * `--lang` 可能写在出错的参数后面。先扫一遍，让错误句子跟用户明确指定的语言走；
+ * 没写或写错时再退回配置。`auto` 与命令其余文案一样显示中文。
+ */
+function explicitDisplayLang(rawInput: string): DisplayLang | undefined {
+  const tokens = rawInput.trim().split(/\s+/).filter(Boolean);
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i] as string;
+    const inline = token.startsWith('--lang=') ? token.slice('--lang='.length) : undefined;
+    const value = inline ?? (token === '--lang' ? tokens[i + 1] : undefined);
+    if (token !== '--lang' && !token.startsWith('--lang=')) continue;
+    if (value === 'en') return 'en';
+    if (value === 'zh' || value === 'auto') return 'zh';
+  }
+  return undefined;
+}
+
+function parseErrorText(error: BridgeParseError, lang: DisplayLang): string {
+  const en = lang === 'en';
+  const detail = (() => {
+    switch (error.code) {
+      case 'extra-argument':
+        return en ? `Unexpected argument "${error.token}".` : `多余的参数 "${error.token}"。`;
+      case 'approve-plan64-missing':
+        return en ? '--approve-plan64 needs the complete plan-approval payload.' : '--approve-plan64 需要完整计划批准载荷。';
+      case 'approved-plan-invalid':
+        return en ? '--approved-plan is not a valid approval record.' : '--approved-plan 批准记录无效。';
+      case 'tier':
+        return en ? '--tier must be flash, current, or pro.' : '--tier 只能是 flash / current / pro。';
+      case 'lang':
+        return en ? '--lang must be zh, en, or auto.' : '--lang 只能是 zh / en / auto。';
+      case 'inject':
+        return en ? '--inject must be goal, prompt, or both.' : '--inject 只能是 goal / prompt / both。';
+      case 'goal-rounds':
+        return en ? '--goal-rounds needs a number greater than or equal to 1.' : '--goal-rounds 需要一个 ≥1 的数字。';
+      case 'file-missing':
+        return en ? '--file needs a path.' : '--file 需要一个路径。';
+      case 'summary64-missing':
+        return en ? '--summary64 needs the summary payload produced by the WebUI.' : '--summary64 需要 WebUI 生成的摘要载荷。';
+      case 'preview-id':
+        return en ? '--preview-id is invalid.' : '--preview-id 无效。';
+      case 'unknown-option':
+        return en ? `Unknown option --${error.key}.` : `不认识的参数 --${error.key}。`;
+      default: {
+        const unreachable: never = error;
+        return String(unreachable);
+      }
+    }
+  })();
+  return en ? `${detail}\n\nUse /bridge to see the available syntax.` : `${detail}\n\n用 /bridge 看用法。`;
 }
 
 function usage(presets: PresetRow[], current: string | undefined, lang: DisplayLang): string {
@@ -299,11 +375,32 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     }
     return newest;
   };
+  const dropSummaryFile = (file: string | undefined): void => {
+    if (!file) return;
+    try { deps.removeSummary?.(file); } catch { /* 清理失败不能让迁移失败 */ }
+  };
+  /** 丢掉一份不再保留的预览，并删掉它对应的临时摘要。 */
+  const forgetPending = (entry: Pending): void => {
+    pending.delete(entry.id);
+    dropSummaryFile(entry.file);
+  };
+  /**
+   * 过期预览不再能被确认。正在用 `--file` 读取的那一份先留着，
+   * 否则用户超时后按提示执行会发现文件已经被删掉。
+   */
+  const sweepExpired = (preserveFile?: string, preserved?: Set<string>): void => {
+    for (const entry of [...pending.values()]) {
+      if (now() - entry.at < PENDING_TTL_MS) continue;
+      pending.delete(entry.id);
+      if (entry.file && entry.file === preserveFile) preserved?.add(entry.file);
+      else dropSummaryFile(entry.file);
+    }
+  };
   const stashPending = (entry: Pending): void => {
-    for (const [id, old] of pending) if (now() - old.at >= PENDING_TTL_MS) pending.delete(id);
+    sweepExpired();
     pending.set(entry.id, entry);
     const own = [...pending.values()].filter((old) => old.sessionId === entry.sessionId).sort((a, b) => a.at - b.at);
-    for (const old of own.slice(0, Math.max(0, own.length - MAX_PENDING_PER_SESSION))) pending.delete(old.id);
+    for (const old of own.slice(0, Math.max(0, own.length - MAX_PENDING_PER_SESSION))) forgetPending(old);
   };
 
   return {
@@ -314,17 +411,25 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     // The outcome remains durable, but the raw command payload must not become log content.
     recordInput: false,
     handler: async (invocation: BridgeInvocation): Promise<BridgeResult> => {
-      const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
-      if (!sessionId) return { kind: 'error', text: '取不到当前会话身份，无法迁移。' };
+      const rawInput = invocation.rawInput ?? '';
+      const parsed = parseBridgeInput(rawInput);
+      const initialLang = explicitDisplayLang(rawInput) ?? displayLang(parsed.lang ?? deps.config.lang);
+      const preservedExpiredFiles = new Set<string>();
+      sweepExpired(parsed.file, preservedExpiredFiles);
+      if (parsed.error) return { kind: 'error', text: parseErrorText(parsed.error, initialLang) };
 
-      const parsed = parseBridgeInput(invocation.rawInput ?? '');
-      const initialLang = displayLang(parsed.lang ?? deps.config.lang);
-      if (parsed.error) {
+      const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
+      if (!sessionId) {
         return {
           kind: 'error',
-          text: initialLang === 'en' ? `${parsed.error}\n\nUse /bridge to see the available syntax.` : `${parsed.error}\n\n用 /bridge 看用法。`,
+          text: initialLang === 'en'
+            ? 'The current session identity is unavailable, so this session cannot be migrated.'
+            : '取不到当前会话身份，无法迁移。',
         };
       }
+      const reportProgress = (message: string): void => {
+        try { deps.onProgress?.(message); } catch { /* 进度通知失败不能让迁移失败 */ }
+      };
 
       let host: BridgeHost;
       try {
@@ -501,8 +606,11 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             title: targetTitle,
             autoContinue: parsed.autoContinue,
             lang: runLang,
+            onProgress: reportProgress,
           });
-          if (usedPending) pending.delete(usedPending.id);
+          if (usedPending) forgetPending(usedPending);
+          else dropSummaryFile(consumedPending?.file);
+          for (const expiredFile of preservedExpiredFiles) dropSummaryFile(expiredFile);
           const lines = runLang === 'en'
             ? [
                 `Created a new session in the ${result.agentPreset} preset from ${source}.`,
@@ -546,6 +654,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
           if (consumedPending && error instanceof RpcError && error.method === 'session.create' && !pending.has(consumedPending.id)) {
             pending.set(consumedPending.id, consumedPending);
+          } else if (consumedPending) {
+            dropSummaryFile(consumedPending.file);
           }
           return { kind: 'error', text: describe(error) };
         }
@@ -553,6 +663,19 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
 
       /* ---------------- 预览 ---------------- */
       const startedAt = now();
+      let stage = initialLang === 'en' ? 'Preparing the handoff…' : '正在准备交接…';
+      const beatEvery = deps.progressHeartbeatMs ?? DEFAULT_PROGRESS_HEARTBEAT_MS;
+      let heartbeat: ReturnType<typeof setInterval> | undefined;
+      if (deps.onProgress && beatEvery > 0) {
+        const wallStart = Date.now();
+        heartbeat = setInterval(() => {
+          const elapsed = Math.round((Date.now() - wallStart) / 1000);
+          reportProgress(initialLang === 'en'
+            ? `Still working: ${stage} (${elapsed}s)`
+            : `仍在进行：${stage}（${elapsed}s）`);
+        }, beatEvery);
+        heartbeat.unref();
+      }
       try {
         const preview = await previewMigration(host, {
           sessionId,
@@ -565,9 +688,22 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           pollMs: deps.pollMs ?? 750,
           ...(config.workerProvider ? { provider: config.workerProvider } : {}),
           ...(config.workerModel ? { model: config.workerModel } : {}),
+          onProgress: (message) => {
+            stage = message;
+            reportProgress(message);
+          },
         });
         const previewId = randomUUID();
-        const file = deps.writeSummary?.(sessionId, preview.summary);
+        let file: string | undefined;
+        let summaryFileError: string | undefined;
+        if (deps.writeSummary) {
+          try {
+            file = deps.writeSummary(sessionId, preview.summary);
+            if (!file) summaryFileError = '';
+          } catch (error) {
+            summaryFileError = describe(error).replace(/\s+/gu, ' ').slice(0, 300);
+          }
+        }
         stashPending({
           id: previewId,
           sessionId,
@@ -583,6 +719,13 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
 
         const s = preview.source;
         const outputLang = preview.lang;
+        const summaryBudget = estimateSummaryTokens(s.text.length, {
+          summaryCharBudget: config.summaryCharBudget,
+        }).output;
+        // 输出上限就是写进压缩指令的 token 预算，可以核对。输入侧是字符粗估，不当成费用展示。
+        const budgetSuffix = Number.isFinite(summaryBudget)
+          ? (outputLang === 'en' ? ` · summary budget ≤${summaryBudget} tokens` : ` · 摘要预算 ≤${summaryBudget} tokens`)
+          : '';
         const lines = outputLang === 'en'
           ? [
               `─── Handoff · ${current ?? 'current preset'} → ${target} (review numbers and paths) ───`,
@@ -590,7 +733,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               '───────────────────────────────────────────',
               `Source ${s.text.length} chars · user messages ${s.userMessagesUsed}/${s.userMessagesTotal}`
               + `${s.reusedCompaction ? ' · reused compaction' : ''}`
-              + ` · worker ${preview.worker.model || '(session default)'} · ${Math.round((now() - startedAt) / 1000)}s`,
+              + ` · worker ${preview.worker.model || '(session default)'} · ${Math.round((now() - startedAt) / 1000)}s`
+              + budgetSuffix,
               `Preview ID: ${previewId}`,
             ]
           : [
@@ -599,7 +743,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               '───────────────────────────────────────────',
               `取材 ${s.text.length} 字符 · 用户消息 ${s.userMessagesUsed}/${s.userMessagesTotal} 条`
               + `${s.reusedCompaction ? ' · 复用了 compaction 底稿' : ''}`
-              + ` · 压缩模型 ${preview.worker.model || '（会话默认）'} · 用时 ${Math.round((now() - startedAt) / 1000)}s`,
+              + ` · 压缩模型 ${preview.worker.model || '（会话默认）'} · 用时 ${Math.round((now() - startedAt) / 1000)}s`
+              + budgetSuffix,
               `预览 ID：${previewId}`,
             ];
         if (s.visualEvidence.images) {
@@ -621,10 +766,17 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           lines.push(outputLang === 'en'
             ? `Edit first: update ${file}, then run /bridge ${target} --go --file ${file}`
             : `要改：编辑 ${file} 之后 /bridge ${target} --go --file ${file}`);
+        } else if (summaryFileError !== undefined) {
+          const reason = summaryFileError || (outputLang === 'en' ? 'no path was returned' : '没有返回路径');
+          lines.push(outputLang === 'en'
+            ? `⚠ The summary file was not saved (${reason}). Next: review the summary above and run /bridge ${target} --go; if this view cannot edit it, copy the summary into a file and run /bridge ${target} --go --file <path>.`
+            : `⚠ 摘要文件没有保存（${reason}）。下一步：核对上面的摘要后执行 /bridge ${target} --go；如果当前界面不能编辑，把摘要复制到文件再执行 /bridge ${target} --go --file <路径>。`);
         }
         return { kind: 'success', text: lines.join('\n') };
       } catch (error) {
         return { kind: 'error', text: previewFailureText(error, initialLang, target) ?? describe(error) };
+      } finally {
+        if (heartbeat) clearInterval(heartbeat);
       }
     },
   };

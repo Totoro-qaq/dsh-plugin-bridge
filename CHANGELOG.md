@@ -2,6 +2,15 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## Unreleased
+
+- Tell the user when the preview summary file cannot be saved, including the reason and the next command to run. The preview itself still succeeds.
+- Forward `/bridge` stage updates in the command language. Clients without the native card get those stages in the host log, and a 15-second elapsed update while the summary worker is still running.
+- Keep the running card's screen-reader announcement polite and stable. The elapsed-seconds counter is no longer inside the live region, so it does not re-announce the card every second.
+- Follow the command language (`--lang`, otherwise the plugin `lang` setting; `auto` stays Chinese) for argument errors and the missing-session error.
+- Show the summary token budget on the preview. That number is the same limit the summary worker is instructed to respect. The rough input-token heuristic is not shown as a cost.
+- Delete Bridge-created temporary summary files after a successful handoff, when a retained preview expires, or when that preview is evicted. Cleanup only removes a regular `summary-*.md` file inside a `dsh-bridge-` directory under the system temp directory. A file named by the current `--file` read is kept until that migration succeeds.
+
 ## 0.4.3 — 2026-10-11
 
 - Build and typecheck against the published DSH `0.2.1-alpha.2` SDK and its Cordis `4.0.5-alpha.1`, replacing the stale `0.1.6-alpha.2` development baseline. Keep the existing host support range and host-supplied SDK peers.
