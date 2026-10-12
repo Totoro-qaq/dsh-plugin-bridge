@@ -98,6 +98,22 @@ test('native card parses Chinese preview into editable Markdown without transpor
   assert.deepEqual(card.warnings, ['取材因预算被裁剪（old assistant），摘要是基于被裁过的历史写的']);
 });
 
+test('preview file path ignores warnings that only mention --file as a next step', () => {
+  const saved = parseBridgeCard({
+    kind: 'success',
+    text: `${ZH_PREVIEW}\n⚠ 摘要文件没有保存（ENOSPC）。下一步：/bridge code --go --file <路径>。`,
+  });
+  assert.equal(saved.summaryFile, '/tmp/summary.md');
+
+  const unsaved = ZH_PREVIEW.replace(
+    '要改：编辑 /tmp/summary.md 之后 /bridge code --go --file /tmp/summary.md',
+    '⚠ 摘要文件没有保存（ENOSPC）。下一步：核对上面的摘要后执行 /bridge code --go --file <路径>。',
+  );
+  const card = parseBridgeCard({ kind: 'success', text: unsaved });
+  assert.equal(card.summaryFile, undefined);
+  assert.match(card.warnings.join('\n'), /ENOSPC/);
+});
+
 test('native card parses English preview and preserves the exact target', () => {
   const card = parseBridgeCard({ kind: 'success', text: EN_PREVIEW });
   assert.equal(card.phase, 'preview');

@@ -9,9 +9,7 @@
  * 不经过模型，结果也不进模型历史。执行引擎是进程内的 `ctx.apiProxy`
  * （web bundle 的 `api-gateway` 行提供），所以整条链路不出进程。
  */
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 
 import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
@@ -20,6 +18,7 @@ import { createBridgeCommand } from './command.ts'
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } from './compression.ts'
 import { probeDshHost, resolveDshHost } from './dsh-alpha-host.ts'
 import { createPlanApprovalBridge, type PlanReviewRequest } from './approved-plan.ts'
+import { removeOwnedSummaryFile, writeSummaryFile } from './summary-file.ts'
 export { createPlanApprovalBridge } from './approved-plan.ts'
 
 export const name = 'dsh-plugin-bridge'
@@ -71,18 +70,6 @@ export const Config: Schema<Config> = Schema.object({
   previewTimeoutMs: Schema.number().default(DEFAULT_PREVIEW_TIMEOUT_MS),
 })
 
-/** 摘要落盘，供「改完再执行」那条路用。失败不该让迁移失败，所以吞掉异常。 */
-function writeSummaryFile(sessionId: string, summary: string): string | undefined {
-  try {
-    const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'))
-    const file = join(dir, `summary-${sessionId.slice(0, 12)}.md`)
-    writeFileSync(file, summary, 'utf8')
-    return file
-  } catch {
-    return undefined
-  }
-}
-
 /** 把 Config 解析成命令层要的形状（Schema 已经填过默认值，这里只兜底）。 */
 export function commandConfigOf(config: Config = {}) {
   return {
@@ -115,6 +102,12 @@ export function apply(ctx: Context, config: Config = {}): void {
     config: commandConfigOf(config),
     writeSummary: writeSummaryFile,
     readSummary: (path) => readFileSync(path, 'utf8'),
+    removeSummary: removeOwnedSummaryFile,
+    // 宿主命令协议只在结束时返回结果。没有原生卡片时，阶段进度写进宿主日志，
+    // 长等待里命令还会每 15 秒补一条带耗时的进度。
+    onProgress: (message) => {
+      try { ctx.logger.info('%s', message) } catch { /* 进度日志不能让迁移失败 */ }
+    },
   })
   // 注册返回的是 cordis 的 effect disposer：插件卸载时命令自动消失。
   ;(ctx as unknown as { commands: { register: (definition: unknown) => () => void } }).commands.register(command)

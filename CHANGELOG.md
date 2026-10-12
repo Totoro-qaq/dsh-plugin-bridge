@@ -2,6 +2,19 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## Unreleased
+
+- Tell the user when the preview summary file cannot be saved, including the reason and the next command to run. The preview itself still succeeds. A warning line that mentions `--file` is not parsed as the saved path, and failing to record the file's inode after the bytes are on disk does not count as a failed save.
+- Forward `/bridge` stage updates in the command language. Clients without the native card get those stages in the host log, plus a 15-second elapsed update while the summary worker is still running.
+- Keep the running card's screen-reader announcement polite and stable. Only the stable preparing sentence is in the live region; the elapsed counter and progress bar are hidden from assistive tech. Preview, migrated, and target-picker status regions mount empty and fill after mount, so the first announcement is a change.
+- Follow the command language for argument errors and the missing-session error: `--lang` anywhere in the input (the last valid value wins), otherwise the plugin `lang` setting. `auto` stays Chinese.
+- Show the summary token budget on the preview. That number is the same limit the summary worker is instructed to respect. The rough input-token heuristic is not shown as a cost.
+- Migrate one summary file once per process. Typed `--go`, `--file`, and WebUI confirmation share one synchronous claim, so concurrent confirmations cannot build two targets. `--file` claims the preview that owns that file even for a different preset. After one preview of a target is confirmed, a bare `--go` does not migrate an older preview of that target; an explicit preview card still can.
+- A placement failure, or any other error before the target session exists, puts the preview back and keeps the file for a retry. When the target was created but the kickoff was not sent, the preview cannot be confirmed again with a different edit or the same file.
+- The plugin deletes a temporary summary only when this process wrote that exact file (same inode and unchanged content): after the kickoff is delivered, or when the preview expires or is evicted past the cap of 8 and no other call is reading it. User files, files the user edited, files recreated at the same path, and files from a separate CLI `preview` process are left in place.
+- Before migrating, Bridge leaves a small record for that summary in a per-user directory under the system temp directory (`dsh-bridge-claims-<uid>`). Another process gets a clear error while that handoff runs, after it was delivered, or after the target was created without the kickoff (30 minutes). CLI `migrate` keeps the record when the kickoff was not delivered, so rerunning it does not create a second target. A record left by an exited process on the same machine can be taken over at once; any other record after 10 minutes, by atomic replacement. Taking over a handoff that never finished (for example one interrupted with Ctrl-C) adds a warning to check for a second target session, and the warning repeats until a handoff of that file is delivered or kept. Two processes taking over the same stale record at the same moment is not prevented; the one whose record was replaced adds a warning to check for a second target session.
+- CI: the required `build` check fails when the Node 22/24 matrix or the macOS/Windows summary-file jobs fail or are cancelled.
+
 ## 0.4.3 — 2026-10-11
 
 - Build and typecheck against the published DSH `0.2.1-alpha.2` SDK and its Cordis `4.0.5-alpha.1`, replacing the stale `0.1.6-alpha.2` development baseline. Keep the existing host support range and host-supplied SDK peers.

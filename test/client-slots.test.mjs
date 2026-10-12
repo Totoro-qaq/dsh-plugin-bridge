@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -91,4 +91,93 @@ test('current official slot registry restores Bridge contributions across owner 
     await fiber.dispose();
     owner?.();
   }
+});
+
+function textOf(node) {
+  if (node == null || node === false) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  return (node.children ?? []).map((child) => textOf(child)).join('');
+}
+
+function findNodes(node, predicate, found = []) {
+  if (!node || typeof node !== 'object') return found;
+  if (predicate(node)) found.push(node);
+  for (const child of node.children ?? []) findNodes(child, predicate, found);
+  return found;
+}
+
+function loadBuiltClient() {
+  const React = require('react');
+  const sourceUrl = new URL('../lib/client.js', import.meta.url);
+  const factories = new Map();
+  const sandbox = {
+    console,
+    window: {
+      __ModuleLoader__: { load: ({ factory }) => { factories.set('dsh-plugin-bridge', factory); } },
+      setInterval: (...args) => globalThis.setInterval(...args),
+      clearInterval: (...args) => globalThis.clearInterval(...args),
+    },
+  };
+  Object.defineProperty(sandbox, 'Date', { get: () => Date });
+  vm.runInNewContext(require('node:fs').readFileSync(sourceUrl, 'utf8'), sandbox, { filename: 'client.js' });
+  const factory = factories.get('dsh-plugin-bridge');
+  const exported = factory((id) => {
+    if (id === 'react') return React;
+    if (id === 'react/jsx-runtime') return require('react/jsx-runtime');
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { JsonTree: () => null, MarkdownText: () => null };
+    if (id === 'react-dom' || id === 'react-dom/client') throw new Error('the live-region test must not mount a DOM renderer');
+    return require(id);
+  });
+  return { React, TestRenderer: require('react-test-renderer'), ...exported };
+}
+
+test('running card announces the stable status politely and hides the ticking seconds', async () => {
+  const { React, TestRenderer, BridgeCommandCard } = loadBuiltClient();
+  const previousWindow = global.window;
+  global.window = globalThis;
+  mock.timers.enable({ apis: ['setInterval', 'Date'] });
+  try {
+    const renderer = TestRenderer.create(React.createElement(BridgeCommandCard, {
+      node: { outcome: null },
+      execute: async () => ({ kind: 'success', text: '' }),
+      openSession: async () => {},
+      sessionId: 's-1',
+    }));
+    const before = renderer.toJSON();
+    const beforeLive = findNodes(before, (node) => node.props?.['aria-live'] === 'polite');
+    assert.equal(beforeLive.length, 1);
+    assert.equal(textOf(beforeLive[0]), '');
+    assert.equal(textOf(beforeLive[0]).includes('seconds'), false);
+    await TestRenderer.act(async () => {});
+    const mounted = renderer.toJSON();
+    const live = findNodes(mounted, (node) => node.props?.['aria-live'] === 'polite');
+    const hidden = findNodes(mounted, (node) => node.props?.['aria-hidden'] === 'true' && textOf(node).includes('s'));
+    assert.equal(textOf(live[0]), 'Generating an editable handoff preview');
+    assert.equal(textOf(live[0]).includes('seconds'), false);
+    await TestRenderer.act(async () => { mock.timers.tick(2500); });
+    const ticked = renderer.toJSON();
+    const tickedLive = findNodes(ticked, (node) => node.props?.['aria-live'] === 'polite');
+    const tickedHidden = findNodes(ticked, (node) => node.props?.['aria-hidden'] === 'true' && textOf(node).includes('s'));
+    assert.equal(textOf(tickedLive[0]).includes('2s'), false);
+    assert.equal(textOf(tickedLive[0]).includes('seconds'), false);
+    assert.match(textOf(tickedHidden[0]), / · 2s/);
+    assert.equal(hidden.length > 0, true);
+  } finally {
+    mock.timers.reset();
+    if (previousWindow === undefined) delete global.window;
+    else global.window = previousWindow;
+  }
+});
+
+test('preview, migrated, and picker status regions mount empty', async () => {
+  const { React, TestRenderer, PoliteStatus } = loadBuiltClient();
+  const renderer = TestRenderer.create(React.createElement(PoliteStatus, { text: 'Ready' }));
+  const before = findNodes(renderer.toJSON(), (node) => node.props?.['aria-live'] === 'polite');
+  assert.equal(before.length, 1);
+  assert.equal(before[0].props['aria-live'], 'polite');
+  assert.equal(textOf(before[0]), '');
+  await TestRenderer.act(async () => {});
+  const after = findNodes(renderer.toJSON(), (node) => node.props?.['aria-live'] === 'polite');
+  assert.equal(textOf(after[0]), 'Ready');
+  assert.equal(after[0].props['aria-live'], 'polite');
 });

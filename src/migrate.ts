@@ -382,13 +382,18 @@ export interface PreviewResult {
   sourceSession: SessionRow | undefined;
 }
 
+/** 进度文案跟着本次命令语言走；`auto` 在摘要语言判定前仍用中文。 */
+function progressLine(lang: Lang | 'zh' | 'en' | undefined, zh: string, en: string): string {
+  return lang === 'en' ? en : zh;
+}
+
 /** 生成交接摘要：取材 → 起临时工人 → 收摘要 → 归档工人。 */
 export async function previewMigration(input: BridgeHostInput, options: PreviewOptions): Promise<PreviewResult> {
   const host = asBridgeHost(input);
   const progress = options.onProgress ?? (() => {});
   const sourceSession = options.sourceSession ?? await findSession(host, options.sessionId);
 
-  progress('拉取并折叠会话历史…');
+  progress(progressLine(options.lang, '拉取并折叠会话历史…', 'Reading and folding session history…'));
   const messages = await foldedHistory(host, options.sessionId);
   const source = buildBridgeSource(messages, { sourceCharBudget: options.sourceCharBudget });
   if (!source.text.trim()) {
@@ -403,7 +408,11 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
   }
 
   const preset = await resolveWorkerPreset(host);
-  progress(`起压缩工人（${preset ?? '默认 preset'} / ${route.model || '会话默认模型'}）…`);
+  progress(progressLine(
+    options.lang,
+    `起压缩工人（${preset ?? '默认 preset'} / ${route.model || '会话默认模型'}）…`,
+    `Starting the summary worker (${preset ?? 'default preset'} / ${route.model || 'session default model'})…`,
+  ));
   const where = await placement(host, sourceSession, options.sessionId);
   const worker = await host.sessions.create({
     ...where,
@@ -416,7 +425,12 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
       await host.sessions.selectModel({ sessionId: worker.sessionId, provider: route.provider, model: route.model })
         .catch((error: unknown) => {
           // 选模型失败不该让整次迁移失败：工人用会话默认模型照样能写摘要。
-          progress(`选模型失败，改用默认模型（${error instanceof Error ? error.message : String(error)}）`);
+          const reason = error instanceof Error ? error.message : String(error);
+          progress(progressLine(
+            options.lang,
+            `选模型失败，改用默认模型（${reason}）`,
+            `Model selection failed; using the session default (${reason})`,
+          ));
         });
     }
     const instruction = buildBridgeInstruction(lang, { summaryCharBudget: options.summaryCharBudget });
@@ -426,7 +440,7 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
       mode: 'queue',
       content: [{ type: 'text', text: `${instruction}${source.text}` }],
     });
-    progress('等待摘要…');
+    progress(progressLine(options.lang, '等待摘要…', 'Waiting for the summary…'));
     const bounds = {
       timeoutMs: options.workerTimeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS,
       startGraceMs: options.pollMs === undefined ? DEFAULT_START_GRACE_MS : options.pollMs * 6,
@@ -606,7 +620,7 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
     warnings.push(`读取源会话模型失败，目标将使用 host 默认模型：${error instanceof Error ? error.message : String(error)}`);
   }
 
-  progress(`在 ${options.to} 模式下新建会话…`);
+  progress(progressLine(lang, `在 ${options.to} 模式下新建会话…`, `Creating a session in the ${options.to} preset…`));
   const where = await placement(host, sourceSession, options.sessionId);
   const created = await host.sessions.create({
     ...where,
@@ -683,7 +697,7 @@ export async function executeMigration(input: BridgeHostInput, options: MigrateO
     const baseText = options.executionKind === 'approved-plan'
       ? approvedPlanKickoff(summary,options.sourceContext ?? '',lang)
       : `${handoffPreamble(lang)}\n\n${summary}\n\n${buildBridgeKickoff(lang, options.autoContinue)}`;
-    progress('发送首轮交接指令…');
+    progress(progressLine(lang, '发送首轮交接指令…', 'Sending the handoff instruction…'));
     let unresolved: { refs: ImageAttachmentRef[]; missing: number } = { refs: [], missing: 0 };
     try {
       unresolved = unresolvedImageRefs(await foldedHistory(host, options.sessionId));

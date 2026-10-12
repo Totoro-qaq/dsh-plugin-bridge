@@ -151,6 +151,7 @@ export function createFakeHost(options = {}) {
             .map((s) => ({
               sessionId: s.sessionId, running: s.running, blank: s.blank,
               cwd: s.cwd, agentPreset: s.agentPreset,
+              ...(Object.hasOwn(s, 'currentCwd') ? { currentCwd: s.currentCwd } : {}),
               projections: { values: { title: s.title ?? undefined } },
             })),
         };

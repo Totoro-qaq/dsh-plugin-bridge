@@ -9,7 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { createFakeHost } from './fake-host.mjs';
@@ -80,6 +80,7 @@ test('preview → migrate 的完整链路（CLI 进程 + HTTP 网关）', async 
 
   const migrate = await runCli(['migrate', '--to', 'code', '--summary-file', previewed.summaryFile, '--json'], env);
   assert.equal(migrate.code, 0, migrate.stderr);
+  assert.equal(existsSync(previewed.summaryFile), true, 'migrate 是另一次进程，不能按名字删掉 preview 留下的文件');
   const migrated = JSON.parse(migrate.stdout);
   assert.equal(migrated.agentPreset, 'code');
   assert.equal(host.state.goals.at(-1).maxGoalRounds, 1);
@@ -87,6 +88,10 @@ test('preview → migrate 的完整链路（CLI 进程 + HTTP 网关）', async 
     (c) => c.method === 'session.prompt' && c.payload.sessionId === migrated.sessionId,
   );
   assert.ok(kickoff.payload.content[0].text.includes('7101'));
+  const again = await runCli(['migrate', '--to', 'code', '--summary-file', previewed.summaryFile, '--json'], env);
+  assert.equal(again.code, 2, again.stdout);
+  assert.match(again.stderr, /已经交接过了/);
+  assert.equal(host.state.goals.length, 1);
 });
 
 test('人工编辑过的摘要会被原样采用', async (t) => {
@@ -193,4 +198,20 @@ test('--help 有输出且退出码 0', async () => {
   const res = await runCli(['--help']);
   assert.equal(res.code, 0);
   assert.match(res.stdout, /dsh-bridge preview --to/);
+});
+
+test('kickoff 没送达时 migrate 保留认领，再跑一次不会建第二个目标', async (t) => {
+  const { host, api, close } = await serveFakeHost({ failTargetPromptOnce: 'code' });
+  t.after(close);
+  const env = { DSH_API: api, DSH_SESSION_ID: host.sourceSessionId };
+  const preview = await runCli(['preview', '--to', 'code', '--json', '--poll-ms', '5'], env);
+  assert.equal(preview.code, 0, preview.stderr);
+  const { summaryFile } = JSON.parse(preview.stdout);
+  const partial = await runCli(['migrate', '--to', 'code', '--summary-file', summaryFile, '--json'], env);
+  assert.equal(partial.code, 0, partial.stderr);
+  assert.equal(JSON.parse(partial.stdout).kickoffSent, false);
+  const again = await runCli(['migrate', '--to', 'code', '--summary-file', summaryFile, '--json'], env);
+  assert.equal(again.code, 2, again.stdout);
+  assert.match(again.stderr, /没有完整送达/);
+  assert.equal(host.state.goals.length, 1);
 });

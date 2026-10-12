@@ -147,6 +147,13 @@ const PRIMITIVE_LABELS = {
   },
 } satisfies Record<'zh' | 'en', { markdown: MarkdownLabels; json: JsonTreeLabels }>
 
+/** 礼貌播报区先空着挂上，文案在挂载后写入，这样第一次变化也会被读屏读到。 */
+export function PoliteStatus({ text }: { text: string }) {
+  const [announced, setAnnounced] = useState('')
+  useEffect(() => { setAnnounced(text) }, [text])
+  return <div className={announced ? 'dsh-bridge-status' : undefined} aria-live="polite" aria-atomic="true">{announced}</div>
+}
+
 function Header({ lang, route }: { lang: 'zh' | 'en'; route?: string }) {
   return <div className="dsh-bridge-head">
     <span className="dsh-bridge-mark" aria-hidden>B</span>
@@ -159,17 +166,25 @@ function RunningCard() {
   const lang = uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
   const copy = COPY[lang]
   const [seconds, setSeconds] = useState(0)
+  // 挂载时先空着。有些读屏只播报变化，区域一出现就带着整句时，第一次会漏掉。
+  const [announcement, setAnnouncement] = useState('')
+  useEffect(() => {
+    setAnnouncement(copy.preparing)
+  }, [copy.preparing])
   useEffect(() => {
     const started = Date.now()
     const timer = window.setInterval(() => { setSeconds(Math.floor((Date.now() - started) / 1000)) }, 1000)
     return () => { window.clearInterval(timer) }
   }, [])
-  return <div className="dsh-bridge-card" aria-live="polite">
+  return <div className="dsh-bridge-card">
     <Header lang={lang} />
     <div className="dsh-bridge-body">
-      <div className="dsh-bridge-copy">{copy.preparing} · {seconds}s</div>
+      <div className="dsh-bridge-copy">
+        <span aria-live="polite" aria-atomic="true">{announcement}</span>
+        <span aria-hidden="true">{` · ${seconds}s`}</span>
+      </div>
       <div className="dsh-bridge-status">{copy.safe}</div>
-      <div className="dsh-bridge-progress" aria-hidden />
+      <div className="dsh-bridge-progress" aria-hidden="true" />
     </div>
   </div>
 }
@@ -489,7 +504,7 @@ function PreviewCard({ card, execute, openSession, sessionId }: {
       </div>
       {card.warnings.map((warning) => <div className="dsh-bridge-warning" key={warning}>⚠ {warning}</div>)}
       {!card.previewId ? <div className="dsh-bridge-warning">⚠ {copy.stalePreview}</div> : null}
-      {status ? <div className="dsh-bridge-status" aria-live="polite">{status}</div> : null}
+      <PoliteStatus text={status} />
       {error ? <div className="dsh-bridge-error" role="alert">{error}</div> : null}
     </div>
   </div>
@@ -515,7 +530,7 @@ function MigratedCard({ card, error = '', openSession, status = '' }: {
       <div className="dsh-bridge-session"><strong>{card.title}</strong><br />{card.sessionId}</div>
       {card.details.map((detail) => <div className="dsh-bridge-copy" key={detail}>{detail}</div>)}
       <div className="dsh-bridge-actions"><button className="dsh-bridge-button" data-primary type="button" disabled={opening} onClick={() => { void open() }}>{opening ? copy.opening : copy.open}</button></div>
-      {status ? <div className="dsh-bridge-status" aria-live="polite">{status}</div> : null}
+      <PoliteStatus text={status} />
       {card.warnings.map((warning) => <div className="dsh-bridge-warning" key={warning}>⚠ {warning}</div>)}
       {localError ? <div className="dsh-bridge-error" role="alert">{localError}</div> : null}
     </div>
@@ -552,7 +567,7 @@ function TargetPicker({ execute, picker, sessionId }: {
     <div className="dsh-bridge-choices">
       {picker.targets.map((target) => <button className="dsh-bridge-button" disabled={running} key={target} type="button" onClick={() => { void pick(target) }}>{target}</button>)}
     </div>
-    {status ? <div className="dsh-bridge-status" aria-live="polite">{status}</div> : null}
+    <PoliteStatus text={status} />
     {error ? <div className="dsh-bridge-error" role="alert">{error}</div> : null}
   </div>
 }

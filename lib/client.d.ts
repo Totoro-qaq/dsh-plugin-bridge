@@ -8,6 +8,10 @@ interface BridgeInjected {
     readonly openSession: (sessionId: SessionId, lang: 'zh' | 'en') => Promise<void>;
 }
 type BridgeCommandCardProps = CommandRowProps & BridgeInjected;
+/** 礼貌播报区先空着挂上，文案在挂载后写入，这样第一次变化也会被读屏读到。 */
+export declare function PoliteStatus({ text }: {
+    text: string;
+}): import("react").JSX.Element;
 /** Rich renderer for the durable command lifecycle keyed by name and isolated from every other plugin. */
 export declare function BridgeCommandCard(props: BridgeCommandCardProps): import("react").JSX.Element;
 /** Client services are supplied by the official WebUI module table. */
