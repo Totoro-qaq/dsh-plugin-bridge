@@ -9,7 +9,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createFakeHost } from './fake-host.mjs';
@@ -194,4 +196,34 @@ test('--help 有输出且退出码 0', async () => {
   const res = await runCli(['--help']);
   assert.equal(res.code, 0);
   assert.match(res.stdout, /dsh-bridge preview --to/);
+});
+
+test('--help 会清掉超过 7 天的 dsh-bridge 临时摘要', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
+  const oldFile = join(dir, 'summary-cli-old.md');
+  const freshFile = join(dir, 'summary-cli-fresh.md');
+  const notes = join(dir, 'notes.md');
+  writeFileSync(oldFile, 'old');
+  writeFileSync(freshFile, 'fresh');
+  writeFileSync(notes, 'keep');
+  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  utimesSync(oldFile, past, past);
+  const secretDir = mkdtempSync(join(tmpdir(), 'not-bridge-'));
+  const secret = join(secretDir, 'summary-secret.md');
+  writeFileSync(secret, 'secret');
+  utimesSync(secret, past, past);
+  const linkDir = join(tmpdir(), `dsh-bridge-cli-link-${Date.now()}`);
+  symlinkSync(secretDir, linkDir);
+  try {
+    const res = await runCli(['--help']);
+    assert.equal(res.code, 0, res.stderr);
+    assert.equal(existsSync(oldFile), false);
+    assert.equal(existsSync(freshFile), true);
+    assert.equal(existsSync(notes), true);
+    assert.equal(readFileSync(secret, 'utf8'), 'secret');
+  } finally {
+    try { unlinkSync(linkDir); } catch { /* 已经不在 */ }
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(secretDir, { recursive: true, force: true });
+  }
 });

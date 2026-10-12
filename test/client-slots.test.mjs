@@ -106,3 +106,13 @@ test('running card announces the stable status politely and hides the ticking se
   assert.match(running, /aria-hidden="true">\{` · \$\{seconds\}s`\}/);
   assert.doesNotMatch(running, /<div className="dsh-bridge-card" aria-live=/u);
 });
+
+test('preview, migrated, and picker status regions mount empty', async () => {
+  const source = await readFile(new URL('../src/client.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /\{status \? <div className="dsh-bridge-status" aria-live/u);
+  const polite = source.slice(source.indexOf('function PoliteStatus'), source.indexOf('function Header'));
+  assert.match(polite, /const \[announced, setAnnounced\] = useState\(''\)/);
+  assert.match(polite, /setAnnounced\(text\)/);
+  assert.match(polite, /aria-live="polite"/);
+  assert.equal(source.match(/<PoliteStatus text=\{status\} \/>/gu)?.length, 3);
+});

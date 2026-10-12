@@ -6,7 +6,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +41,23 @@ test('入口导出形状符合 cordis 插件约定', () => {
 
 test('inject 只锁定跨版本入口，host adapter 在调用时选择', () => {
   assert.deepEqual([...inject], ['commands']);
+});
+
+test('插件启动会清掉超过 7 天的临时摘要', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-bridge-'));
+  const oldFile = join(dir, 'summary-plugin-old.md');
+  const freshFile = join(dir, 'summary-plugin-fresh.md');
+  writeFileSync(oldFile, 'old');
+  writeFileSync(freshFile, 'fresh');
+  const past = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  utimesSync(oldFile, past, past);
+  try {
+    register();
+    assert.equal(existsSync(oldFile), false);
+    assert.equal(existsSync(freshFile), true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('注册的是一个 /bridge 命令，不是技能', () => {

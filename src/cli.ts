@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { removeOwnedSummaryFile, writeSummaryFile } from './summary-file.ts';
+import { removeOwnedSummaryFile, sweepAgedSummaryFiles, writeSummaryFile } from './summary-file.ts';
 
 import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET, estimateSummaryTokens } from './compression.ts';
 import {
@@ -162,6 +162,7 @@ function requireTarget(args: Args): string {
 /* ------------------------------------------------------------------ 命令 */
 
 async function main(argv: string[]): Promise<number> {
+  try { sweepAgedSummaryFiles(); } catch { /* 旧文件清不掉不影响这次命令 */ }
   const args = parseArgs(argv);
   if (args.command === 'help' || bool(args, 'help')) {
     process.stdout.write(HELP);

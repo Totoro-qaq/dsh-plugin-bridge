@@ -375,7 +375,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   const now = deps.now ?? (() => Date.now());
   const metadata = commandMetadata(deps.config.lang);
   const livePending = (entry: Pending | undefined, sessionId: string, target: string): Pending | undefined =>
-    entry && entry.sessionId === sessionId && entry.preset === target && now() - entry.at < PENDING_TTL_MS ? entry : undefined;
+    entry && !entry.retainFile && entry.sessionId === sessionId && entry.preset === target && now() - entry.at < PENDING_TTL_MS ? entry : undefined;
   const newestPending = (sessionId: string, target: string): Pending | undefined => {
     let newest: Pending | undefined;
     for (const entry of pending.values()) {
@@ -404,10 +404,29 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     dropSummaryFile(entry.file);
   };
   /**
-   * 这次命令正在读取的摘要。过期清扫不能在迁移还没结束时把它的记录删掉，
-   * 否则失败之后就再也扫不到这份文件。
+   * 正在读取的摘要按真实路径计数。一次调用结束只减一，
+   * 另一路还拿着同一份文件时不能把保护摘掉。
    */
-  const inUseSummaryKeys = new Set<string>();
+  /** 同一条 `--file` 路径同时只允许一次 `--go`，避免两路都拿着文件内容各建一个会话。 */
+  const fileMigrations = new Set<string>();
+  const inUseSummaryCounts = new Map<string, number>();
+  const holdSummary = (file: string): string => {
+    const key = summaryPathKey(file);
+    inUseSummaryCounts.set(key, (inUseSummaryCounts.get(key) ?? 0) + 1);
+    return key;
+  };
+  const releaseSummary = (key: string | undefined): void => {
+    if (!key) return;
+    const left = (inUseSummaryCounts.get(key) ?? 1) - 1;
+    if (left > 0) inUseSummaryCounts.set(key, left);
+    else inUseSummaryCounts.delete(key);
+  };
+  /** 同步领走一份预览。领走之后、下一次 await 之前，别人就看不到它。 */
+  const claimPending = (entry: Pending | undefined): Pending | undefined => {
+    if (!entry || !pending.has(entry.id)) return undefined;
+    pending.delete(entry.id);
+    return entry;
+  };
   /**
    * 过期预览不再能被自动确认。正在用 `--file` 读取的那一份保留记录和文件：
    * 送达之后再删；这次失败则留到下一次不再使用它的清扫。
@@ -417,7 +436,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     for (const entry of [...pending.values()]) {
       if (now() - entry.at < PENDING_TTL_MS) continue;
       const key = entry.file ? summaryPathKey(entry.file) : undefined;
-      if (key && (key === preserveKey || inUseSummaryKeys.has(key))) continue;
+      if (key && (key === preserveKey || inUseSummaryCounts.has(key))) continue;
       pending.delete(entry.id);
       dropSummaryFile(entry.file);
     }
@@ -440,6 +459,23 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       const rawInput = invocation.rawInput ?? '';
       const parsed = parseBridgeInput(rawInput);
       const initialLang = explicitDisplayLang(rawInput) ?? displayLang(parsed.lang ?? deps.config.lang);
+      // 第一次 await（拉 preset / 会话）之前就占住文件，避免这段时间里的清扫把过期摘要删掉。
+      const heldSummary = parsed.file ? holdSummary(parsed.file) : undefined;
+      const migrationKey = parsed.go && parsed.file ? summaryPathKey(parsed.file) : undefined;
+      let lockedMigration = false;
+      try {
+      if (migrationKey) {
+        if (fileMigrations.has(migrationKey)) {
+          return {
+            kind: 'error',
+            text: initialLang === 'en'
+              ? 'This summary file is already being used for another handoff. Wait for that one to finish.'
+              : '这份摘要文件正在用于另一次交接，请等它结束。',
+          };
+        }
+        fileMigrations.add(migrationKey);
+        lockedMigration = true;
+      }
       sweepExpired(parsed.file);
       if (parsed.error) return { kind: 'error', text: parseErrorText(parsed.error, initialLang) };
 
@@ -558,7 +594,16 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           if (inFlightWebUi.has(webUiConfirmationKey)) {
             return { kind: 'error', text: initialLang === 'en' ? 'This WebUI confirmation is already running.' : '这次 WebUI 确认正在执行，请勿重复提交。' };
           }
-          const bound = livePending(pending.get(parsed.previewId), sessionId, target);
+          const stored = pending.get(parsed.previewId);
+          if (stored?.retainFile && stored.sessionId === sessionId && stored.preset === target) {
+            return {
+              kind: 'error',
+              text: initialLang === 'en'
+                ? 'This preview was already used for a handoff that did not fully start. Open that target session instead of confirming a different edit.'
+                : '这份预览已经用于一次没有完整送达的交接。请打开已创建的目标会话，不要换一份编辑稿再次确认。',
+            };
+          }
+          const bound = livePending(stored, sessionId, target);
           if (!bound) {
             return {
               kind: 'error',
@@ -597,9 +642,26 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           } catch (error) {
             return { kind: 'error', text: initialLang === 'en' ? `Cannot read ${parsed.file}: ${describe(error)}` : `读不到 ${parsed.file}：${describe(error)}` };
           }
-          usedPending = pendingForFile(parsed.file, sessionId, target);
+          const matched = pendingForFile(parsed.file, sessionId, target);
+          if (matched?.retainFile) {
+            return {
+              kind: 'error',
+              text: initialLang === 'en'
+                ? 'This preview was already used for a handoff that did not fully start. Open that target session instead of migrating the same file again.'
+                : '这份预览已经用于一次没有完整送达的交接。请打开已创建的目标会话，不要用同一份文件再迁一次。',
+            };
+          }
+          usedPending = claimPending(matched);
+          if (matched && !usedPending) {
+            return {
+              kind: 'error',
+              text: initialLang === 'en'
+                ? 'This preview is already being migrated. Wait for that handoff to finish.'
+                : '这份预览正在交接，请等它结束。',
+            };
+          }
         } else {
-          usedPending = newestPending(sessionId, target);
+          usedPending = claimPending(newestPending(sessionId, target));
           if (usedPending) {
             summary = usedPending.summary;
             pendingLang = usedPending.lang;
@@ -610,6 +672,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           ? (runLang === 'en' ? 'the edited WebUI preview' : 'WebUI 里编辑后的预览')
           : parsed.file ?? (runLang === 'en' ? 'the reviewed preview' : '暂存的预览');
         if (!summary?.trim()) {
+          const claimed = consumedPending ?? usedPending;
+          if (claimed && !pending.has(claimed.id)) pending.set(claimed.id, claimed);
           return {
             kind: 'error',
             text: runLang === 'en'
@@ -617,8 +681,6 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               : `没有可用的摘要（预览可能已过期）。先跑 /bridge ${target} 看一眼，确认后再 --go。`,
           };
         }
-        const inUseKey = parsed.file ? summaryPathKey(parsed.file) : undefined;
-        if (inUseKey) inUseSummaryKeys.add(inUseKey);
         try {
           const sourceTitle = titleOf(sourceSession);
           const targetTitle = sourceTitle ? migratedTitle(sourceTitle, target) : (runLang === 'en' ? `Migrated to ${target}` : migratedTitle(sourceTitle, target));
@@ -639,6 +701,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             else dropSummaryFile(consumedPending?.file);
           } else if (usedPending) {
             usedPending.retainFile = true;
+            pending.set(usedPending.id, usedPending);
           } else if (consumedPending && !pending.has(consumedPending.id)) {
             consumedPending.retainFile = true;
             pending.set(consumedPending.id, consumedPending);
@@ -684,14 +747,10 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           return commandResult;
         } catch (error) {
           if (webUiConfirmationKey) inFlightWebUi.delete(webUiConfirmationKey);
-          if (consumedPending && error instanceof RpcError && error.method === 'session.create' && !pending.has(consumedPending.id)) {
-            pending.set(consumedPending.id, consumedPending);
-          } else if (consumedPending) {
-            dropSummaryFile(consumedPending.file);
-          }
+          // 没送达就不删文件。放置失败、创建失败和其他错误都把预览放回去，方便重试。
+          const claimed = consumedPending ?? usedPending;
+          if (claimed && !pending.has(claimed.id)) pending.set(claimed.id, claimed);
           return { kind: 'error', text: describe(error) };
-        } finally {
-          if (inUseKey) inUseSummaryKeys.delete(inUseKey);
         }
       }
 
@@ -811,6 +870,10 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         return { kind: 'error', text: previewFailureText(error, initialLang, target) ?? describe(error) };
       } finally {
         if (heartbeat) clearInterval(heartbeat);
+      }
+      } finally {
+        if (lockedMigration && migrationKey) fileMigrations.delete(migrationKey);
+        releaseSummary(heldSummary);
       }
     },
   };
