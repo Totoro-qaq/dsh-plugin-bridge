@@ -9,7 +9,8 @@
 - Keep the running card's screen-reader announcement polite and stable. The elapsed-seconds counter is no longer inside the live region, so it does not re-announce the card every second.
 - Follow the command language (`--lang`, otherwise the plugin `lang` setting; `auto` stays Chinese) for argument errors and the missing-session error.
 - Show the summary token budget on the preview. That number is the same limit the summary worker is instructed to respect. The rough input-token heuristic is not shown as a cost.
-- Delete Bridge-created temporary summary files after a successful handoff, when a retained preview expires, or when that preview is evicted. Cleanup only removes a regular `summary-*.md` file inside a `dsh-bridge-` directory under the system temp directory. A file named by the current `--file` read is kept until that migration succeeds.
+- Delete a temporary summary only when this process created that exact file and the handoff was fully delivered (the kickoff was sent). Expiration and eviction still delete those tracked files. An expired preview whose file is being read stays registered if that attempt fails or does not deliver, so a later sweep can remove it; the match uses the real path, so `..` and directory symlinks count as the same file. A path that only looks like a Bridge temp file, including `--summary-file` passed to a separate CLI process, is left in place.
+- Repeated `--lang` uses the last valid value, including when it appears after a bad token. The running card's polite status starts empty and is filled after mount, so the first screen-reader announcement is a change.
 
 ## 0.4.3 — 2026-10-11
 

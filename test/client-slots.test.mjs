@@ -100,6 +100,9 @@ test('running card announces the stable status politely and hides the ticking se
   const live = /aria-live="polite"[^>]*>([^<]*)</u.exec(running);
   assert.ok(live, 'the polite live region must be a stable status, not the whole card');
   assert.equal(live[1].includes('seconds'), false);
+  assert.match(running, /const \[announcement, setAnnouncement\] = useState\(''\)/);
+  assert.match(running, /setAnnouncement\(copy\.preparing\)/);
+  assert.equal(live[1], '{announcement}');
   assert.match(running, /aria-hidden="true">\{` · \$\{seconds\}s`\}/);
   assert.doesNotMatch(running, /<div className="dsh-bridge-card" aria-live=/u);
 });

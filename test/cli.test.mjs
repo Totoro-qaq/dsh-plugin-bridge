@@ -80,7 +80,7 @@ test('preview → migrate 的完整链路（CLI 进程 + HTTP 网关）', async 
 
   const migrate = await runCli(['migrate', '--to', 'code', '--summary-file', previewed.summaryFile, '--json'], env);
   assert.equal(migrate.code, 0, migrate.stderr);
-  assert.equal(existsSync(previewed.summaryFile), false, '迁移成功后应清掉 Bridge 自己创建的临时摘要');
+  assert.equal(existsSync(previewed.summaryFile), true, 'migrate 是另一次进程，不能按名字删掉 preview 留下的文件');
   const migrated = JSON.parse(migrate.stdout);
   assert.equal(migrated.agentPreset, 'code');
   assert.equal(host.state.goals.at(-1).maxGoalRounds, 1);

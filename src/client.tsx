@@ -159,6 +159,11 @@ function RunningCard() {
   const lang = uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
   const copy = COPY[lang]
   const [seconds, setSeconds] = useState(0)
+  // 挂载时先空着。有些读屏只播报变化，区域一出现就带着整句时，第一次会漏掉。
+  const [announcement, setAnnouncement] = useState('')
+  useEffect(() => {
+    setAnnouncement(copy.preparing)
+  }, [copy.preparing])
   useEffect(() => {
     const started = Date.now()
     const timer = window.setInterval(() => { setSeconds(Math.floor((Date.now() - started) / 1000)) }, 1000)
@@ -168,7 +173,7 @@ function RunningCard() {
     <Header lang={lang} />
     <div className="dsh-bridge-body">
       <div className="dsh-bridge-copy">
-        <span aria-live="polite" aria-atomic="true">{copy.preparing}</span>
+        <span aria-live="polite" aria-atomic="true">{announcement}</span>
         <span aria-hidden="true">{` · ${seconds}s`}</span>
       </div>
       <div className="dsh-bridge-status">{copy.safe}</div>

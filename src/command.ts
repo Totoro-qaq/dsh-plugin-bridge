@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { clearInterval, setInterval } from 'node:timers';
 
 import { estimateSummaryTokens } from './compression.ts';
+import { sameSummaryPath, summaryPathKey } from './summary-file.ts';
 import {
   executeMigration,
   findSession,
@@ -100,6 +101,11 @@ interface Pending {
   lang: 'zh' | 'en';
   file?: string;
   at: number;
+  /**
+   * 交接没有完整送达。自动 `--go` 不再拿它做下一次迁移，避免再建一个会话；
+   * 文件先留着，过期清扫或用户用 `--file` 明确重试时再处理。
+   */
+  retainFile?: boolean;
 }
 
 interface CompletedWebUiConfirmation {
@@ -246,19 +252,21 @@ function displayLang(lang: Lang | undefined): DisplayLang {
 
 /**
  * `--lang` 可能写在出错的参数后面。先扫一遍，让错误句子跟用户明确指定的语言走；
- * 没写或写错时再退回配置。`auto` 与命令其余文案一样显示中文。
+ * 没写或写错时再退回配置。同一条命令里写了多次时，后出现的有效值覆盖前面的，
+ * 与 `parseBridgeInput` 一致。`auto` 与命令其余文案一样显示中文。
  */
 function explicitDisplayLang(rawInput: string): DisplayLang | undefined {
   const tokens = rawInput.trim().split(/\s+/).filter(Boolean);
+  let found: DisplayLang | undefined;
   for (let i = 0; i < tokens.length; i += 1) {
     const token = tokens[i] as string;
     const inline = token.startsWith('--lang=') ? token.slice('--lang='.length) : undefined;
     const value = inline ?? (token === '--lang' ? tokens[i + 1] : undefined);
     if (token !== '--lang' && !token.startsWith('--lang=')) continue;
-    if (value === 'en') return 'en';
-    if (value === 'zh' || value === 'auto') return 'zh';
+    if (value === 'en') found = 'en';
+    else if (value === 'zh' || value === 'auto') found = 'zh';
   }
-  return undefined;
+  return found;
 }
 
 function parseErrorText(error: BridgeParseError, lang: DisplayLang): string {
@@ -371,9 +379,20 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   const newestPending = (sessionId: string, target: string): Pending | undefined => {
     let newest: Pending | undefined;
     for (const entry of pending.values()) {
+      if (entry.retainFile) continue;
       if (livePending(entry, sessionId, target) && (!newest || entry.at >= newest.at)) newest = entry;
     }
     return newest;
+  };
+  /** `--file` 对上的那一份预览，包括已过期但这次还在读的。对不上就没有，不借用别的预览。 */
+  const pendingForFile = (file: string, sessionId: string, target: string): Pending | undefined => {
+    let found: Pending | undefined;
+    for (const entry of pending.values()) {
+      if (entry.sessionId !== sessionId || entry.preset !== target || !entry.file) continue;
+      if (!sameSummaryPath(entry.file, file)) continue;
+      if (!found || entry.at >= found.at) found = entry;
+    }
+    return found;
   };
   const dropSummaryFile = (file: string | undefined): void => {
     if (!file) return;
@@ -385,15 +404,22 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
     dropSummaryFile(entry.file);
   };
   /**
-   * 过期预览不再能被确认。正在用 `--file` 读取的那一份先留着，
-   * 否则用户超时后按提示执行会发现文件已经被删掉。
+   * 这次命令正在读取的摘要。过期清扫不能在迁移还没结束时把它的记录删掉，
+   * 否则失败之后就再也扫不到这份文件。
    */
-  const sweepExpired = (preserveFile?: string, preserved?: Set<string>): void => {
+  const inUseSummaryKeys = new Set<string>();
+  /**
+   * 过期预览不再能被自动确认。正在用 `--file` 读取的那一份保留记录和文件：
+   * 送达之后再删；这次失败则留到下一次不再使用它的清扫。
+   */
+  const sweepExpired = (preserveFile?: string): void => {
+    const preserveKey = preserveFile ? summaryPathKey(preserveFile) : undefined;
     for (const entry of [...pending.values()]) {
       if (now() - entry.at < PENDING_TTL_MS) continue;
+      const key = entry.file ? summaryPathKey(entry.file) : undefined;
+      if (key && (key === preserveKey || inUseSummaryKeys.has(key))) continue;
       pending.delete(entry.id);
-      if (entry.file && entry.file === preserveFile) preserved?.add(entry.file);
-      else dropSummaryFile(entry.file);
+      dropSummaryFile(entry.file);
     }
   };
   const stashPending = (entry: Pending): void => {
@@ -414,8 +440,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       const rawInput = invocation.rawInput ?? '';
       const parsed = parseBridgeInput(rawInput);
       const initialLang = explicitDisplayLang(rawInput) ?? displayLang(parsed.lang ?? deps.config.lang);
-      const preservedExpiredFiles = new Set<string>();
-      sweepExpired(parsed.file, preservedExpiredFiles);
+      sweepExpired(parsed.file);
       if (parsed.error) return { kind: 'error', text: parseErrorText(parsed.error, initialLang) };
 
       const sessionId = invocation.agent?.session?.id ?? invocation.agent?.session?.header?.id;
@@ -572,8 +597,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
           } catch (error) {
             return { kind: 'error', text: initialLang === 'en' ? `Cannot read ${parsed.file}: ${describe(error)}` : `读不到 ${parsed.file}：${describe(error)}` };
           }
-          usedPending = [...pending.values()].find((entry) => entry.file === parsed.file && livePending(entry, sessionId, target))
-            ?? newestPending(sessionId, target);
+          usedPending = pendingForFile(parsed.file, sessionId, target);
         } else {
           usedPending = newestPending(sessionId, target);
           if (usedPending) {
@@ -593,6 +617,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
               : `没有可用的摘要（预览可能已过期）。先跑 /bridge ${target} 看一眼，确认后再 --go。`,
           };
         }
+        const inUseKey = parsed.file ? summaryPathKey(parsed.file) : undefined;
+        if (inUseKey) inUseSummaryKeys.add(inUseKey);
         try {
           const sourceTitle = titleOf(sourceSession);
           const targetTitle = sourceTitle ? migratedTitle(sourceTitle, target) : (runLang === 'en' ? `Migrated to ${target}` : migratedTitle(sourceTitle, target));
@@ -608,9 +634,15 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             lang: runLang,
             onProgress: reportProgress,
           });
-          if (usedPending) forgetPending(usedPending);
-          else dropSummaryFile(consumedPending?.file);
-          for (const expiredFile of preservedExpiredFiles) dropSummaryFile(expiredFile);
+          if (result.kickoffSent) {
+            if (usedPending) forgetPending(usedPending);
+            else dropSummaryFile(consumedPending?.file);
+          } else if (usedPending) {
+            usedPending.retainFile = true;
+          } else if (consumedPending && !pending.has(consumedPending.id)) {
+            consumedPending.retainFile = true;
+            pending.set(consumedPending.id, consumedPending);
+          }
           const lines = runLang === 'en'
             ? [
                 `Created a new session in the ${result.agentPreset} preset from ${source}.`,
@@ -658,6 +690,8 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             dropSummaryFile(consumedPending.file);
           }
           return { kind: 'error', text: describe(error) };
+        } finally {
+          if (inUseKey) inUseSummaryKeys.delete(inUseKey);
         }
       }
 

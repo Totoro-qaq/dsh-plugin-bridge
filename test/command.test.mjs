@@ -8,6 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { summaryPathKey } from '../src/summary-file.ts';
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
 import { createBridgeCommand, parseBridgeInput } from '../src/command.ts';
@@ -504,6 +505,12 @@ test('参数错误和缺少会话身份跟随命令语言', async () => {
   assert.match(lateLang.text, /Unknown option --nope/);
   assert.doesNotMatch(lateLang.text, /不认识的参数/);
 
+  const lastLang = await setup().invoke('code --lang zh --nope --lang en');
+  assert.match(lastLang.text, /Unknown option --nope/);
+  assert.doesNotMatch(lastLang.text, /不认识的参数/);
+  const overridden = await setup().invoke('code --lang en --nope --lang zh');
+  assert.match(overridden.text, /不认识的参数 --nope/);
+
   const missing = await invoke('--lang zh');
   assert.match(missing.text, /会话身份/);
   const missingEn = await invoke('--lang en');
@@ -623,4 +630,114 @@ test('迁移成功后清掉临时摘要；创建失败时保留，过期且未�
   const migrated = await invoke(`code --go --file ${keptFile}`);
   assert.equal(migrated.kind, 'success', migrated.text);
   assert.ok(expiredRemoved.includes(keptFile), '读过并迁移成功后才删除这份过期摘要');
+});
+
+test('--file 对不上活预览时，不删除另一份仍有效的摘要', async () => {
+  const removed = [];
+  let n = 0;
+  const files = new Map();
+  const host = createFakeHost();
+  const command = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host.apiProxy),
+    config: CONFIG,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    writeSummary: (sessionId, summary) => {
+      n += 1;
+      const path = `/tmp/fake-${sessionId}-${n}.md`;
+      files.set(path, summary);
+      return path;
+    },
+    readSummary: (path) => {
+      const summary = files.get(path);
+      if (summary === undefined) throw new Error('ENOENT');
+      return summary;
+    },
+    removeSummary: (path) => {
+      removed.push(path);
+      files.delete(path);
+    },
+  });
+  const invoke = (rawInput) => command.handler({
+    agent: { session: { id: host.sourceSessionId } },
+    rawInput,
+    attachments: [],
+  });
+  const codePreview = await invoke('code');
+  const codeFile = /编辑 (\S+) 之后/.exec(codePreview.text)?.[1];
+  const cordisPreview = await invoke('cordis');
+  const cordisFile = /编辑 (\S+) 之后/.exec(cordisPreview.text)?.[1];
+  files.set('/tmp/user-edited.md', '## 目标\n用户自己的文件');
+  const migrated = await invoke('code --go --file /tmp/user-edited.md');
+  assert.equal(migrated.kind, 'success', migrated.text);
+  assert.ok(host.state.goals.at(-1).objective.includes('用户自己的文件'));
+  assert.deepEqual(removed, []);
+  const other = await invoke('cordis --go');
+  assert.equal(other.kind, 'success', other.text);
+  assert.deepEqual(removed, [cordisFile]);
+  const original = await invoke('code --go');
+  assert.equal(original.kind, 'success', original.text);
+  assert.deepEqual(removed, [cordisFile, codeFile]);
+});
+
+test('过期摘要迁移失败时保留记录，之后不再使用才会清掉', async () => {
+  let clock = 1_000;
+  const removed = [];
+  const files = new Map();
+  const host = createFakeHost({ failTargetCreateOnce: 'code' });
+  const command = createBridgeCommand({
+    rpcFor: () => createApiProxyRpc(host.apiProxy),
+    config: CONFIG,
+    now: () => clock,
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    writeSummary: (sessionId, summary) => {
+      const path = `/tmp/dsh-bridge-fail/summary-${sessionId}.md`;
+      files.set(path, summary);
+      return path;
+    },
+    readSummary: (path) => {
+      const summary = [...files.entries()].find(([stored]) => summaryPathKey(stored) === summaryPathKey(path))?.[1];
+      if (summary === undefined) throw new Error('ENOENT');
+      return summary;
+    },
+    removeSummary: (path) => {
+      removed.push(path);
+      files.delete(path);
+    },
+  });
+  const invoke = (rawInput) => command.handler({
+    agent: { session: { id: host.sourceSessionId } },
+    rawInput,
+    attachments: [],
+  });
+  const preview = await invoke('code');
+  const file = /编辑 (\S+) 之后/.exec(preview.text)?.[1];
+  clock += 31 * 60_000;
+  const failed = await invoke(`code --go --file ${file}/../summary-${host.sourceSessionId}.md`);
+  assert.equal(failed.kind, 'error', failed.text);
+  assert.deepEqual(removed, []);
+  const doctor = await invoke('--doctor');
+  assert.equal(doctor.kind, 'success');
+  assert.deepEqual(removed, [file]);
+});
+
+test('交接没有送达时不删除摘要，也不会自动再建一个会话', async () => {
+  const removed = [];
+  const { host, invoke } = setup({ failPause: true }, {}, {
+    pollMs: 1,
+    progressHeartbeatMs: 0,
+    removeSummary: (file) => { removed.push(file); },
+  });
+  await invoke('code');
+  const paused = await invoke('code --go');
+  assert.equal(paused.kind, 'success', paused.text);
+  assert.match(paused.text, /没有自动启动/);
+  assert.match(paused.text, /暂停交接目标失败/);
+  assert.deepEqual(removed, []);
+  assert.equal(host.state.goals.length, 1);
+  const again = await invoke('code --go');
+  assert.equal(again.kind, 'error');
+  assert.match(again.text, /没有可用的摘要/);
+  assert.equal(host.state.goals.length, 1);
 });
