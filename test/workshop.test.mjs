@@ -22,10 +22,12 @@ test('Workshop declaration describes the existing profile bundle, not a new runt
 test('Workshop claims remain bounded to named hosts and do not claim untested hot reload', () => {
   const m = pkg.dshWorkshop
   assert.ok(m)
-  assert.deepEqual(m.compatibility.dshVersions, ['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2'])
+  assert.deepEqual(m.compatibility.dshVersions, ['0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3'])
   assert.equal(m.lifecycle.activation, 'restart-host')
   assert.equal(m.evidence.failureIsolation, null)
   assert.equal(m.evidence.hotReload, null)
+  assert.equal(m.evidence.install, 'docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md')
+  assert.equal(m.evidence.remove, 'docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md')
   assert.ok(m.capability.id)
   assert.ok(m.capability.invocation)
   assert.ok(m.capability.expected)

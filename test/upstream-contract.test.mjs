@@ -36,14 +36,35 @@ const REQUIRED_METHODS = [
   'goal.pause',
 ];
 
-test('DSH alpha.2 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
+test('DSH alpha.3 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
   assert.deepEqual(pkg.engines.dsh.split('||').map(part => part.trim()), [
-    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2',
+    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3',
   ]);
   assert.equal(lock.packages[''].engines.dsh, pkg.engines.dsh);
-  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.2');
+  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.3');
+});
+
+test('both READMEs document the alpha.3 HMR upgrade boundary before removal', async () => {
+  for (const file of ['README.md', 'README.zh.md']) {
+    const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    assert.ok(text.includes('already-installed'), `${file} must explain repeated-install refusal`);
+    const guard = text.split('\n\n').find(paragraph => paragraph.includes('already-installed'));
+    assert.ok(/running[^\n]*pluginManager[^\n]*Remote|运行中[^\n]*pluginManager[^\n]*Remote/u.test(guard),
+      `${file} must scope the refusal to the running plugin manager / Remote API`);
+    assert.ok(guard.includes('installBundle()'), `${file} must identify the guarded API`);
+    const cli = text.split('\n\n').find(paragraph => paragraph.startsWith('For CLI replacement') || paragraph.startsWith('CLI 替换时'));
+    assert.ok(/stop[^\n]*Host[^\n]*remove[^\n]*add[^\n]*start|停止[^\n]*宿主[^\n]*remove[^\n]*add[^\n]*启动/u.test(cli),
+      `${file} must distinguish the CLI stop, remove/add, start sequence`);
+    const remove = text.indexOf('removeBundle(name)');
+    const install = text.indexOf('installBundle(spec)');
+    assert.ok(remove >= 0 && install > remove, `${file} must describe remove before install`);
+    assert.ok(/plugin-install-over-installed\/guide(?:\.zh)?\.md/u.test(text));
+    assert.ok(/in memory|内存/u.test(text), `${file} must warn about pending previews`);
+    assert.ok(/finish or save|先完成或保存/u.test(text), `${file} must put pending work before removal`);
+    assert.ok(/Desktop[^\n]*0\.2\.0-rc\.2|桌面端[^\n]*0\.2\.0-rc\.2/u.test(text));
+  }
 });
 
 const CONFIG = {

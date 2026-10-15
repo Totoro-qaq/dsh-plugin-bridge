@@ -2,6 +2,13 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.4.5 — 2026-10-15
+
+- Add exact DSH `0.2.1-alpha.3` support while preserving every earlier host declaration. Pin all eight development SDKs to alpha.3 and Cordis to `4.0.5-alpha.2`; installed manifests and the lockfile are checked by regressions. Host-supplied peers and direct runtime dependencies are unchanged.
+- Keep business source and generated `lib/` byte-identical to the 0.4.4 runtime. Bounded official alpha.3 Host/WebUI acceptance used a locally packed 0.4.4 candidate: current-directory worker/target placement, an exact 2,669-character edited handoff, automatic navigation, paused goal, zero target tool calls, live isolation, same-business-byte reinstallation, restart recovery and final removal. See [the acceptance record and 0.4.5 mapping](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md); this historical run is not a registry-install check of 0.4.5.
+- Preserve the observed Text-mode boundary: a mixed bare-path/bullet model summary was rejected without changes, then the tester explicitly edited Markdown before Text/Markdown round-trip and confirmation. No parser protection was relaxed. Images, real approved-plan execution, native alpha.3 Desktop and different-business-byte hot replacement were not re-certified; the known dangling CLI link/cache residue remains documented.
+- Clarify alpha.3 upgrade paths in both languages: the running plugin manager / Remote API returns `already-installed`; API replacement removes first, while CLI replacement stops the corresponding Host before remove/add and restarts it afterward. Finish or save pending in-memory handoffs before either path. Workshop install/remove evidence points to alpha.3, with conservative activation, permissions and null hot-reload evidence retained.
+
 ## 0.4.4 — 2026-10-12
 
 - Tell the user when the preview summary file cannot be saved, including the reason and the next command to run. The preview itself still succeeds. A warning line that mentions `--file` is not parsed as the saved path, and failing to record the file's inode after the bytes are on disk does not count as a failed save.

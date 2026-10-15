@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH tested 0.2.1-alpha.2](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.2-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
+[![DSH tested 0.2.1-alpha.3](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.3-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -32,10 +32,16 @@ dsh plugin --profile web add dsh-plugin-bridge
 
 On **DSH 0.1.5-rc.2**, restart `dsh web` after adding or removing the plugin. On **DSH 0.1.6-alpha.2**, a first install from the WebUI Plugins page applies live; CLI install and upgrades may still need one restart. **DSH 0.1.7-alpha.1** was tested with CLI installation, live disable/enable, and removal followed by a restart; restart-free installation or upgrades were not tested.
 
+On **DSH 0.2.1-alpha.3 Web** with HMR, the running `pluginManager` service's `installBundle()` API, including Remote API callers and the agent's `plugin_manager` tool, returns `already-installed` for a package already in the profile, even when another version is requested. API replacement uses `removeBundle(name)` followed by `installBundle(spec)`; honor any restart request. See the [upstream upgrade guide](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/docs/upgrade-guide/v0.2.1-alpha.2/plugin-install-over-installed/guide.md).
+
+For CLI replacement, stop the Host using the selected profile, run `dsh plugin --profile web remove dsh-plugin-bridge`, then `dsh plugin --profile web add <desired-package-spec>`, and start the Host again. The [CLI runs separate profile package operations](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/apps/cli/src/plugin.ts); the running-API refusal above does not apply to that path.
+
+Before either replacement, finish or save pending handoffs: previews and unconfirmed edits live in memory and stopping or unloading Bridge discards their confirmation state. The source session remains intact; generate a new preview after reinstallation and reapply any saved draft. These Web procedures do not upgrade Desktop; native Desktop acceptance remains recorded separately for **0.2.0-rc.2**.
+
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.2
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.5
 ```
 
 Then type in the official WebUI:
@@ -134,8 +140,11 @@ Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptan
 | 0.2.0-rc.2 | Yes (tested: Bridge 0.3.10; declared in 0.3.11) | Yes (same runtime) | Isolated official npm WebUI: doctor 13/13, real preview and text/Markdown edits, exact edited handoff, direct and waiting targets, auto-open, paused goals, image transfer/text fallback, live toggles and uninstall/restart. A dangling CLI link remains; optional components and native Desktop behavior are outside this run. See [bounded acceptance](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md). |
 | 0.2.1-alpha.1 | Yes (declared in Bridge 0.4.1) | Yes (unchanged 0.4.0 runtime) | Published Bridge 0.4.0 on an isolated official npm WebUI: doctor 13/13, rendered editing, exact 484-character edited handoff to PTC, auto-open, paused goal, and a real approved-plan click that starts a new standard session and writes/read-verifies an exact 18-byte fixture. Live disable/enable preserves other styles; uninstall/restart removes package and command but retains a dangling CLI link. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md). |
 | 0.2.1-alpha.2 | Yes (Bridge 0.4.2) | Yes (Bridge 0.4.2) | Official npm WebUI: fresh current-directory placement at preview/confirmation/plan approval, real worker startup, text/Markdown round-trip, exact 2,009-character edited handoff to PTC, auto-open, paused goal, and approved-plan write/read/byte verification in the switched directory. Co-installed Jot, live toggles, removal and restart checked. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md). |
+| 0.2.1-alpha.3 | Yes (Bridge 0.4.5 declaration) | Yes (unchanged runtime) | Official npm WebUI acceptance used a local 0.4.4 candidate with byte-identical business `lib/`: 37-second worker in directory A, confirmation in B, exact 2,669-character reviewed handoff once, auto-open, paused goal, no target tools, 375/768/1280 px controls, live toggles, same-business-byte removal/reinstall and same-home restart. The initial mixed-format summary required Text → Markdown fallback and an explicit formatting edit before Text round-trip. See [bounded acceptance and release mapping](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md); the historical candidate run does not establish a registry install of 0.4.5. |
 
 Bridge 0.4.2 adds exact `0.2.1-alpha.2` to `engines.dsh` and fixes two runtime issues: stale working-directory placement and false worker-start detection after a history window trims `turn/start`. Published 0.4.1 does not contain these fixes. rc.2 Desktop and alpha.1 backward smoke checks are recorded separately from alpha.2 Web acceptance.
+
+Bridge **0.4.5** adds only exact `0.2.1-alpha.3` to the existing host range and builds against that SDK with Cordis `4.0.5-alpha.2`. Its business source and generated `lib/` are byte-identical to the local 0.4.4 candidate used for the real Host acceptance; release/tag/npm verification is a separate gate. Later prereleases and stable 0.2 releases are outside this added declaration. Same-business-byte reinstallation from a different archive path applied without a Host restart; different-business-byte hot replacement was not tested, so Workshop activation remains `restart-host` and hot-reload evidence remains unset. Approved-plan execution, images, native alpha.3 Desktop, Windows and Linux were not re-certified.
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -164,7 +173,7 @@ The proposed [OMDSH intake declaration](docs/community/omdsh-intake.md) only add
 Current limits:
 
 - installing with the CLI (`dsh plugin --profile web add`) may need one WebUI restart; on DSH 0.1.6-alpha.2 a first install from the WebUI Plugins page (add the package name `dsh-plugin-bridge`) applies live, while upgrading an existing install there needs a restart;
-- on DSH 0.1.7-alpha.1 with pnpm 11.22.0, CLI removal left a dangling `node_modules/.bin/dsh-bridge` symlink and package-manager metadata in both an upgraded and a clean profile; 0.1.7-rc.1 and WebUI removal on 0.2.0-rc.2 also left the dangling link while the package and dependency declaration were removed and WebUI restarted. This is not a zero-disk-trace uninstall;
+- on DSH 0.1.7-alpha.1 with pnpm 11.22.0, CLI removal left a dangling `node_modules/.bin/dsh-bridge` symlink and package-manager metadata in both an upgraded and a clean profile; 0.1.7-rc.1 and WebUI removal on 0.2.0-rc.2 also left the dangling link while the package and dependency declaration were removed and WebUI restarted. Final alpha.3 candidate removal again left that dangling link and package-manager caches while removing runtime contributions and preserving data. This is not a zero-disk-trace uninstall;
 - the native card opens the created target through the WebUI navigation service (`uiWorkspace.openSession`, with `sessions.open` as the fallback on older hosts); older clients still receive the title and session ID fallback;
 - progress appears immediately while the worker runs; the earlier three-run native-card sample took 7.4–12.8 seconds of worker time. Timings depend on the host/model and input; `previewTimeoutMs` remains the hard bound;
 - text-only models cannot inspect unresolved images;
@@ -190,6 +199,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [DSH 0.2.0-rc.2 compatibility acceptance](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
 - [DSH 0.2.1-alpha.1 compatibility acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
 - [DSH 0.2.1-alpha.2 candidate acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
+- [DSH 0.2.1-alpha.3 candidate acceptance](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development
@@ -199,7 +209,7 @@ npm ci
 npm run verify
 ```
 
-`verify` builds and type-checks both plugin halves, runs 331 tests, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
+`verify` builds and type-checks both plugin halves, runs the regression suite, checks generated `lib/` and datasets, then packs, installs, and imports the actual npm tarball. The SDK guards check installed manifests as well as package and lockfile declarations. Tests spend no model tokens. `prepublishOnly` runs the same gate; GitHub releases also require the tag to match `package.json` before trusted npm publishing.
 
 Community listings: [Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 

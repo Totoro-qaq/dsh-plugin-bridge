@@ -147,6 +147,25 @@ test('alpha.2 migration forwards changed cwd alone instead of the original works
   assert.equal(calls.some(([name]) => name === 'goal.pause'), true);
 });
 
+test('alpha.3 migration creates a fresh target and uses the controller-returned identity throughout', async () => {
+  const { services, calls } = fixture();
+  services.sessionController.create = async request => {
+    calls.push(['create', request]);
+    return { sessionId: 's-alpha3-created', agentPreset: request.agentPreset };
+  };
+  const result = await executeMigration(createDshAlphaHost(services), {
+    sessionId: 's-source', to: 'ptc', summary: 'Continue in the target', title: 'Alpha.3 handoff',
+  });
+  assert.equal(Object.hasOwn(calls.find(([name]) => name === 'create')[1], 'sessionId'), false,
+    'Bridge must request a new conversation rather than reuse a potentially populated session');
+  assert.equal(result.sessionId, 's-alpha3-created');
+  for (const name of ['selectModel', 'rename', 'prompt']) {
+    assert.equal(calls.find(([method]) => method === name)[1].sessionId, 's-alpha3-created', name);
+  }
+  assert.equal(calls.find(([name]) => name === 'resolveAgent')[1], 's-alpha3-created');
+  assert.equal(calls.some(([name]) => name === 'goal.pause'), true);
+});
+
 for (const invalid of [undefined, 7, {}, [], '', ' ', 'relative/project', '/work/\0project']) {
   test(`alpha.2 adapter rejects malformed selected-source directory ${JSON.stringify(invalid)} before create`, async () => {
     const { services, calls } = fixture();
