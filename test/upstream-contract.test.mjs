@@ -46,6 +46,20 @@ test('DSH alpha.3 candidate support preserves legacy support and uses the matchi
   assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.3');
 });
 
+test('both READMEs document the alpha.3 HMR upgrade boundary before removal', async () => {
+  for (const file of ['README.md', 'README.zh.md']) {
+    const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    assert.ok(text.includes('already-installed'), `${file} must explain repeated-install refusal`);
+    const remove = text.indexOf('removeBundle(name)');
+    const install = text.indexOf('installBundle(spec)');
+    assert.ok(remove >= 0 && install > remove, `${file} must describe remove before install`);
+    assert.ok(/plugin-install-over-installed\/guide(?:\.zh)?\.md/u.test(text));
+    assert.ok(/in memory|内存/u.test(text), `${file} must warn about pending previews`);
+    assert.ok(/finish or save|先完成或保存/u.test(text), `${file} must put pending work before removal`);
+    assert.ok(/Desktop[^\n]*0\.2\.0-rc\.2|桌面端[^\n]*0\.2\.0-rc\.2/u.test(text));
+  }
+});
+
 const CONFIG = {
   modelTier: 'pro',
   sourceCharBudget: 60_000,
