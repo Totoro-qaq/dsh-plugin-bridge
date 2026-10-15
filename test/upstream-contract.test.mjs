@@ -50,6 +50,13 @@ test('both READMEs document the alpha.3 HMR upgrade boundary before removal', as
   for (const file of ['README.md', 'README.zh.md']) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.ok(text.includes('already-installed'), `${file} must explain repeated-install refusal`);
+    const guard = text.split('\n\n').find(paragraph => paragraph.includes('already-installed'));
+    assert.ok(/running[^\n]*pluginManager[^\n]*Remote|运行中[^\n]*pluginManager[^\n]*Remote/u.test(guard),
+      `${file} must scope the refusal to the running plugin manager / Remote API`);
+    assert.ok(guard.includes('installBundle()'), `${file} must identify the guarded API`);
+    const cli = text.split('\n\n').find(paragraph => paragraph.startsWith('For CLI replacement') || paragraph.startsWith('CLI 替换时'));
+    assert.ok(/stop[^\n]*Host[^\n]*remove[^\n]*add[^\n]*start|停止[^\n]*宿主[^\n]*remove[^\n]*add[^\n]*启动/u.test(cli),
+      `${file} must distinguish the CLI stop, remove/add, start sequence`);
     const remove = text.indexOf('removeBundle(name)');
     const install = text.indexOf('installBundle(spec)');
     assert.ok(remove >= 0 && install > remove, `${file} must describe remove before install`);
