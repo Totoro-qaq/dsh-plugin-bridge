@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH 实测 0.2.1-alpha.2](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.2-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
+[![DSH 实测 0.2.1-alpha.3 候选包](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.3_candidate-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 [English](README.md) | 中文
@@ -140,11 +140,11 @@ Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话
 | 0.2.0-rc.2 | 支持（实测 Bridge 0.3.10；0.3.11 补声明） | 支持（运行代码相同） | 官方 npm WebUI 隔离验收：doctor 13/13、真实预览与文本/Markdown 编辑、编辑稿逐字交接、直接继续和等待确认、自动跳转、暂停 goal、原图传递/文本回退、实时启停及卸载重启。仍留失效 CLI 链接；未覆盖全量可选组件和原生桌面端，见[限定范围验收](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)。 |
 | 0.2.1-alpha.1 | 支持（Bridge 0.4.1 补声明） | 支持（0.4.0 运行代码不变） | 已发布的 0.4.0 在官方 npm WebUI 隔离实测：doctor 13/13、渲染编辑、484 字符编辑稿逐字迁入 PTC、自动跳转和暂停 goal；真实点击计划批准后在新 standard 会话写入并读回精确 18 字节文件。启停保留其他样式；卸载重启后包和命令移除，但仍留失效 CLI 链接。见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)。 |
 | 0.2.1-alpha.2 | 支持（Bridge 0.4.2） | 支持（Bridge 0.4.2） | 官方 npm WebUI：预览、确认和计划批准时重读当前目录，真实工人启动、文本/Markdown 切换、2,009 字符编辑稿逐字迁入 PTC、自动打开和暂停 goal；批准的完整计划在切换后的目录写入、读回并核对文件字节。已检查与 Jot 共装、实时启停、卸载和重启，见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)。 |
-| 0.2.1-alpha.3 | 候选；宿主验收待完成 | 候选；WebUI 验收待完成 | 精确使用 alpha.3 SDK 和 Cordis 4.0.5-alpha.2；本地契约、生命周期和打包检查与真实宿主/模型验收分开。见[候选记录](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)。 |
+| 0.2.1-alpha.3 | 支持（本地 Bridge 0.4.4 候选包） | 支持（同一候选包） | 官方 npm WebUI 实装本地候选包：工人在目录 A 用时 37 秒，确认时重读目录 B，2,669 字符编辑稿仅交接一次、自动打开、goal 暂停、目标无工具；375/768/1280 像素控制、实时启停、相同业务字节卸载重装和同 Home 重启通过。首个混合格式摘要触发 Text → Markdown 回退，测试者显式改格式后才完成 Text 往返；这不是已发布包验收，见[限定范围记录](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)。 |
 
 Bridge 0.4.2 在 `engines.dsh` 中追加精确的 `0.2.1-alpha.2`，并修复“迁回旧目录”和“尾部历史裁掉启动事件后误报工人未启动”两处运行问题；已发布的 0.4.1 不含这次修复。rc.2 桌面和 alpha.1 的回归短测与 alpha.2 Web 验收分开记录。
 
-alpha.3 候选只在现有宿主范围中追加精确的 `0.2.1-alpha.3`，并以对应 SDK 构建；不意味着新增 Bridge 业务代码或提升包版本，也未声明后续预发布版和 0.2 正式版。Workshop 激活方式仍为 `restart-host`，热重载证据保留为空，另行验收后才可变更。
+alpha.3 候选只在现有宿主范围中追加精确的 `0.2.1-alpha.3`，并以对应 SDK 和 Cordis `4.0.5-alpha.2` 构建。包版本仍为 **0.4.4**，业务源码和生成的 `lib/` 未改；实测使用本地 tarball，不代表这些兼容修改已经发布，也未声明后续预发布版和 0.2 正式版。不同归档路径、相同业务字节的卸载重装无需重启已通过；不同业务字节的热替换未测，因此 Workshop 激活方式仍为 `restart-host`，热重载证据保留为空。本轮未重新认证计划批准后的真实执行、图片传递、原生 alpha.3 桌面端、Windows 和 Linux。
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 

@@ -1,12 +1,15 @@
-# DSH 0.2.1-alpha.3 compatibility candidate
+# DSH 0.2.1-alpha.3 bounded candidate acceptance
 
 Date: 2026-10-15, Asia/Shanghai. Bridge package version: **0.4.4**, unchanged.
 Starting revision: `ae11e56784b5b0e45258bd2b3f53532b475bb61a`.
 
-Status: local SDK, contract, lifecycle, coverage and package checks have passed.
-**Real alpha.3 Host/model/WebUI acceptance is pending.** This record does not
-claim a published Bridge release, CI result, native Desktop upgrade or hot reload
-certification. The previously recorded native Desktop baseline is 0.2.0-rc.2.
+Status: local SDK, contract, lifecycle, coverage and package checks, plus the
+bounded real alpha.3 Host/model/WebUI run below, have passed. The runtime was the
+official npm Host with a **locally packed Bridge 0.4.4 candidate**, co-installed
+with a local Jot 0.2.12 candidate. These compatibility changes have not been
+published. This record does not claim CI, native Desktop alpha.3 or hot-reload
+certification for different business bytes. The earlier native Desktop 0.2.0-rc.2
+acceptance remains a separate historical record. Final cleanup is tracked below.
 
 ## Source and scope
 
@@ -33,10 +36,10 @@ differences and boundaries are:
 | Upstream area | Bridge consequence and validation boundary |
 | --- | --- |
 | Session creation / current preset restoration | The public `SessionController.create(request)` still returns a session ID, which may differ from an optional requested ID. Bridge requests a fresh conversation and uses the returned ID for model selection, title, goal resolution and kickoff; the adapter regression covers this invariant. Internal `ensureSession`/`SessionCommandController.prompt` changes are not Bridge's entry points. |
-| Plugin cache cleanup and HMR | Both READMEs scope `already-installed` to the running plugin manager / Remote API and describe API removal before replacement. CLI replacement separately stops the selected profile's Host, removes/adds the package and starts the Host. Existing real Cordis / official SlotRegistry tests cover registration, owner removal/remount and unload without duplicate contributions. This is not proof of live browser package replacement. |
-| Session storage unload | Bridge does not own the Host's storage plugin. Persistence across real Host restart/removal still requires Host acceptance. |
+| Plugin cache cleanup and HMR | Both READMEs scope `already-installed` to the running plugin manager / Remote API and describe API removal before replacement. CLI replacement separately stops the selected profile's Host, removes/adds the package and starts the Host. Real Host removal/reinstallation from different archive paths with the same business bytes applied without restarting; different-business-byte replacement was not tested. |
+| Session storage unload | Bridge does not own the Host's storage plugin. Normal shutdown/restart preserved the three synthetic session IDs/titles and paused target goal; the storage-plugin-unload edge itself was not isolated. |
 | Credential priority | Bridge adds no credential store or resolver. A real headless run must account for alpha.3's environment/`.env` preference; saved Desktop/Web credentials do not establish headless readiness. No credential values were read or printed during local work. |
-| Minimal image support / PTC in-memory execution | These are upstream capabilities, not new Bridge features. Image transfer/fallback and the target's paused goal require separately stated runtime evidence; local tests do not certify model vision or PTC execution. |
+| Minimal image support / PTC in-memory execution | These are upstream capabilities, not new Bridge features. The target's paused goal and zero tool calls were verified; image transfer/fallback and PTC in-memory execution were not re-certified. |
 
 ## TDD evidence
 
@@ -57,6 +60,7 @@ baseline before RED. The unmodified baseline `npm run verify` passed: 331 tests,
 | Upgrade guidance explains refusal, remove-before-install, memory-only drafts and separate Desktop evidence in both languages | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs` | RED checkpoint `19889b1`: 13 executed, 12 passed, missing upgrade guidance failed. GREEN checkpoint `3763455`: the same 13 passed. |
 | The HMR refusal is scoped to the running API; CLI replacement explicitly stops the corresponding Host before remove/add and starts it afterward | Same upstream-contract command | Review follow-up RED checkpoint `b11e1b8`: 13 executed, 12 passed, the missing running-API scope failed. GREEN checkpoint `3749c89`: the same 13 passed after the bilingual clarification, checked against the official CLI source. |
 | Official slot registration follows owner and plugin lifetimes | `test/client-slots.test.mjs` | Uses actual installed Cordis, SlotCore, SlotRegistry and the built Bridge client; visual primitives and DOM rendering are stubbed. |
+| Workshop install/remove links identify this actual alpha.3 acceptance and preserve conservative activation/permission claims | `node --test --test-reporter=spec test/workshop.test.mjs` | Host-evidence RED checkpoint `419bd2c`: three executed, two passed, the old alpha.2 evidence link failed. The same gate passed after updating only install/remove links; `restart-host`, permissions, `failureIsolation: null` and `hotReload: null` remain unchanged. |
 
 The SDK GREEN followed:
 
@@ -67,8 +71,10 @@ npm ci --ignore-scripts --no-audit --no-fund
 
 The repository's existing `.npmrc` sets `legacy-peer-deps=true`: DSH SDK packages
 are development/type inputs and the running Host supplies the complete shared
-peer graph. This local install does not prove the official plugin installer or
-the existing optional Cordis peer behavior on a live alpha.3 Host.
+peer graph. The real Host run separately installed/reinstalled the candidate via
+the official manager and verified its installed runtime bytes and SDK versions.
+That success is not a claim that every co-installed package has a warning-free
+peer graph; pnpm reported peer warnings during Jot reinstallation.
 
 ## Verification and coverage
 
@@ -93,17 +99,60 @@ the existing optional Cordis peer behavior on a live alpha.3 Host.
   `git diff --check` passed. An added-line credential-pattern scan reported zero
   findings and never printed matched values. Package version remained 0.4.4.
 
-## Pending real Host acceptance
+## Real official Host / WebUI acceptance
 
-Use only an isolated alpha.3 profile and synthetic sessions. Before publishing a
-support claim, record the actual package installation and optional-peer result,
-doctor 13/13, model-backed preview/edit/confirm, returned target navigation,
-unchanged source and paused goal, co-installed Jot, plugin disable/enable,
-duplicate-install refusal without altering the existing run, remove/reinstall
-mapping refresh, and restart/storage recovery. Save or finish pending previews
-before removal, then regenerate the preview after reinstallation.
+All runtime operations used one isolated alpha.3 Home and synthetic sessions.
+No daily Desktop profile was upgraded, removed or edited. The public machine
+receipts listed below were inspected in scratch; this report records their
+results without committing temporary QA scripts, profiles, recordings,
+credentials or full model transcripts.
 
-Workshop activation remains `restart-host`; `failureIsolation` and `hotReload`
-evidence stay null. Existing install/remove links still identify the prior
-alpha.2 acceptance until a real alpha.3 result is available. No temporary QA
-script, profile, recording, credential, or model transcript is included here.
+| Check | Observed result | Machine receipt |
+| --- | --- | --- |
+| Actual Host and candidate | `@deepseek-ai/dsh`, session-controller, renderer, slots and tools were `0.2.1-alpha.3`; Cordis `4.0.5-alpha.2`, Schemastery `3.18.5-alpha.2`. Installed Bridge index/client/migrate hashes matched the checkout. Package 0.4.4 was a local candidate, not a registry release of these changes. | `runtime-verification.json` |
+| Real preview and directory placement | The model worker completed in 37 seconds in preview directory A. Before confirmation, the source moved to B; the target was created in B. The worker was archived afterward. | `preview.json`, `migration-verification.json` |
+| Reviewed handoff and target safety | The exact 2,669-character reviewed draft became the goal and appeared in one kickoff, the goal was paused, the first target turn completed with zero tool calls, and the original source-history prefix stayed exact. | `migration-verification.json` |
+| Actual card and navigation | Confirmation controls were hit-tested at 375, 768 and 1280 px. Long text scrolled inside a 90 px editor with 503 px content height; target opening happened automatically. | `migration-verification.json`, `bridge-navigation.json` |
+| Live toggle isolation | Bridge's single style contribution disappeared and returned across disable/enable; unrelated CSS multisets stayed unchanged and Jot's API stayed available. Jot disable/enable separately left Bridge doctor available. | `toggle-verification.json` |
+| Running-manager repeated install | Installing the already installed Bridge archive returned `application: failed`, `error.code: already-installed`, `changed: false`; the existing running package stayed unchanged. | `duplicate-bridge-install.json`, `reinstall-verification.json` |
+| Remove and reinstall | Both candidate packages were removed and installed from different archive paths with the same business bytes. All phases returned `application: applied`, without a manual Host restart. Bridge command/style and Jot route/navigation/tools cleared, then doctor 13/13 and one Bridge style returned. Jot note and 79-byte attachment stayed exact, and the new archive specs persisted. | `reinstall-verification.json` |
+| Normal stop and same-Home restart | Shutdown exited 0; all three session IDs and titles, target directory and exact paused goal persisted. Goal rounds started remained zero, target turn count did not increase, target tools remained zero, source prefix stayed exact, and doctor was 13/13. | `restart-verification.json` |
+
+### First-sample Text fallback
+
+The first model-produced five-section summary **did not enter Text mode**. Its
+Key files section began with a bare absolute path to `workspace-preview-A`, then
+a bullet line `- Current working directory; no project files were listed.`
+The existing parser selected plain rows from the first line and rejected the
+mixed bullet at `src/client-contract.ts:223`. The UI displayed its lossless-edit
+fallback notice and left the generated Markdown unchanged.
+
+The tester then explicitly edited the real Markdown textbox by adding `- ` to
+the path line. Both rows were now bullets; path and explanatory words were
+retained. Text/Markdown round-trip and subsequent reviewed edits passed before
+confirmation. No parser protection was relaxed, product code changed or new
+model sample substituted to hide the first result. This sequence is recorded in
+`bridge-original-text-fallback.json` and `migration-verification.json`; the
+receipt contains the generated and explicitly reviewed Markdown separately.
+
+### Boundaries and final cleanup
+
+Only same-business-byte reinstallation was tested. The hoisted install used
+fixed `node_modules/name` directories, so a changed realpath was not a valid
+refresh criterion; saved source specs, installed bytes and recovered runtime
+capabilities were checked instead. The first QA helper's incorrect realpath
+assumption was retained in scratch and corrected before the passing receipt.
+
+The run did not revalidate real approved-plan execution, image transfer or
+fallback, Windows/Linux, native Desktop alpha.3, Desktop font shortcuts or PTC
+in-memory reuse. It does not certify arbitrary third-party plugin/UI mixes,
+different-business-byte hot replacement or statistical model reliability.
+
+Final post-acceptance uninstall and service stop are pending a separate cleanup
+receipt. The earlier remove/reinstall cycle already proves scoped package
+removal; it is not yet a zero-disk-residue final-uninstall claim.
+
+Workshop install/remove evidence now points here. Activation remains
+`restart-host`; permissions, cache policies, `failureIsolation: null` and
+`hotReload: null` remain unchanged. Save or finish pending previews before
+stopping/removing Bridge, and generate a fresh preview after reinstallation.

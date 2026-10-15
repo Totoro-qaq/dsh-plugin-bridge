@@ -105,10 +105,10 @@
       "expected": "A native Bridge result card reports the selected adapter and 13/13 available host methods. This diagnostic alone does not prove a model-backed migration."
     },
     "evidence": {
-      "install": "docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md",
+      "install": "docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md",
       "failureIsolation": null,
       "hotReload": null,
-      "remove": "docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md"
+      "remove": "docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md"
     }
   },
   "engines": {
