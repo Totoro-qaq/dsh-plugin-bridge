@@ -32,6 +32,8 @@ dsh plugin --profile web add dsh-plugin-bridge
 
 在 **DSH 0.1.5-rc.2** 上，添加或移除插件后需要重启 `dsh web`。在 **DSH 0.1.6-alpha.2** 上，从 WebUI「插件」页首次安装可以直接生效；CLI 安装或升级已有插件仍可能需要一次重启。**DSH 0.1.7-alpha.1** 已验收 CLI 安装、实时停用/启用及卸载后重启；未验证免重启安装或升级。
 
+在启用 HMR 的 **DSH 0.2.1-alpha.3 Web** 中，重复添加已安装的包（包括指定另一版本）会返回 `already-installed`。替换 Bridge 前，先完成或保存尚未确认的交接：预览和编辑稿保存在内存中，卸载会清除确认状态。原会话仍然保留；重新安装后生成新预览，再贴回保存的草稿。在同一个 profile 中先移除 Bridge、再添加目标版本；API 调用方按 `removeBundle(name)`、`installBundle(spec)` 的顺序执行，并遵循宿主的重启提示。详见[上游升级说明](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/docs/upgrade-guide/v0.2.1-alpha.2/plugin-install-over-installed/guide.zh.md)。这套 Web 操作不会升级原生桌面端；桌面端验收仍单独记录在 **0.2.0-rc.2**。
+
 GitHub 固定版本备用路径：
 
 ```bash
@@ -134,8 +136,11 @@ Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话
 | 0.2.0-rc.2 | 支持（实测 Bridge 0.3.10；0.3.11 补声明） | 支持（运行代码相同） | 官方 npm WebUI 隔离验收：doctor 13/13、真实预览与文本/Markdown 编辑、编辑稿逐字交接、直接继续和等待确认、自动跳转、暂停 goal、原图传递/文本回退、实时启停及卸载重启。仍留失效 CLI 链接；未覆盖全量可选组件和原生桌面端，见[限定范围验收](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)。 |
 | 0.2.1-alpha.1 | 支持（Bridge 0.4.1 补声明） | 支持（0.4.0 运行代码不变） | 已发布的 0.4.0 在官方 npm WebUI 隔离实测：doctor 13/13、渲染编辑、484 字符编辑稿逐字迁入 PTC、自动跳转和暂停 goal；真实点击计划批准后在新 standard 会话写入并读回精确 18 字节文件。启停保留其他样式；卸载重启后包和命令移除，但仍留失效 CLI 链接。见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)。 |
 | 0.2.1-alpha.2 | 支持（Bridge 0.4.2） | 支持（Bridge 0.4.2） | 官方 npm WebUI：预览、确认和计划批准时重读当前目录，真实工人启动、文本/Markdown 切换、2,009 字符编辑稿逐字迁入 PTC、自动打开和暂停 goal；批准的完整计划在切换后的目录写入、读回并核对文件字节。已检查与 Jot 共装、实时启停、卸载和重启，见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)。 |
+| 0.2.1-alpha.3 | 候选；宿主验收待完成 | 候选；WebUI 验收待完成 | 精确使用 alpha.3 SDK 和 Cordis 4.0.5-alpha.2；本地契约、生命周期和打包检查与真实宿主/模型验收分开。见[候选记录](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)。 |
 
 Bridge 0.4.2 在 `engines.dsh` 中追加精确的 `0.2.1-alpha.2`，并修复“迁回旧目录”和“尾部历史裁掉启动事件后误报工人未启动”两处运行问题；已发布的 0.4.1 不含这次修复。rc.2 桌面和 alpha.1 的回归短测与 alpha.2 Web 验收分开记录。
+
+alpha.3 候选只在现有宿主范围中追加精确的 `0.2.1-alpha.3`，并以对应 SDK 构建；不意味着新增 Bridge 业务代码或提升包版本，也未声明后续预发布版和 0.2 正式版。Workshop 激活方式仍为 `restart-host`，热重载证据保留为空，另行验收后才可变更。
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
@@ -190,6 +195,7 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 - [DSH 0.2.0-rc.2 兼容性验收](docs/compatibility/dsh-0.2.0-rc.2-2026-09-30.md)
 - [DSH 0.2.1-alpha.1 兼容性验收](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)
 - [DSH 0.2.1-alpha.2 候选版验收](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
+- [DSH 0.2.1-alpha.3 候选版验收](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证
@@ -199,7 +205,7 @@ npm ci
 npm run verify
 ```
 
-`verify` 会构建并类型检查插件两端、运行 331 项测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
+`verify` 会构建并类型检查插件两端、运行回归测试、核对 `lib/` 与数据集，再把真实 npm tarball 打包、安装并导入。SDK 护栏同时核对实际安装的包、清单和锁文件。测试不消耗模型 token。`prepublishOnly` 使用同一个 gate；GitHub Release 还会先检查 tag 与 `package.json` 版本一致，再走可信 npm 发布。
 
 社区收录：[Awesome DSH Plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) · [Awesome DeepSeek Harness](https://github.com/Dominic789654/awesome-deepseek-harness)
 
