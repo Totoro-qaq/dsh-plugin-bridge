@@ -1,16 +1,36 @@
 # DSH 0.2.1-alpha.3 bounded candidate acceptance
 
-Date: 2026-10-15, Asia/Shanghai. Bridge package version: **0.4.4**, unchanged.
+Date: 2026-10-15, Asia/Shanghai. Runtime-acceptance package: **0.4.4** candidate.
 Starting revision: `ae11e56784b5b0e45258bd2b3f53532b475bb61a`.
 
 Status: local SDK, contract, lifecycle, coverage and package checks, plus the
 bounded real alpha.3 Host/model/WebUI run below, have passed. The runtime was the
 official npm Host with a **locally packed Bridge 0.4.4 candidate**, co-installed
-with a local Jot 0.2.12 candidate. These compatibility changes have not been
-published. This record does not claim CI, native Desktop alpha.3 or hot-reload
+with a local Jot 0.2.12 candidate. At acceptance time these compatibility changes
+were unpublished. That historical run does not establish CI, native Desktop alpha.3 or hot-reload
 certification for different business bytes. The earlier native Desktop 0.2.0-rc.2
 acceptance remains a separate historical record. Final removal and shutdown also
 passed, with the package-manager residue recorded below.
+
+## 0.4.5 release mapping
+
+Bridge **0.4.5** packages these compatibility declarations, SDK baseline updates,
+regressions and documentation for release. Its business source and generated
+`lib/` are byte-identical to the locally packed 0.4.4 candidate used below and
+the starting 0.4.4 runtime revision `ae11e56`. The real model/browser acceptance
+therefore retains its original 0.4.4 candidate identity; it is not relabeled as
+a registry-installed 0.4.5 test.
+
+Local 0.4.5 release preparation passed frozen `npm ci` (audit: zero
+vulnerabilities), the complete `npm run verify` gate (334 tests: 333 passed,
+zero failed, one existing Windows-only skip; package smoke: 70 files),
+`npm run release:check -- v0.4.5`, and local npm packing. Installed SDK versions
+matched their exact pins. Business source and `lib/` still had no diff against
+`ae11e56`; package/lock changes from the accepted candidate were confined to
+their release-version roots. Before the version update, the release check
+correctly rejected `v0.4.5` against package 0.4.4.
+The release/tag/registry publication and fresh registry-install results must be
+recorded separately after they occur; this mapping does not assert them.
 
 ## Source and scope
 
@@ -98,7 +118,8 @@ peer graph; pnpm reported peer warnings during Jot reinstallation.
   Unit/contract checks do not replace real pixels, navigation or model acceptance.
 - Build and typecheck are part of `verify`; there is no standalone lint script.
   `git diff --check` passed. An added-line credential-pattern scan reported zero
-  findings and never printed matched values. Package version remained 0.4.4.
+  findings and never printed matched values. The runtime-acceptance package
+  version remained 0.4.4; the subsequent release mapping is described above.
 
 ## Real official Host / WebUI acceptance
 
