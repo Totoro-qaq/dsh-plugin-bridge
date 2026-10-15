@@ -173,7 +173,7 @@ The proposed [OMDSH intake declaration](docs/community/omdsh-intake.md) only add
 Current limits:
 
 - installing with the CLI (`dsh plugin --profile web add`) may need one WebUI restart; on DSH 0.1.6-alpha.2 a first install from the WebUI Plugins page (add the package name `dsh-plugin-bridge`) applies live, while upgrading an existing install there needs a restart;
-- on DSH 0.1.7-alpha.1 with pnpm 11.22.0, CLI removal left a dangling `node_modules/.bin/dsh-bridge` symlink and package-manager metadata in both an upgraded and a clean profile; 0.1.7-rc.1 and WebUI removal on 0.2.0-rc.2 also left the dangling link while the package and dependency declaration were removed and WebUI restarted. This is not a zero-disk-trace uninstall;
+- on DSH 0.1.7-alpha.1 with pnpm 11.22.0, CLI removal left a dangling `node_modules/.bin/dsh-bridge` symlink and package-manager metadata in both an upgraded and a clean profile; 0.1.7-rc.1 and WebUI removal on 0.2.0-rc.2 also left the dangling link while the package and dependency declaration were removed and WebUI restarted. Final alpha.3 candidate removal again left that dangling link and package-manager caches while removing runtime contributions and preserving data. This is not a zero-disk-trace uninstall;
 - the native card opens the created target through the WebUI navigation service (`uiWorkspace.openSession`, with `sessions.open` as the fallback on older hosts); older clients still receive the title and session ID fallback;
 - progress appears immediately while the worker runs; the earlier three-run native-card sample took 7.4–12.8 seconds of worker time. Timings depend on the host/model and input; `previewTimeoutMs` remains the hard bound;
 - text-only models cannot inspect unresolved images;

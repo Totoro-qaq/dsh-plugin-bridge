@@ -173,7 +173,7 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 当前边界：
 
 - 用 CLI（`dsh plugin --profile web add`）安装后可能需要重启一次 WebUI；DSH 0.1.6-alpha.2 在 WebUI「插件」页首次添加包名 `dsh-plugin-bridge` 可以直接生效，在那里升级已安装的版本仍需重启；
-- DSH 0.1.7-alpha.1 / pnpm 11.22.0 的 CLI 卸载，在升级和干净 profile 中都留下了失效的 `node_modules/.bin/dsh-bridge` 链接及包管理元信息；0.1.7-rc.1 的 CLI 卸载及 0.2.0-rc.2 的 WebUI 卸载也留下失效链接，但插件包及依赖声明已删除、WebUI 可重启。不能称为磁盘完全零痕迹；
+- DSH 0.1.7-alpha.1 / pnpm 11.22.0 的 CLI 卸载，在升级和干净 profile 中都留下了失效的 `node_modules/.bin/dsh-bridge` 链接及包管理元信息；0.1.7-rc.1 的 CLI 卸载及 0.2.0-rc.2 的 WebUI 卸载也留下失效链接，但插件包及依赖声明已删除、WebUI 可重启。alpha.3 候选包最终卸载仍留下这条失效链接及包管理缓存，运行入口已移除且数据保留。不能称为磁盘完全零痕迹；
 - 原生卡片通过 WebUI 导航服务（`uiWorkspace.openSession`，旧宿主回退到 `sessions.open`）打开目标；旧客户端仍回退为标题和 ID；
 - worker 运行时立即显示进度；早期原生卡片三次固定样本的 worker 用时为 7.4–12.8 秒，用时会随宿主、模型和输入变化，`previewTimeoutMs` 仍是硬上限；
 - 纯文本模型无法读取未解析原图；

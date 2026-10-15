@@ -9,7 +9,8 @@ official npm Host with a **locally packed Bridge 0.4.4 candidate**, co-installed
 with a local Jot 0.2.12 candidate. These compatibility changes have not been
 published. This record does not claim CI, native Desktop alpha.3 or hot-reload
 certification for different business bytes. The earlier native Desktop 0.2.0-rc.2
-acceptance remains a separate historical record. Final cleanup is tracked below.
+acceptance remains a separate historical record. Final removal and shutdown also
+passed, with the package-manager residue recorded below.
 
 ## Source and scope
 
@@ -60,7 +61,7 @@ baseline before RED. The unmodified baseline `npm run verify` passed: 331 tests,
 | Upgrade guidance explains refusal, remove-before-install, memory-only drafts and separate Desktop evidence in both languages | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs` | RED checkpoint `19889b1`: 13 executed, 12 passed, missing upgrade guidance failed. GREEN checkpoint `3763455`: the same 13 passed. |
 | The HMR refusal is scoped to the running API; CLI replacement explicitly stops the corresponding Host before remove/add and starts it afterward | Same upstream-contract command | Review follow-up RED checkpoint `b11e1b8`: 13 executed, 12 passed, the missing running-API scope failed. GREEN checkpoint `3749c89`: the same 13 passed after the bilingual clarification, checked against the official CLI source. |
 | Official slot registration follows owner and plugin lifetimes | `test/client-slots.test.mjs` | Uses actual installed Cordis, SlotCore, SlotRegistry and the built Bridge client; visual primitives and DOM rendering are stubbed. |
-| Workshop install/remove links identify this actual alpha.3 acceptance and preserve conservative activation/permission claims | `node --test --test-reporter=spec test/workshop.test.mjs` | Host-evidence RED checkpoint `419bd2c`: three executed, two passed, the old alpha.2 evidence link failed. The same gate passed after updating only install/remove links; `restart-host`, permissions, `failureIsolation: null` and `hotReload: null` remain unchanged. |
+| Workshop install/remove links identify this actual alpha.3 acceptance and preserve conservative activation/permission claims | `node --test --test-reporter=spec test/workshop.test.mjs` | Host-evidence RED checkpoint `419bd2c`: three executed, two passed, the old alpha.2 evidence link failed. GREEN checkpoint `7b94d5b`: the same gate passed after updating only install/remove links; `restart-host`, permissions, `failureIsolation: null` and `hotReload: null` remain unchanged. |
 
 The SDK GREEN followed:
 
@@ -117,6 +118,8 @@ credentials or full model transcripts.
 | Running-manager repeated install | Installing the already installed Bridge archive returned `application: failed`, `error.code: already-installed`, `changed: false`; the existing running package stayed unchanged. | `duplicate-bridge-install.json`, `reinstall-verification.json` |
 | Remove and reinstall | Both candidate packages were removed and installed from different archive paths with the same business bytes. All phases returned `application: applied`, without a manual Host restart. Bridge command/style and Jot route/navigation/tools cleared, then doctor 13/13 and one Bridge style returned. Jot note and 79-byte attachment stayed exact, and the new archive specs persisted. | `reinstall-verification.json` |
 | Normal stop and same-Home restart | Shutdown exited 0; all three session IDs and titles, target directory and exact paused goal persisted. Goal rounds started remained zero, target turn count did not increase, target tools remained zero, source prefix stayed exact, and doctor was 13/13. | `restart-verification.json` |
+| Final removal | Both removals returned `application: applied`. Bridge/Jot styles were zero, Jot API returned 404 and its tools were zero, neither bundle remained listed, and Bridge's command was absent while the official Host stayed usable. Notes JSON and the 79-byte attachment remained byte-exact; three sessions stayed stored. | `cleanup-verification.json` |
+| Final process cleanup | Host and browser launcher exited 0; neither test port 3252 nor 3253 had a listener. Production profiles and primary repositories were untouched. | `final-cleanup.json` |
 
 ### First-sample Text fallback
 
@@ -148,9 +151,12 @@ fallback, Windows/Linux, native Desktop alpha.3, Desktop font shortcuts or PTC
 in-memory reuse. It does not certify arbitrary third-party plugin/UI mixes,
 different-business-byte hot replacement or statistical model reliability.
 
-Final post-acceptance uninstall and service stop are pending a separate cleanup
-receipt. The earlier remove/reinstall cycle already proves scoped package
-removal; it is not yet a zero-disk-residue final-uninstall claim.
+Final uninstall removed the runtime contributions, but pnpm retained a dangling
+`node_modules/.bin/dsh-bridge` symlink: `exists: true`, `targetExists: false`.
+Package-manager caches and metadata also remain. No user-global cache was
+manually purged. Synthetic notes, the attachment and all three sessions were
+intentionally preserved. This is scoped runtime/package removal, not a claim of
+zero disk residue. No further service was started after final shutdown.
 
 Workshop install/remove evidence now points here. Activation remains
 `restart-host`; permissions, cache policies, `failureIsolation: null` and
