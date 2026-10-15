@@ -26,6 +26,8 @@ test('Workshop claims remain bounded to named hosts and do not claim untested ho
   assert.equal(m.lifecycle.activation, 'restart-host')
   assert.equal(m.evidence.failureIsolation, null)
   assert.equal(m.evidence.hotReload, null)
+  assert.equal(m.evidence.install, 'docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md')
+  assert.equal(m.evidence.remove, 'docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md')
   assert.ok(m.capability.id)
   assert.ok(m.capability.invocation)
   assert.ok(m.capability.expected)
