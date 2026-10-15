@@ -32,7 +32,11 @@ dsh plugin --profile web add dsh-plugin-bridge
 
 在 **DSH 0.1.5-rc.2** 上，添加或移除插件后需要重启 `dsh web`。在 **DSH 0.1.6-alpha.2** 上，从 WebUI「插件」页首次安装可以直接生效；CLI 安装或升级已有插件仍可能需要一次重启。**DSH 0.1.7-alpha.1** 已验收 CLI 安装、实时停用/启用及卸载后重启；未验证免重启安装或升级。
 
-在启用 HMR 的 **DSH 0.2.1-alpha.3 Web** 中，重复添加已安装的包（包括指定另一版本）会返回 `already-installed`。替换 Bridge 前，先完成或保存尚未确认的交接：预览和编辑稿保存在内存中，卸载会清除确认状态。原会话仍然保留；重新安装后生成新预览，再贴回保存的草稿。在同一个 profile 中先移除 Bridge、再添加目标版本；API 调用方按 `removeBundle(name)`、`installBundle(spec)` 的顺序执行，并遵循宿主的重启提示。详见[上游升级说明](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/docs/upgrade-guide/v0.2.1-alpha.2/plugin-install-over-installed/guide.zh.md)。这套 Web 操作不会升级原生桌面端；桌面端验收仍单独记录在 **0.2.0-rc.2**。
+在启用 HMR 的 **DSH 0.2.1-alpha.3 Web** 中，运行中的 `pluginManager` 服务通过 `installBundle()` API（包括 Remote API 调用方和 agent 的 `plugin_manager` 工具）安装 profile 中已有的包时，会返回 `already-installed`，指定另一版本也一样。API 替换顺序是 `removeBundle(name)`、`installBundle(spec)`，并遵循宿主的重启提示，详见[上游升级说明](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/docs/upgrade-guide/v0.2.1-alpha.2/plugin-install-over-installed/guide.zh.md)。
+
+CLI 替换时，先停止使用目标 profile 的宿主，再执行 `dsh plugin --profile web remove dsh-plugin-bridge`、`dsh plugin --profile web add <目标包 spec>`，最后重新启动宿主。[CLI 独立执行 profile 包操作](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/apps/cli/src/plugin.ts)，不经过上述运行中 API 的重复安装拒绝路径。
+
+两种替换方式都应先完成或保存尚未确认的交接：预览和编辑稿保存在内存中，停止或卸载 Bridge 会清除确认状态。原会话仍然保留；重新安装后生成新预览，再贴回保存的草稿。这些 Web 操作不会升级原生桌面端；桌面端验收仍单独记录在 **0.2.0-rc.2**。
 
 GitHub 固定版本备用路径：
 
