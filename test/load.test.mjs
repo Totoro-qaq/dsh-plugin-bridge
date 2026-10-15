@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 import { Context } from '@deepseek-ai/cordis';
 
@@ -163,8 +164,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
     );
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.2.1-alpha.2',
-      `${packageName} 的本地构建应使用当前官方 0.2.1-alpha.2 SDK`,
+      '0.2.1-alpha.3',
+      `${packageName} 的本地构建应使用当前官方 0.2.1-alpha.3 SDK`,
     );
     const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
     assert.equal(installed.version, manifest.devDependencies[packageName],
@@ -172,8 +173,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   }
   assert.equal(
     manifest.engines.dsh,
-    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2',
-    'engines.dsh 保留原范围，只追加本次候选的 0.2.1-alpha.2，不提前声明其他 0.2 版本',
+    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2 || 0.2.1-alpha.3',
+    'engines.dsh 保留原范围，只追加本次候选的 0.2.1-alpha.3，不提前声明其他 0.2 版本',
   );
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
@@ -190,8 +191,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   ]) {
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.2.1-alpha.2',
-      `${packageName} 必须提供 0.2.1-alpha.2 的客户端类型契约`,
+      '0.2.1-alpha.3',
+      `${packageName} 必须提供 0.2.1-alpha.3 的客户端类型契约`,
     );
     const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
     assert.equal(installed.version, manifest.devDependencies[packageName],
@@ -207,6 +208,28 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   assert.match(clientSource, /SessionId[^\n]+dsh-api-remotes\/client/u);
   assert.match(clientSource, /CommandRowProps[^\n]+dsh-client-ui-chat\/client/u);
   assert.doesNotMatch(bundlerConfig, /dsh-client-runtime/u);
+});
+
+test('alpha.3 installed SDK and lockfile use the official Cordis and schema baselines', async () => {
+  const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+  const lock = JSON.parse(await readFile(join(packageRoot, 'package-lock.json'), 'utf8'));
+  for (const [packageName, version] of Object.entries(manifest.devDependencies)) {
+    if (!packageName.startsWith('@deepseek-ai/')) continue;
+    const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
+    const expectedVersion = packageName === '@deepseek-ai/cordis' ? '4.0.5-alpha.2' : '0.2.1-alpha.3';
+    assert.equal(installed.version, expectedVersion, `${packageName} must use the current official SDK`);
+    assert.equal(version, expectedVersion);
+    assert.equal(lock.packages[''].devDependencies[packageName], version);
+    assert.equal(lock.packages[`node_modules/${packageName}`].version, version);
+    assert.equal(installed.version, version, `${packageName} must use the frozen SDK version`);
+    if (packageName !== '@deepseek-ai/cordis') {
+      assert.equal(installed.peerDependencies['@deepseek-ai/cordis'], '~4.0.5-alpha.2');
+    }
+  }
+  const controllerRequire = createRequire(join(packageRoot, 'node_modules/@deepseek-ai/dsh-api-session-controller/package.json'));
+  const controller = controllerRequire('./package.json');
+  assert.equal(controller.dependencies['@deepseek-ai/schemastery'], '~3.18.5-alpha.2');
+  assert.equal(controllerRequire('@deepseek-ai/schemastery/package.json').version, '3.18.5-alpha.2');
 });
 
 test('cordis.patch.yml 的 insert 行指向本包，且配置键与 Config schema 一一对应', async () => {
