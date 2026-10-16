@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH tested 0.2.1-alpha.3](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.3-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
+[![DSH alpha.4 candidate with a known limitation](https://img.shields.io/badge/DSH_alpha.4-candidate_%C2%B7_known_limitation-d79a3f)](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -23,6 +23,8 @@ Halfway through a task and need another tool preset? Switching the produced sess
 [Quick start](#quick-start) · [Why Bridge](#why-bridge) · [Evidence](#evidence-at-a-glance) · [Decisions](#migration-decisions) · [Compatibility](#compatibility)
 
 ## Quick start
+
+**Alpha.4 status:** Bridge **0.4.6 is an unpublished candidate**. Migration and UI checks passed, but one live-removal result remains unresolved; publication is paused. Published 0.4.5 does not admit alpha.4. The npm and pinned-tag commands below remain published-version installation paths, not a way to install this alpha.4 candidate. See the [candidate record](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md).
 
 Install from npm:
 
@@ -41,7 +43,7 @@ Before either replacement, finish or save pending handoffs: previews and unconfi
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.6
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.5
 ```
 
 Then type in the official WebUI:
@@ -141,11 +143,11 @@ Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptan
 | 0.2.1-alpha.1 | Yes (declared in Bridge 0.4.1) | Yes (unchanged 0.4.0 runtime) | Published Bridge 0.4.0 on an isolated official npm WebUI: doctor 13/13, rendered editing, exact 484-character edited handoff to PTC, auto-open, paused goal, and a real approved-plan click that starts a new standard session and writes/read-verifies an exact 18-byte fixture. Live disable/enable preserves other styles; uninstall/restart removes package and command but retains a dangling CLI link. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md). |
 | 0.2.1-alpha.2 | Yes (Bridge 0.4.2) | Yes (Bridge 0.4.2) | Official npm WebUI: fresh current-directory placement at preview/confirmation/plan approval, real worker startup, text/Markdown round-trip, exact 2,009-character edited handoff to PTC, auto-open, paused goal, and approved-plan write/read/byte verification in the switched directory. Co-installed Jot, live toggles, removal and restart checked. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md). |
 | 0.2.1-alpha.3 | Yes (Bridge 0.4.5 declaration) | Yes (unchanged runtime) | Official npm WebUI acceptance used a local 0.4.4 candidate with byte-identical business `lib/`: 37-second worker in directory A, confirmation in B, exact 2,669-character reviewed handoff once, auto-open, paused goal, no target tools, 375/768/1280 px controls, live toggles, same-business-byte removal/reinstall and same-home restart. The initial mixed-format summary required Text → Markdown fallback and an explicit formatting edit before Text round-trip. See [bounded acceptance and release mapping](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md); the historical candidate run does not establish a registry install of 0.4.5. |
-| 0.2.1-alpha.4 | Bridge 0.4.6 candidate declaration | Unchanged runtime; real Host check pending | Exact engine, SDK, installed-manifest and Workshop regressions pass locally. This is not yet a real Host/model/WebUI acceptance claim; see [current candidate record](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md). |
+| 0.2.1-alpha.4 | Unpublished Bridge 0.4.6 candidate; partial acceptance | Preview, Text/Markdown editing and automatic opening passed | Official npm Host: 27-second worker, exact 2,883-character edited handoff, paused goal, one target turn and zero target tools; controls at 375/768/1280 px, style-preserving toggles and bounded restart persistence passed. One active mixed-profile live-removal call stalled despite pnpm printing Done; its cause is unresolved. Fresh Bridge-only and same-package mixed controls removed Bridge successfully; the original case is not a PASS. See [the results and limitation](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md). |
 
 Bridge 0.4.2 adds exact `0.2.1-alpha.2` to `engines.dsh` and fixes two runtime issues: stale working-directory placement and false worker-start detection after a history window trims `turn/start`. Published 0.4.1 does not contain these fixes. rc.2 Desktop and alpha.1 backward smoke checks are recorded separately from alpha.2 Web acceptance.
 
-Bridge **0.4.6** adds only exact `0.2.1-alpha.4` to the existing host range and builds against that SDK with Cordis `4.0.5-alpha.2`. Bridge 0.4.5's narrower engine excludes alpha.4 under the Host's installer rules; use a version whose engine explicitly includes this Host, without a compatibility exemption. Business source and generated `lib/` are unchanged. Local contract checks, real Host acceptance and release/tag/npm publication are separate gates; see the [alpha.4 candidate record](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md) for their current status. Later prereleases and stable 0.2 releases are outside this added declaration. The earlier alpha.3 run established only same-business-byte reinstallation: different-business-byte hot replacement was not tested, so Workshop activation remains `restart-host` and hot-reload evidence remains unset. Approved-plan execution, images, native alpha.4 Desktop, Windows and Linux are not re-certified by local checks.
+Bridge **0.4.6** adds only exact `0.2.1-alpha.4` to the existing host range and builds against that SDK with Cordis `4.0.5-alpha.2`. Bridge 0.4.5's narrower engine excludes alpha.4 under the Host's installer rules; no compatibility exemption was used. Business source and generated `lib/` are unchanged, and keyless backward startup/doctor/client-resource/removal checks passed on official 0.2.0-rc.2 and alpha.3 Web Hosts. The alpha.4 core workflow passed, but the original live-removal stall is unresolved and publication is paused. Local checks, bounded Host results and release/tag/npm publication remain separate gates. Later prereleases and stable 0.2 releases are outside this declaration. Hot replacement with different-business-byte packages was not tested, so Workshop activation remains `restart-host` and hot-reload evidence remains unset; its evidence links disclose the partial removal result. Approved-plan real execution, images, native alpha.4 Desktop, Windows and Linux were not re-certified.
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 
@@ -173,6 +175,7 @@ The proposed [OMDSH intake declaration](docs/community/omdsh-intake.md) only add
 
 Current limits:
 
+- one active alpha.4 mixed-profile live removal stalled after pnpm printed Done. The Host was stopped normally and the remaining profile packages were removed with the offline CLI. Fresh controls passed, but the original cause remains unresolved; this is not a full live-removal certification or a reason to discard pending handoffs;
 - installing with the CLI (`dsh plugin --profile web add`) may need one WebUI restart; on DSH 0.1.6-alpha.2 a first install from the WebUI Plugins page (add the package name `dsh-plugin-bridge`) applies live, while upgrading an existing install there needs a restart;
 - on DSH 0.1.7-alpha.1 with pnpm 11.22.0, CLI removal left a dangling `node_modules/.bin/dsh-bridge` symlink and package-manager metadata in both an upgraded and a clean profile; 0.1.7-rc.1 and WebUI removal on 0.2.0-rc.2 also left the dangling link while the package and dependency declaration were removed and WebUI restarted. Final alpha.3 candidate removal again left that dangling link and package-manager caches while removing runtime contributions and preserving data. This is not a zero-disk-trace uninstall;
 - the native card opens the created target through the WebUI navigation service (`uiWorkspace.openSession`, with `sessions.open` as the fallback on older hosts); older clients still receive the title and session ID fallback;

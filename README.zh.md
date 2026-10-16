@@ -9,7 +9,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH 实测 0.2.1-alpha.3](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.3-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
+[![DSH alpha.4 候选版，存在已知限制](https://img.shields.io/badge/DSH_alpha.4-candidate_%C2%B7_known_limitation-d79a3f)](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 [English](README.md) | 中文
@@ -23,6 +23,8 @@
 [快速开始](#快速开始) · [为什么是-bridge](#为什么是-bridge) · [实测证据](#实测证据) · [迁移决策](#迁移决策) · [兼容性](#兼容性)
 
 ## 快速开始
+
+**Alpha.4 当前状态：** Bridge **0.4.6 是未发布候选版**。迁移与 UI 检查通过，但一条实时卸载结果仍未查明，发布暂停。已发布的 0.4.5 不接受 alpha.4；下面的 npm 与固定 tag 命令仍是已发布版本的安装路径，不能用于安装本轮 alpha.4 候选版，见[本轮记录](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)。
 
 从 npm 安装：
 
@@ -41,7 +43,7 @@ CLI 替换时，先停止使用目标 profile 的宿主，再执行 `dsh plugin 
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.6
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.5
 ```
 
 然后在官方 WebUI 输入：
@@ -141,11 +143,11 @@ Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话
 | 0.2.1-alpha.1 | 支持（Bridge 0.4.1 补声明） | 支持（0.4.0 运行代码不变） | 已发布的 0.4.0 在官方 npm WebUI 隔离实测：doctor 13/13、渲染编辑、484 字符编辑稿逐字迁入 PTC、自动跳转和暂停 goal；真实点击计划批准后在新 standard 会话写入并读回精确 18 字节文件。启停保留其他样式；卸载重启后包和命令移除，但仍留失效 CLI 链接。见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.1-2026-10-04.md)。 |
 | 0.2.1-alpha.2 | 支持（Bridge 0.4.2） | 支持（Bridge 0.4.2） | 官方 npm WebUI：预览、确认和计划批准时重读当前目录，真实工人启动、文本/Markdown 切换、2,009 字符编辑稿逐字迁入 PTC、自动打开和暂停 goal；批准的完整计划在切换后的目录写入、读回并核对文件字节。已检查与 Jot 共装、实时启停、卸载和重启，见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)。 |
 | 0.2.1-alpha.3 | 支持（Bridge 0.4.5 补声明） | 支持（运行代码相同） | 官方 npm WebUI 实测使用业务 `lib/` 逐字节相同的本地 0.4.4 候选包：工人在目录 A 用时 37 秒，确认时重读目录 B，2,669 字符编辑稿仅交接一次、自动打开、goal 暂停、目标无工具；375/768/1280 像素控制、实时启停、相同业务字节卸载重装和同 Home 重启通过。首个混合格式摘要触发 Text → Markdown 回退，测试者显式改格式后才完成 Text 往返。见[限定范围记录与发版映射](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)；历史候选验收不能代替 0.4.5 的 registry 安装验证。 |
-| 0.2.1-alpha.4 | Bridge 0.4.6 候选版补声明 | 运行代码未变；真实宿主待验收 | 精确 engine、SDK、实际安装清单和 Workshop 回归本地通过；尚不代表真实宿主、模型或 WebUI 验收，见[本轮候选版记录](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)。 |
+| 0.2.1-alpha.4 | 未发布的 Bridge 0.4.6 候选版；部分验收 | 预览、文本/Markdown 编辑和自动打开通过 | 官方 npm 宿主：工人 27 秒，2,883 字符编辑稿精确迁入、goal 暂停，目标一轮且无工具；375/768/1280 像素控制、保留其他样式的启停和限定范围重启恢复通过。原活动混装 profile 有一次实时卸载在 pnpm 输出 Done 后卡住，原因未查明。全新 Bridge-only 和相同包图混装对照卸载 Bridge 成功，但不把原案例算作 PASS，见[结果与限制](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)。 |
 
 Bridge 0.4.2 在 `engines.dsh` 中追加精确的 `0.2.1-alpha.2`，并修复“迁回旧目录”和“尾部历史裁掉启动事件后误报工人未启动”两处运行问题；已发布的 0.4.1 不含这次修复。rc.2 桌面和 alpha.1 的回归短测与 alpha.2 Web 验收分开记录。
 
-Bridge **0.4.6** 只在现有宿主范围中追加精确的 `0.2.1-alpha.4`，并以对应 SDK 和 Cordis `4.0.5-alpha.2` 构建。Bridge 0.4.5 较窄的 engine 不满足 alpha.4 的安装规则；应使用声明包含该宿主的版本，不用兼容豁免。业务源码和生成的 `lib/` 未变。本地契约检查、真实宿主验收和 release、tag、npm 发布是不同门禁，当前状态见 [alpha.4 候选版记录](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)；也未声明后续预发布版和 0.2 正式版。此前 alpha.3 只验收过相同业务字节的卸载重装；不同业务字节的热替换未测，因此 Workshop 激活方式仍为 `restart-host`，热重载证据保留为空。本地检查不构成计划批准后的真实执行、图片传递、原生 alpha.4 桌面端、Windows 或 Linux 的重新认证。
+Bridge **0.4.6** 只在现有宿主范围中追加精确的 `0.2.1-alpha.4`，并以对应 SDK 和 Cordis `4.0.5-alpha.2` 构建。Bridge 0.4.5 较窄的 engine 不满足 alpha.4 的安装规则；本轮未用兼容豁免。业务源码和生成的 `lib/` 未变，官方 0.2.0-rc.2 和 alpha.3 Web 宿主的无密钥启动、doctor、client 资源和卸载短测也通过。alpha.4 核心工作流通过，但原实时卸载卡住原因未查明，发布暂停；本地检查、限定范围实测和 release、tag、npm 发布仍是不同门禁。未声明后续预发布版或 0.2 正式版。不同业务字节的热替换未测，因此 Workshop 激活方式仍为 `restart-host`，热重载证据保留为空，证据链接中明确保留部分卸载结果。本轮未重新认证计划批准后的真实执行、图片传递、原生 alpha.4 桌面端、Windows 或 Linux。
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
@@ -173,6 +175,7 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 
 当前边界：
 
+- 一个活动中的 alpha.4 混装 profile 在 pnpm 输出 Done 后实时卸载卡住。测试者正常停止宿主，再用离线 CLI 清理剩余包；全新对照通过，但原案例原因仍未查明。这不是完整的实时卸载认证，也不代表可以丢弃待确认的交接稿；
 - 用 CLI（`dsh plugin --profile web add`）安装后可能需要重启一次 WebUI；DSH 0.1.6-alpha.2 在 WebUI「插件」页首次添加包名 `dsh-plugin-bridge` 可以直接生效，在那里升级已安装的版本仍需重启；
 - DSH 0.1.7-alpha.1 / pnpm 11.22.0 的 CLI 卸载，在升级和干净 profile 中都留下了失效的 `node_modules/.bin/dsh-bridge` 链接及包管理元信息；0.1.7-rc.1 的 CLI 卸载及 0.2.0-rc.2 的 WebUI 卸载也留下失效链接，但插件包及依赖声明已删除、WebUI 可重启。alpha.3 候选包最终卸载仍留下这条失效链接及包管理缓存，运行入口已移除且数据保留。不能称为磁盘完全零痕迹；
 - 原生卡片通过 WebUI 导航服务（`uiWorkspace.openSession`，旧宿主回退到 `sessions.open`）打开目标；旧客户端仍回退为标题和 ID；
