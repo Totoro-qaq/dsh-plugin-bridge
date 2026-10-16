@@ -6,6 +6,7 @@
 
 [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-blue)](https://github.com/deepseek-ai/deepseek-harness)
 [![npm](https://img.shields.io/npm/v/dsh-plugin-bridge?color=cb3837)](https://www.npmjs.com/package/dsh-plugin-bridge)
+[![Discover · Add source](https://img.shields.io/badge/Discover-Add_source-2563eb)](#discover)
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
@@ -28,6 +29,8 @@ Bridge **0.4.6** supports DSH **0.2.1-alpha.4 Web** while retaining earlier host
 
 Check the Host's **actual pnpm executable** when installing or removing packages. pnpm 11.22.0 has a known late-worker shutdown bug that can keep a package operation alive after printing Done; natural DSH reproductions isolated the upstream fixes. Use **11.26.0 or later**, which includes the [upstream fixes](https://github.com/pnpm/pnpm/releases/tag/v11.26.0), and avoid **overlapping package operations**. If an operation is pending, wait for it to settle or stop the Host normally before using the offline CLI. Bridge does not bundle pnpm or upgrade your tools automatically.
 
+### npm / CLI
+
 Install from npm:
 
 ```bash
@@ -47,6 +50,23 @@ Pinned GitHub fallback:
 ```bash
 dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.6
 ```
+
+### Discover
+
+On DSH versions with Discover (introduced in **0.2.1-alpha.4**), you can also install Bridge from the author's index:
+
+1. Open **Plugins → Experimental plugins → More** and enable **Custom plugin markets**.
+2. Open **Discover → Add index source** and paste:
+
+   ```text
+   https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-index/main/index.json
+   ```
+
+3. Choose **Bridge**, check the package name, version and `https://registry.npmjs.org/` in the confirmation, then install and choose **Enable now**.
+
+This is an [author-hosted third-party source](https://github.com/Totoro-qaq/dsh-plugin-index), not official certification or community approval. It must be added to each profile you want to use it in. Adding and installing from the public URL was [verified on an isolated alpha.4 WebUI](https://github.com/Totoro-qaq/dsh-plugin-index/blob/main/docs/acceptance-2026-10-16.md); clients without Discover can keep using npm/CLI above. This does not extend native Desktop acceptance.
+
+### First handoff
 
 Then type in the official WebUI:
 
