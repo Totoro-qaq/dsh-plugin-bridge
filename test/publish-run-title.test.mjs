@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const normalizeLineEndings = source => source;
+const normalizeLineEndings = source => source.replace(/\r\n/gu, '\n');
 const workflow = normalizeLineEndings(readFileSync(new URL('../.github/workflows/publish.yml', import.meta.url), 'utf8'));
 
 test('publish contract treats LF and CRLF checkouts identically', () => {
