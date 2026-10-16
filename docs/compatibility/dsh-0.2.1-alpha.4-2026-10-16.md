@@ -175,6 +175,90 @@ fresh package graph. They do not explain the original active-profile failure or
 certify arbitrary plugin combinations, changed-business-byte hot replacement or
 a failure/cancellation rollback scenario.
 
+## Appendix: bounded pnpm diagnosis and validated fixed-version control
+
+This later diagnosis adds evidence, not closure of the original live-removal
+case. It changes no Bridge source, `lib/`, dependency, plugin script or global
+pnpm. The original case remains **not a PASS**, and publication remains paused
+under the user's request to investigate before release.
+
+### Official fixes and directed local fixture
+
+[pnpm #13226](https://github.com/pnpm/pnpm/pull/13226) retains the worker-pool
+reference when finishing workers so that a late task does not create an
+untracked pool; its [regression](https://github.com/pnpm/pnpm/blob/2d0d75c6cfd1b48fba95014bc1826bf4622fbd8f/pnpm11/worker/test/finishWorkers.test.ts#L14-L39)
+checks process exit after a worker call following `finishWorkers()`. The
+[11.23.0 release](https://github.com/pnpm/pnpm/releases/tag/v11.23.0) records the
+fix for installs not exiting after Done. Separately,
+[pnpm #14141](https://github.com/pnpm/pnpm/pull/14141) prevents the forced previous
+hoisted-graph walk from fetching skipped optional packages; its
+[regression](https://github.com/pnpm/pnpm/blob/2e6d07efb9bf2206448215f94a65145c91ed93e3/pnpm11/installing/deps-restorer/test/lockfileToHoistedDepGraph.test.ts#L192-L231)
+retains their previous directory entries without fetching them. The
+[11.26.0 release](https://github.com/pnpm/pnpm/releases/tag/v11.26.0) includes that
+hoisted-install fix. The installed 11.22.0 bundle still contained the earlier
+previous-graph fetch path and worker-pool reset.
+
+A scratch-only CLI integration extended those official test shapes with two
+tiny self-authored packages: one removable ordinary dependency and one optional
+`os: [win32]` package on this Darwin host. Each version used a separate fresh
+fixture, hoisted `node_modules`, store, cache and configuration. A loopback-only
+registry served their generated tarballs; no external package download, model,
+provider key, browser or new tool was needed for the fixture. Initial installs
+correctly skipped the foreign optional tarball. Only that tarball response was
+delayed 2.5 seconds during removal, representing a slow fetch rather than an
+arbitrary sleep after Done. Each owned child had a 10-second outer limit.
+
+| Fresh run | Existing pnpm 11.22.0 | Isolated pnpm 11.26.0 |
+| --- | --- | --- |
+| `run-1792118769523` | Printed Done at 227 ms; requested the skipped optional tarball 2 ms later. Its HTTP 200 response completed after 2,501 ms, but the process was still alive at 10,007 ms and only then received the fixture's bounded SIGTERM. | No optional tarball request; natural exit 0 in 223 ms, 5 ms after Done. |
+| `run-1792118806784` | Printed Done at 221 ms; requested the skipped optional tarball 1 ms later. Its HTTP 200 response completed after 2,502 ms, but the process was still alive at 10,010 ms and received bounded SIGTERM. | No optional tarball request; natural exit 0 in 219 ms, 5 ms after Done. |
+
+Both versions' initial installs exited 0 in both runs and requested no foreign
+optional tarball. The scratch `pnpm-repro` tree retains its explanation,
+`results.json`, timestamped `requests.json`, initial locks and full command logs;
+the loopback servers closed afterward. A preliminary unsupported
+`pnpm remove --ignore-scripts` helper invocation was corrected by setting the
+fixture configuration instead, retained separately, and excluded from this
+result. The old timed-out child is not counted as a naturally exiting process.
+
+This reproduces the known previous-graph/late-work failure family and shows the
+fixed version avoids that path. It does **not** capture the exact late-worker
+timeline of the original DSH subprocess, or isolate the contribution of these
+two patches from every other change between 11.22 and 11.26. The fixture mechanism
+is therefore not promoted to a confirmed root cause of the original occurrence.
+
+### Effective-command validation in the original isolated Home
+
+The later keyless Host comparison reused the original isolated activity Home
+after its earlier stop/cleanup/reinstallation; it was not a replay of an intact
+stalled process. Before accepting fixed-version evidence, the tester inspected
+the actual manager fields: `pnpmCommand` was the absolute scratch-local
+`pnpm-fixed/node_modules/.bin/pnpm` executable, `idleTimeoutMs` was **15,000**, and
+no provider credential was supplied. See
+`fixed-pnpm-validated-diagnostics.json`.
+
+- `validated-fixed-pnpm-bridge.json`: removal returned `application: applied`,
+  actual pnpm exit 0, in **3,849 ms**; captured stdout identified **pnpm 11.26.0**.
+- `validated-fixed-pnpm-jot.json`: removal returned applied/exit 0 in
+  **2,677 ms**; stdout likewise identified **11.26.0**. Neither call reached its
+  configured idle bound.
+
+The earlier files `fixed-pnpm-activity-bridge.json` and
+`fixed-pnpm-activity-jot.json` are **excluded from fixed-version comparison**.
+Their initial override-map configuration did not take effect: actual diagnostics
+still showed command `pnpm` and the default **600,000 ms** idle limit, so their
+successful results used the existing 11.22 tool. This is recorded in
+`fixed-pnpm-first-attempt-note.json`, not relabeled as a successful 11.26 control.
+
+The global pnpm remains **11.22.0**; only the isolated diagnostic Host used the
+scratch copy. That Host stopped normally, and the official market's remaining
+test-profile dependency/selection was cleaned through the offline CLI. The
+refreshed `final-cleanup.json` records no extra dependencies/selections and all
+**14** listed test ports closed. Synthetic data, the dangling CLI link and package
+manager caches retain their earlier documented boundaries. These successful
+controls strengthen the package-manager hypothesis but do not close the original
+incident, change Workshop `hotReload: null`, or authorize publication.
+
 ## Acceptance boundaries
 
 The previous [alpha.3 run](dsh-0.2.1-alpha.3-2026-10-15.md) observed a mixed
