@@ -3,8 +3,8 @@
 Date: 2026-10-16, Asia/Shanghai. Candidate package: **0.4.6**.
 Starting revision: `1e340f8641c8c1f79aa2ad6593b0373a405f3fc9`.
 
-Status: local declaration, installed SDK and release-version checks have passed.
-Full verification and isolated official Host/WebUI acceptance are being run
+Status: local declaration, installed SDK, coverage, package and release-version
+checks have passed. Isolated official Host/WebUI acceptance is being run
 separately; no result from the alpha.3 record is relabeled as alpha.4 evidence.
 Push, CI, merge, tag, Release, npm publication and a fresh registry install are
 separate gates, not established by this candidate record.
@@ -34,6 +34,24 @@ visible while documenting the current upstream manager behavior.
 | Exact alpha.4 engine and Workshop declarations, exact current SDK and installed manifests | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs test/load.test.mjs test/workshop.test.mjs` | RED `a968167`: 33 executed, 29 passed and four intended declaration/SDK failures. GREEN `e7fd588`: the same 33 passed after lockfile regeneration and frozen `npm ci`. |
 | Version and tag agree | `npm run release:check -- v0.4.6` | Failed as intended against package 0.4.5; passed after the local package/lock root became 0.4.6. npm registry lookup returned E404 for 0.4.6 before preparation; this is not publication. |
 | Current upgrade instructions retain alpha.3 evidence, CLI/API separation and Text/HMR limits | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs` | RED `f7c2634`: 14 executed, 12 passed, missing alpha.4 wording and acceptance links failed. The same 14 passed after the bilingual guidance and this candidate record were added. |
+
+## Local verification
+
+- Frozen `npm ci --ignore-scripts --no-audit --no-fund` completed successfully.
+- `npm run verify` at SDK GREEN `e7fd588` passed build, typecheck, **334 tests:
+  333 passed, zero failed, one existing Windows-only skip**, generated `lib/`
+  consistency, datasets, and packed install/import smoke (**70 files**).
+- After the documentation regression was added, the source coverage run executed
+  all **335 tests: 334 passed, zero failed, one platform skip**. Command:
+  `node --experimental-strip-types --test --experimental-test-coverage
+  --test-coverage-include=src/** --test-reporter=spec test/*.test.mjs`.
+  Coverage: **95.11% lines, 81.65% branches, 92.87% functions** for loaded `src/**`.
+  `client.tsx` is exercised as a built bundle and is not in that source-only
+  coverage percentage; these checks are not browser pixel acceptance.
+- `npm audit --omit=dev --json` reported zero vulnerabilities. This is a registry
+  audit snapshot, not a complete security review.
+- `git diff --check` passed; no standalone lint script exists. No runtime
+  `src/` or generated `lib/` change is present against the starting revision.
 
 ## Acceptance boundaries
 
