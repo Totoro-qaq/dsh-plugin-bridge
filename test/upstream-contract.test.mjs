@@ -36,14 +36,14 @@ const REQUIRED_METHODS = [
   'goal.pause',
 ];
 
-test('DSH alpha.3 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
+test('DSH alpha.4 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
   assert.deepEqual(pkg.engines.dsh.split('||').map(part => part.trim()), [
-    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3',
+    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3', '0.2.1-alpha.4',
   ]);
   assert.equal(lock.packages[''].engines.dsh, pkg.engines.dsh);
-  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.3');
+  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.4');
 });
 
 test('both READMEs document the alpha.3 HMR upgrade boundary before removal', async () => {

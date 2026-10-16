@@ -164,8 +164,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
     );
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.2.1-alpha.3',
-      `${packageName} 的本地构建应使用当前官方 0.2.1-alpha.3 SDK`,
+      '0.2.1-alpha.4',
+      `${packageName} 的本地构建应使用当前官方 0.2.1-alpha.4 SDK`,
     );
     const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
     assert.equal(installed.version, manifest.devDependencies[packageName],
@@ -173,8 +173,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   }
   assert.equal(
     manifest.engines.dsh,
-    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2 || 0.2.1-alpha.3',
-    'engines.dsh 保留原范围，只追加本次候选的 0.2.1-alpha.3，不提前声明其他 0.2 版本',
+    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2 || 0.2.1-alpha.3 || 0.2.1-alpha.4',
+    'engines.dsh 保留原范围，只追加本次候选的 0.2.1-alpha.4，不提前声明其他 0.2 版本',
   );
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
@@ -191,8 +191,8 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   ]) {
     assert.equal(
       manifest.devDependencies[packageName],
-      '0.2.1-alpha.3',
-      `${packageName} 必须提供 0.2.1-alpha.3 的客户端类型契约`,
+      '0.2.1-alpha.4',
+      `${packageName} 必须提供 0.2.1-alpha.4 的客户端类型契约`,
     );
     const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
     assert.equal(installed.version, manifest.devDependencies[packageName],
@@ -210,13 +210,13 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   assert.doesNotMatch(bundlerConfig, /dsh-client-runtime/u);
 });
 
-test('alpha.3 installed SDK and lockfile use the official Cordis and schema baselines', async () => {
+test('alpha.4 installed SDK and lockfile use the official Cordis and schema baselines', async () => {
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
   const lock = JSON.parse(await readFile(join(packageRoot, 'package-lock.json'), 'utf8'));
   for (const [packageName, version] of Object.entries(manifest.devDependencies)) {
     if (!packageName.startsWith('@deepseek-ai/')) continue;
     const installed = JSON.parse(await readFile(join(packageRoot, 'node_modules', packageName, 'package.json'), 'utf8'));
-    const expectedVersion = packageName === '@deepseek-ai/cordis' ? '4.0.5-alpha.2' : '0.2.1-alpha.3';
+    const expectedVersion = packageName === '@deepseek-ai/cordis' ? '4.0.5-alpha.2' : '0.2.1-alpha.4';
     assert.equal(installed.version, expectedVersion, `${packageName} must use the current official SDK`);
     assert.equal(version, expectedVersion);
     assert.equal(lock.packages[''].devDependencies[packageName], version);
