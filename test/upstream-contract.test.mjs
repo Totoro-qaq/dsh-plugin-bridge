@@ -68,7 +68,7 @@ test('both READMEs document the alpha.3/alpha.4 HMR upgrade boundary before remo
   }
 });
 
-test('both READMEs link the bounded alpha.4 candidate record without erasing prior acceptance', async () => {
+test('both READMEs retain alpha.4 acceptance and the diagnosed host package-manager limitation', async () => {
   for (const file of ['README.md', 'README.zh.md']) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md'));
@@ -76,12 +76,17 @@ test('both READMEs link the bounded alpha.4 candidate record without erasing pri
     assert.ok(text.includes('0.4.6'));
     assert.ok(/mixed-format|混合格式/u.test(text), `${file} must preserve the observed Text fallback boundary`);
     assert.ok(/different-business-byte|不同业务字节/u.test(text), `${file} must preserve the hot replacement boundary`);
-    assert.ok(/unresolved|未查明/u.test(text), `${file} must disclose the original live-removal result`);
-    assert.ok(/unpublished candidate|未发布候选版/u.test(text), `${file} must not imply alpha.4 publication is complete`);
+    assert.ok(text.includes('pnpm 11.22.0'), `${file} must identify the affected host package-manager version`);
+    assert.ok(text.includes('11.26.0'), `${file} must recommend a version with the upstream fixes`);
+    assert.ok(/actual pnpm|宿主实际.*pnpm/u.test(text), `${file} must distinguish the Host executable from a shell version`);
+    assert.ok(/overlapping package operations|重叠包操作/u.test(text), `${file} must avoid retrying over a pending package operation`);
+    assert.ok(/historical[^\n]*not a PASS|历史[^\n]*不算 PASS/u.test(text), `${file} must preserve the original failed operation`);
+    assert.ok(text.includes('github:Totoro-qaq/dsh-plugin-bridge#v0.4.6'));
+    assert.doesNotMatch(text, /publication is paused|发布暂停|0\.4\.6 is an unpublished candidate|0\.4\.6 是未发布候选版/u);
   }
 });
 
-test('alpha.4 acceptance preserves the unresolved removal and precise restart boundaries', async () => {
+test('alpha.4 acceptance retains the failed incident, natural pnpm attribution and precise restart boundaries', async () => {
   const text = await readFile(new URL('../docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md', import.meta.url), 'utf8');
   assert.ok(text.includes('60-second'));
   assert.ok(text.includes('not a PASS'));
@@ -91,6 +96,12 @@ test('alpha.4 acceptance preserves the unresolved removal and precise restart bo
   assert.ok(text.includes('90-second'));
   assert.ok(text.includes('3,453 ms'));
   assert.ok(text.includes('not-removable'));
+  assert.ok(text.includes('natural DSH'));
+  assert.ok(text.includes('13226-only'));
+  assert.ok(text.includes('same initial lockfile'));
+  assert.ok(text.includes('original PID'));
+  assert.ok(text.includes('11.26.0'));
+  assert.doesNotMatch(text, /publication remains paused/u);
 });
 
 const CONFIG = {
