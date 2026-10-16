@@ -76,7 +76,21 @@ test('both READMEs link the bounded alpha.4 candidate record without erasing pri
     assert.ok(text.includes('0.4.6'));
     assert.ok(/mixed-format|混合格式/u.test(text), `${file} must preserve the observed Text fallback boundary`);
     assert.ok(/different-business-byte|不同业务字节/u.test(text), `${file} must preserve the hot replacement boundary`);
+    assert.ok(/unresolved|未查明/u.test(text), `${file} must disclose the original live-removal result`);
+    assert.ok(/unpublished candidate|未发布候选版/u.test(text), `${file} must not imply alpha.4 publication is complete`);
   }
+});
+
+test('alpha.4 acceptance preserves the unresolved removal and precise restart boundaries', async () => {
+  const text = await readFile(new URL('../docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md', import.meta.url), 'utf8');
+  assert.ok(text.includes('60-second'));
+  assert.ok(text.includes('not a PASS'));
+  assert.ok(text.includes('18-event'));
+  assert.ok(text.includes('delegationDepth: 0'));
+  assert.ok(text.includes('source log was not byte-identical'));
+  assert.ok(text.includes('90-second'));
+  assert.ok(text.includes('3,453 ms'));
+  assert.ok(text.includes('not-removable'));
 });
 
 const CONFIG = {
