@@ -52,6 +52,11 @@ visible while documenting the current upstream manager behavior.
   zero failed, one existing platform skip**, build/typecheck, unchanged generated
   `lib/`, datasets and packed install/import smoke (**71 files**, including this
   new report). The subsequent evidence-only edit records that actual result.
+- After the natural pnpm attribution and release-guidance GREEN at `91b2076`,
+  `npm run verify` passed again: **336 tests, 335 passed, zero failed, one
+  existing Windows-only skip**, build/typecheck, generated `lib/` comparison,
+  datasets and **71-file** packed installation/import smoke. The final report
+  update only records that result; no runtime or dependency change was needed.
 - With the final documentation regressions, the source coverage run executed
   all **336 tests: 335 passed, zero failed, one platform skip**. Command:
   `node --experimental-strip-types --test --experimental-test-coverage
