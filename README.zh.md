@@ -6,6 +6,7 @@
 
 [![dsh-plugin](https://img.shields.io/badge/dsh-plugin-blue)](https://github.com/deepseek-ai/deepseek-harness)
 [![npm](https://img.shields.io/npm/v/dsh-plugin-bridge?color=cb3837)](https://www.npmjs.com/package/dsh-plugin-bridge)
+[![Discover · 添加源](https://img.shields.io/badge/Discover-%E6%B7%BB%E5%8A%A0%E6%BA%90-2563eb)](#discover)
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
@@ -28,6 +29,8 @@ Bridge **0.4.6** 支持 DSH **0.2.1-alpha.4 Web**，保留此前宿主声明。B
 
 安装或卸载包时，请核对**宿主实际调用的 pnpm 可执行文件**。pnpm 11.22.0 存在已知的 late-worker 退出缺陷，可能在输出 Done 后仍不结束；自然 DSH 对照已隔离上游修复。建议使用包含[上游修复](https://github.com/pnpm/pnpm/releases/tag/v11.26.0)的 **11.26.0 或更新版本**，不要重叠包操作。存在未结束操作时，先等待其完成，或正常停止宿主后再使用离线 CLI。Bridge 不附带 pnpm，也不会自动升级你的工具。
 
+### npm / CLI
+
 从 npm 安装：
 
 ```bash
@@ -47,6 +50,23 @@ GitHub 固定版本备用路径：
 ```bash
 dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.6
 ```
+
+### Discover
+
+提供 Discover 的 DSH（**0.2.1-alpha.4** 引入）也可以通过作者的索引安装 Bridge：
+
+1. 打开 **插件 → 实验性插件 → 更多**，启用 **自定义插件市场**。
+2. 进入 **发现（Discover）→ 添加索引源**，粘贴：
+
+   ```text
+   https://raw.githubusercontent.com/Totoro-qaq/dsh-plugin-index/main/index.json
+   ```
+
+3. 选择 **Bridge 会话交接**，在确认框核对包名、版本及 `https://registry.npmjs.org/`，安装后点 **立即启用**。
+
+这是[作者自托管的第三方源](https://github.com/Totoro-qaq/dsh-plugin-index)，不代表官方认证或社区审核；需要在想使用的 profile 中手动添加。公开地址的添加、安装已在[隔离 alpha.4 WebUI 中验收](https://github.com/Totoro-qaq/dsh-plugin-index/blob/main/docs/acceptance-2026-10-16.md)，不扩大原生桌面验收范围。没有 Discover 的客户端继续使用上面的 npm/CLI 方式即可。
+
+### 首次交接
 
 然后在官方 WebUI 输入：
 
