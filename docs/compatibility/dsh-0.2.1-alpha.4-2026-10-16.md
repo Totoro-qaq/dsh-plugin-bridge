@@ -1,16 +1,18 @@
-# DSH 0.2.1-alpha.4 candidate compatibility
+# DSH 0.2.1-alpha.4 compatibility and bounded acceptance
 
 Date: 2026-10-16, Asia/Shanghai. Candidate package: **0.4.6**.
 Starting revision: `1e340f8641c8c1f79aa2ad6593b0373a405f3fc9`.
 
-Status: **unpublished candidate, partial acceptance; publication paused**. Local
-SDK/contract/package checks and the bounded alpha.4 model/WebUI migration,
-editing, isolation and restart checks below passed. The original active
-mixed-profile live removal stalled; it is unresolved and **not a PASS**. Fresh
-controls and final offline cleanup do not overwrite that result. No result from
-the alpha.3 record is relabeled as alpha.4 evidence. Push, CI, merge, tag,
-Release, npm publication and a fresh registry install are separate gates, not
-established by this record.
+Status: **local acceptance and package-manager attribution complete; publishing
+gates separate**. Local SDK/contract/package checks and the bounded alpha.4
+model/WebUI migration, editing, isolation and restart checks passed. The
+historical active mixed-profile removal failed and remains **not a PASS**.
+Later natural DSH calls on the same reconstructed package graph isolated the
+known pnpm 11.22.0 late-worker shutdown mechanism with individual upstream
+patches; unmodified 11.26.0 completed removal. The exact original PID task was
+not retrospectively recovered. No alpha.3 result is relabeled as alpha.4
+evidence. Push, CI, merge, tag, Release, npm publication and a fresh registry
+install are separate gates, not established by this local record.
 
 ## Scope and official sources
 
@@ -37,7 +39,8 @@ visible while documenting the current upstream manager behavior.
 | Exact alpha.4 engine and Workshop declarations, exact current SDK and installed manifests | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs test/load.test.mjs test/workshop.test.mjs` | RED `a968167`: 33 executed, 29 passed and four intended declaration/SDK failures. GREEN `e7fd588`: the same 33 passed after lockfile regeneration and frozen `npm ci`. |
 | Version and tag agree | `npm run release:check -- v0.4.6` | Failed as intended against package 0.4.5; passed after the local package/lock root became 0.4.6. npm registry lookup returned E404 for 0.4.6 before preparation; this is not publication. |
 | Current upgrade instructions retain alpha.3 evidence, CLI/API separation and Text/HMR limits | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs` | RED `f7c2634`: 14 executed, 12 passed, missing alpha.4 wording and acceptance links failed. The same 14 passed after the bilingual guidance and this candidate record were added. |
-| Current evidence retains the unresolved removal and exact source-prefix/restart limits, and Workshop points to that scoped record | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs test/workshop.test.mjs` | RED `9758520`: 18 executed, 15 passed, three intended missing-evidence/limitation failures. The same 18 passed with the final bilingual candidate guidance; no runtime behavior is changed. |
+| Earlier partial-acceptance evidence retained the then-unresolved removal and exact source-prefix/restart limits, with Workshop pointing to that scoped record | `node --experimental-strip-types --test --test-reporter=spec test/upstream-contract.test.mjs test/workshop.test.mjs` | RED `9758520`: 18 executed, 15 passed, three intended missing-evidence/limitation failures. The same 18 passed with that checkpoint's bilingual candidate guidance; no runtime behavior was changed. |
+| Release documentation preserves the historical failure, natural pnpm attribution and actual-executable/no-overlap guidance without requiring a permanent release pause | Same 18-test upstream-contract/Workshop target | RED `503b6c1`: 18 executed, 16 passed, two intended missing fixed-version/natural-attribution failures. GREEN: the same 18 passed after the bilingual guidance and verified causal-control results were recorded. No Bridge dependency or runtime change was made. |
 
 ## Local verification
 
@@ -99,22 +102,23 @@ complete events and goal remained exact. The initial helper's overly broad
 full-log/header equality assumption was corrected against the official Host
 lifecycle source; no additional target prompt or model acknowledgment was used.
 
-### Unresolved active-profile live removal
+### Original active-profile failed live removal
 
 In the original active mixed test profile, one `removeBundle('dsh-plugin-bridge')`
 call exceeded the HTTP helper's **60-second** deadline. The owned pnpm subprocess
 had printed `Done in 2.8s` but was still alive roughly nine minutes later. No
 second removal request was submitted while it was pending. Printing Done did
 not establish a process exit or an `application: applied` result: **not a PASS**.
-The cause was not established, and the result is not attributed to Bridge, Jot,
-the market, HMR or every alpha.4 installation without evidence.
+The initial capture did not establish its cause. The later natural DSH controls
+below explain the waiting path as a known pnpm mechanism; they do not turn this
+failed operation into a successful one or identify its exact original PID task.
 
 The original Host was subsequently shut down normally, canceling its owned
 package-manager operation. Offline official CLI removal cleaned the remaining
 test-profile Jot/market dependencies and selections with exit 0. That recovery
 and the independent controls below do not turn the original live operation into
-a passing result. Publication remains paused pending a decision on this known
-limitation or further diagnosis.
+a passing result. Attribution was held open at this earlier checkpoint; the
+later isolated upstream-patch controls close that engineering diagnosis below.
 
 ## Prior-Host backward smoke
 
@@ -170,17 +174,18 @@ pnpm exit code, not text in its log.
   selected. The runtime-provided market package was not deleted. See
   `offline-market-cleanup.json`.
 
-The controls show the original stall is not inevitable for Bridge alone or that
-fresh package graph. They do not explain the original active-profile failure or
-certify arbitrary plugin combinations, changed-business-byte hot replacement or
-a failure/cancellation rollback scenario.
+Those early controls showed the stall was not inevitable for Bridge alone or
+that fresh package graph. Alone they did not explain the active-profile failure;
+the later natural causal controls below supply that missing diagnosis. Neither
+phase certifies arbitrary plugin combinations, changed-business-byte hot
+replacement or a failure/cancellation rollback scenario.
 
-## Appendix: bounded pnpm diagnosis and validated fixed-version control
+## Appendix: earlier directed pnpm diagnosis and validated fixed-version control
 
-This later diagnosis adds evidence, not closure of the original live-removal
-case. It changes no Bridge source, `lib/`, dependency, plugin script or global
-pnpm. The original case remains **not a PASS**, and publication remains paused
-under the user's request to investigate before release.
+This earlier diagnostic phase added evidence before the natural DSH causal
+controls were available. It changed no Bridge source, `lib/`, dependency, plugin
+script or global pnpm. The original case remains **not a PASS**; the new
+attribution below does not rewrite its historical outcome.
 
 ### Official fixes and directed local fixture
 
@@ -224,8 +229,10 @@ result. The old timed-out child is not counted as a naturally exiting process.
 This reproduces the known previous-graph/late-work failure family and shows the
 fixed version avoids that path. It does **not** capture the exact late-worker
 timeline of the original DSH subprocess, or isolate the contribution of these
-two patches from every other change between 11.22 and 11.26. The fixture mechanism
-is therefore not promoted to a confirmed root cause of the original occurrence.
+two patches from every other change between 11.22 and 11.26. At that stage the
+fixture mechanism alone was not promoted to a confirmed root cause of the
+original occurrence; the next natural-call phase isolates individual upstream
+patches rather than relying on this version comparison.
 
 ### Effective-command validation in the original isolated Home
 
@@ -250,14 +257,81 @@ still showed command `pnpm` and the default **600,000 ms** idle limit, so their
 successful results used the existing 11.22 tool. This is recorded in
 `fixed-pnpm-first-attempt-note.json`, not relabeled as a successful 11.26 control.
 
-The global pnpm remains **11.22.0**; only the isolated diagnostic Host used the
+During this phase the global pnpm remained **11.22.0**; only the isolated diagnostic Host used the
 scratch copy. That Host stopped normally, and the official market's remaining
 test-profile dependency/selection was cleaned through the offline CLI. The
-refreshed `final-cleanup.json` records no extra dependencies/selections and all
-**14** listed test ports closed. Synthetic data, the dangling CLI link and package
-manager caches retain their earlier documented boundaries. These successful
-controls strengthen the package-manager hypothesis but do not close the original
-incident, change Workshop `hotReload: null`, or authorize publication.
+phase's `final-cleanup.json` recorded no extra dependencies/selections and all
+**14** then-listed test ports closed. Synthetic data, the dangling CLI link and
+package-manager caches retain their earlier boundaries. Those early successful
+controls were useful but did not by themselves isolate a particular upstream
+change or recover the original subprocess timeline.
+
+## Natural DSH causal controls and engineering attribution
+
+The final verification used the actual official alpha.4 `removeBundle()` call
+and the real three-package graph: Bridge 0.4.6, Jot 0.2.13 and the official
+experimental market bundle. Each arm used a separate keyless reconstructed
+Home, hoisted install/store/cache/configuration and the **same initial lockfile**
+SHA-256 `5c42a63a294a7a2681b280734c0e210e8271c87f19d48c4f3c31dea99e33e578`.
+These copies were rebuilt from the same configuration after the original
+cleanup; they are not an immutable snapshot of the original stalled lockfile.
+All runs were natural DSH operations, **without an artificial delay**, model
+request or provider credential.
+
+`pnpm-dsh-observation/instrument.mjs` adds matching trace hooks to private
+copies of pnpm 11.22.0. The `13226-only` arm has one semantic change: remove
+the upstream `workerPool = void 0` reset after `finishWorkers()`. The separate
+`14141-only` arm applies only the upstream previous-hoisted-graph
+`skipFetching` correction and retains the worker reset. These diagnostic
+copies are not Bridge dependencies or changes to the user's tool installation.
+
+| Natural DSH campaign | Package-manager arm | Actual result |
+| --- | --- | --- |
+| `observed-run.IH4go3` | Observed pnpm 11.22.0 baseline | Done printed, but the call exceeded its 20-second bound; canceled during normal diagnostic Host shutdown, **not a PASS**. |
+| Same campaign and starting lock | `13226-only` | `application: applied`, pnpm exit 0 in **3,493 ms**. Foreign optional fetching still happened; late workers and the main process exited. |
+| `observed-run.0fmD6b` | Observed pnpm 11.22.0 baseline | The same natural late-worker failure repeated and reached the 20-second bound; **not a PASS**. |
+| Same campaign and starting lock | `13226-only` | Applied/exit 0 in **4,650 ms**, retaining the finishing pool and draining the late work. |
+| Same campaign and starting lock | Unmodified, uninstrumented pnpm 11.26.0 | The actual DSH manager returned applied/exit 0 in **3,043 ms**; the Bridge command was absent. |
+| `observed-run.MKw2Q5`, same starting lock | `14141-only` on 11.22.0 | Applied/exit 0 in **2,041 ms**; **zero** foreign previous-graph fetches, downloads or extractions. The original two worker-reset calls remained. |
+
+The first baseline trace captures the chain: a forced previous-hoisted-graph
+walk fetches eight skipped foreign optional packages through asynchronous
+store work; `finishWorkers()` drains and resets twice, and pnpm prints Done.
+At **Done + 1,169 ms**, `addFilesFromTarball()` sees `hasPool:false` for the
+Darwin-x64 optional package, creates pool generation 2, and dispatches to worker
+thread 11. Eight foreign extractions follow, with no subsequent finish for
+that replacement pool before the bounded cancellation. These package/thread
+details describe the observed replay, **not the original PID**.
+
+With only #13226, the same eight foreign fetches/extractions remain, but the
+finishing pool reference is retained: no generation 2 is created, and every
+late worker plus the main process exits 0. With only #14141, the unnecessary
+previous-graph fetching path is absent, so there is no late foreign extraction
+to trigger the reset race. Both independently remove the failure in the actual
+DSH manager flow without changing any plugin runtime code.
+
+This closes the engineering attribution of the waiting symptom to pnpm
+11.22.0's known late-worker shutdown mechanism. It does **not** retrospectively
+recover the original PID 29791's exact optional-package/thread timeline or
+reclassify its timed-out operation as applied. It does not prove that every
+possible package-manager hang has this cause.
+
+`pnpm-dsh-observation/verify.mjs` independently verifies all six arms and writes
+`verified-summary.json`: effective manager commands matched the intended
+executables, the initial locks matched, no controlled delay/model/key was
+used, every diagnostic Host/owned pnpm child was gone and its port closed.
+Bridge's command was already absent before the first pnpm output in every
+arm, separating plugin disposal from the later package-manager wait. The
+global 11.22.0 bundle still matched its original SHA-256; it was not upgraded.
+All traces and helper scripts remain in scratch and are not package contents.
+
+For actual installation/removal, check the **Host's actual pnpm executable**
+and use **11.26.0 or later**, which includes both upstream fixes. A shell
+`pnpm --version` alone does not prove which executable a packaged Host uses.
+Do not start overlapping package operations while one is pending: let it settle
+or stop the Host normally before offline CLI recovery, after saving pending
+handoffs. Bridge does not add a pnpm dependency, patch the user's installation,
+or automatically upgrade tools. Native alpha.4 Desktop remains uncertified.
 
 ## Acceptance boundaries
 
@@ -287,6 +361,8 @@ caches were not purged. Production profiles and primary repositories were
 untouched. This is scoped runtime/profile cleanup, not zero disk residue or a
 passing original live-removal case.
 
-Workshop install/remove evidence links now point to this **partial** record. The
-remove link includes the unresolved original case, successful independent
-controls and offline cleanup; it is not a blanket live-removal PASS.
+Workshop install/remove links point to this scoped record. It retains the
+historical failure, isolated causal controls, corrected-package-manager success
+and offline cleanup; it does not certify every plugin mix or package-manager
+version, and `hotReload: null` remains unchanged. Local acceptance and diagnosis
+are complete; release/tag/npm/registry-install gates are recorded separately.
