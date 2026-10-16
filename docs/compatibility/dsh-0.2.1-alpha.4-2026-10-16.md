@@ -298,6 +298,7 @@ copies are not Bridge dependencies or changes to the user's tool installation.
 | Same campaign and starting lock | `13226-only` | Applied/exit 0 in **4,650 ms**, retaining the finishing pool and draining the late work. |
 | Same campaign and starting lock | Unmodified, uninstrumented pnpm 11.26.0 | The actual DSH manager returned applied/exit 0 in **3,043 ms**; the Bridge command was absent. |
 | `observed-run.MKw2Q5`, same starting lock | `14141-only` on 11.22.0 | Applied/exit 0 in **2,041 ms**; **zero** foreign previous-graph fetches, downloads or extractions. The original two worker-reset calls remained. |
+| Separate `pnpm-uninstrumented-control/observed-run.pj3nNh`, same starting lock | Unmodified, uninstrumented global pnpm 11.22.0 | Done printed in **322 ms**, but the real manager call still reached its 20-second bound; canceled through normal Host shutdown, **not a PASS**. No diagnostic environment flags or trace hooks were present. |
 
 The first baseline trace captures the chain: a forced previous-hoisted-graph
 walk fetches eight skipped foreign optional packages through asynchronous
@@ -329,6 +330,15 @@ Bridge's command was already absent before the first pnpm output in every
 arm, separating plugin disposal from the later package-manager wait. The
 global 11.22.0 bundle still matched its original SHA-256; it was not upgraded.
 All traces and helper scripts remain in scratch and are not package contents.
+
+The separate uninstrumented 11.22.0 campaign is not part of the six-arm
+`verified-summary.json` count. Its `campaign.json` records the same initial
+lock, no `PNPM_DIAG_*` or `DSH_PNPM_*` environment, unchanged global bundle
+SHA-256 before/after, normal shutdown cancellation, closed owned child/port,
+and no use of the 30-second outer fallback. Bridge was already absent before
+the first pnpm output. This reproduces the waiting symptom without trace
+instrumentation, excluding those hooks as a necessary trigger; no late task
+or thread identity is inferred from that uninstrumented control.
 
 For actual installation/removal, check the **Host's actual pnpm executable**
 and use **11.26.0 or later**, which includes both upstream fixes. A shell
