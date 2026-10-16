@@ -36,17 +36,17 @@ const REQUIRED_METHODS = [
   'goal.pause',
 ];
 
-test('DSH alpha.3 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
+test('DSH alpha.4 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
   assert.deepEqual(pkg.engines.dsh.split('||').map(part => part.trim()), [
-    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3',
+    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3', '0.2.1-alpha.4',
   ]);
   assert.equal(lock.packages[''].engines.dsh, pkg.engines.dsh);
-  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.3');
+  assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.4');
 });
 
-test('both READMEs document the alpha.3 HMR upgrade boundary before removal', async () => {
+test('both READMEs document the alpha.3/alpha.4 HMR upgrade boundary before removal', async () => {
   for (const file of ['README.md', 'README.zh.md']) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.ok(text.includes('already-installed'), `${file} must explain repeated-install refusal`);
@@ -54,6 +54,7 @@ test('both READMEs document the alpha.3 HMR upgrade boundary before removal', as
     assert.ok(/running[^\n]*pluginManager[^\n]*Remote|运行中[^\n]*pluginManager[^\n]*Remote/u.test(guard),
       `${file} must scope the refusal to the running plugin manager / Remote API`);
     assert.ok(guard.includes('installBundle()'), `${file} must identify the guarded API`);
+    assert.ok(guard.includes('0.2.1-alpha.4'), `${file} must explicitly scope the current alpha.4 behavior`);
     const cli = text.split('\n\n').find(paragraph => paragraph.startsWith('For CLI replacement') || paragraph.startsWith('CLI 替换时'));
     assert.ok(/stop[^\n]*Host[^\n]*remove[^\n]*add[^\n]*start|停止[^\n]*宿主[^\n]*remove[^\n]*add[^\n]*启动/u.test(cli),
       `${file} must distinguish the CLI stop, remove/add, start sequence`);
@@ -65,6 +66,42 @@ test('both READMEs document the alpha.3 HMR upgrade boundary before removal', as
     assert.ok(/finish or save|先完成或保存/u.test(text), `${file} must put pending work before removal`);
     assert.ok(/Desktop[^\n]*0\.2\.0-rc\.2|桌面端[^\n]*0\.2\.0-rc\.2/u.test(text));
   }
+});
+
+test('both READMEs retain alpha.4 acceptance and the diagnosed host package-manager limitation', async () => {
+  for (const file of ['README.md', 'README.zh.md']) {
+    const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md'));
+    assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md'));
+    assert.ok(text.includes('0.4.6'));
+    assert.ok(/mixed-format|混合格式/u.test(text), `${file} must preserve the observed Text fallback boundary`);
+    assert.ok(/different-business-byte|不同业务字节/u.test(text), `${file} must preserve the hot replacement boundary`);
+    assert.ok(text.includes('pnpm 11.22.0'), `${file} must identify the affected host package-manager version`);
+    assert.ok(text.includes('11.26.0'), `${file} must recommend a version with the upstream fixes`);
+    assert.ok(/actual pnpm|宿主实际.*pnpm/u.test(text), `${file} must distinguish the Host executable from a shell version`);
+    assert.ok(/overlapping package operations|重叠包操作/u.test(text), `${file} must avoid retrying over a pending package operation`);
+    assert.ok(/historical[^\n]*not a PASS|历史[^\n]*不算 PASS/u.test(text), `${file} must preserve the original failed operation`);
+    assert.ok(text.includes('github:Totoro-qaq/dsh-plugin-bridge#v0.4.6'));
+    assert.doesNotMatch(text, /publication is paused|发布暂停|0\.4\.6 is an unpublished candidate|0\.4\.6 是未发布候选版/u);
+  }
+});
+
+test('alpha.4 acceptance retains the failed incident, natural pnpm attribution and precise restart boundaries', async () => {
+  const text = await readFile(new URL('../docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md', import.meta.url), 'utf8');
+  assert.ok(text.includes('60-second'));
+  assert.ok(text.includes('not a PASS'));
+  assert.ok(text.includes('18-event'));
+  assert.ok(text.includes('delegationDepth: 0'));
+  assert.ok(text.includes('source log was not byte-identical'));
+  assert.ok(text.includes('90-second'));
+  assert.ok(text.includes('3,453 ms'));
+  assert.ok(text.includes('not-removable'));
+  assert.ok(text.includes('natural DSH'));
+  assert.ok(text.includes('13226-only'));
+  assert.ok(text.includes('same initial lockfile'));
+  assert.ok(text.includes('original PID'));
+  assert.ok(text.includes('11.26.0'));
+  assert.doesNotMatch(text, /publication remains paused/u);
 });
 
 const CONFIG = {

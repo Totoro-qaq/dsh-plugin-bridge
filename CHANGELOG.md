@@ -2,6 +2,13 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.4.6 — 2026-10-16
+
+- Add exact DSH `0.2.1-alpha.4` to `engines.dsh` and the bounded Workshop `dshVersions` list, retaining all older declarations. Alpha.4's installer refuses 0.4.5's narrower engine; no compatibility exemption is added.
+- Pin all eight development SDKs to the published alpha.4 packages and check the frozen lockfile and actual installed manifests. Cordis, Schemastery runtime dependencies, Host-supplied peers, business source and generated `lib/` are unchanged.
+- Document the alpha.4 running-manager remove-before-install path separately from CLI replacement, retaining memory-only preview, Text fallback, Desktop and hot-replacement boundaries. See the [acceptance record](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md) for local checks and separate release/publication gates.
+- Record real alpha.4 migration, editing, current-directory placement, paused-goal, style isolation and bounded restart checks. Natural same-graph DSH removal calls reproduce pnpm 11.22.0's known late-worker shutdown defect; upstream #13226-only, #14141-only and unmodified 11.26.0 controls isolate the mechanism and complete removal. Preserve the original failed operation as **not a PASS** and do not claim its exact original PID task was recovered. Recommend checking the Host's actual pnpm 11.26.0 or newer and avoiding overlapping package operations; no pnpm dependency, automatic tool upgrade or Bridge runtime change is introduced. Workshop hot-reload evidence remains unset.
+
 ## 0.4.5 — 2026-10-15
 
 - Add exact DSH `0.2.1-alpha.3` support while preserving every earlier host declaration. Pin all eight development SDKs to alpha.3 and Cordis to `4.0.5-alpha.2`; installed manifests and the lockfile are checked by regressions. Host-supplied peers and direct runtime dependencies are unchanged.
