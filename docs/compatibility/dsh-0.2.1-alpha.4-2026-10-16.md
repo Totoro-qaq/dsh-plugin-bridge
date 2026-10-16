@@ -45,8 +45,12 @@ visible while documenting the current upstream manager behavior.
 - `npm run verify` at SDK GREEN `e7fd588` passed build, typecheck, **334 tests:
   333 passed, zero failed, one existing Windows-only skip**, generated `lib/`
   consistency, datasets, and packed install/import smoke (**70 files**).
-- After the documentation regression was added, the source coverage run executed
-  all **335 tests: 334 passed, zero failed, one platform skip**. Command:
+- The complete final `npm run verify` at `bbdb2ee` passed **336 tests: 335 passed,
+  zero failed, one existing platform skip**, build/typecheck, unchanged generated
+  `lib/`, datasets and packed install/import smoke (**71 files**, including this
+  new report). The subsequent evidence-only edit records that actual result.
+- With the final documentation regressions, the source coverage run executed
+  all **336 tests: 335 passed, zero failed, one platform skip**. Command:
   `node --experimental-strip-types --test --experimental-test-coverage
   --test-coverage-include=src/** --test-reporter=spec test/*.test.mjs`.
   Coverage: **95.11% lines, 81.65% branches, 92.87% functions** for loaded `src/**`.
@@ -56,6 +60,9 @@ visible while documenting the current upstream manager behavior.
   audit snapshot, not a complete security review.
 - `git diff --check` passed; no standalone lint script exists. No runtime
   `src/` or generated `lib/` change is present against the starting revision.
+  An added-line credential-pattern scan found zero findings without printing
+  matched values. `npm run release:check -- v0.4.6` passed locally; no publication
+  is implied.
 
 ## Real official alpha.4 Host / WebUI results
 
