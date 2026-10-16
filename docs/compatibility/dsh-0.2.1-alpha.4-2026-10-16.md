@@ -53,6 +53,35 @@ visible while documenting the current upstream manager behavior.
 - `git diff --check` passed; no standalone lint script exists. No runtime
   `src/` or generated `lib/` change is present against the starting revision.
 
+## Prior-Host backward smoke
+
+The same local **0.4.6** archive was additionally installed in separate isolated,
+keyless official npm **0.2.0-rc.2** and **0.2.1-alpha.3** Web Homes. No daily
+Desktop/profile was read or changed, and no provider credential or model request
+was used. The accepted archive SHA256 was
+`7936e744e89a13d53fc77063d0075a3ee2aa5261b5cba59264e3c95506e0989a`;
+it predates the final report/README additions but has the same business `lib/`.
+
+Both actual Host versions matched their named package manifests; version
+exemptions were `{}` and the candidate's engine satisfied each runtime. Installed
+`lib/index.js`, `lib/client.js` and `lib/migrate.js` hashes matched this checkout.
+On a populated synthetic session, doctor reported **13/13**, the authenticated
+homepage returned HTTP 200 and the registered Bridge client resource returned
+HTTP 200. The served code matched the installed bundle after the official
+combo-resource delimiter and source-map transformation. Each removal returned
+`application: applied`, no Bridge bundle remained, and the command was absent.
+Normal shutdown returned, the assigned port closed and each Host process exited
+0. Receipt filenames: `host-receipt-1792117364432.json` (rc.2) and
+`host-receipt-1792117367964.json` (alpha.3), in the scratch `backward-smoke` tree.
+
+This is a startup/contract/served-resource/removal smoke, not a new browser-card
+interaction, model-backed migration or native Desktop certification on the older
+Hosts. The first QA helper incorrectly required the newer `webServer.getOrigin`
+on rc.2 and byte-identical served JavaScript before combo/source-map handling;
+those setup assumptions were corrected using the official public API/source.
+Failed attempts were retained in scratch, their test Hosts shut down, and no
+Bridge product code was changed to pass the corrected checks.
+
 ## Acceptance boundaries
 
 The previous [alpha.3 run](dsh-0.2.1-alpha.3-2026-10-15.md) observed a mixed
