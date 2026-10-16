@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const workflow = readFileSync(new URL('../.github/workflows/publish.yml', import.meta.url), 'utf8');
+const normalizeLineEndings = source => source;
+const workflow = normalizeLineEndings(readFileSync(new URL('../.github/workflows/publish.yml', import.meta.url), 'utf8'));
+
+test('publish contract treats LF and CRLF checkouts identically', () => {
+  assert.equal(normalizeLineEndings(workflow), workflow);
+  assert.equal(normalizeLineEndings(workflow.replace(/\n/gu, '\r\n')), workflow);
+});
 
 test('publish run title identifies the exact release tag', () => {
   assert.deepEqual(workflow.match(/^run-name: .+$/gmu), [
