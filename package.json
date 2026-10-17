@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-bridge",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Previewable cross-preset session migration for DeepSeek Harness with bounded, fixed-schema handoffs",
   "type": "module",
   "main": "lib/index.js",
@@ -96,7 +96,8 @@
         "0.2.1-alpha.1",
         "0.2.1-alpha.2",
         "0.2.1-alpha.3",
-        "0.2.1-alpha.4"
+        "0.2.1-alpha.4",
+        "0.2.1-alpha.5"
       ]
     },
     "capability": {
@@ -106,15 +107,15 @@
       "expected": "A native Bridge result card reports the selected adapter and 13/13 available host methods. This diagnostic alone does not prove a model-backed migration."
     },
     "evidence": {
-      "install": "docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md",
+      "install": "docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md",
       "failureIsolation": null,
       "hotReload": null,
-      "remove": "docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md"
+      "remove": "docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md"
     }
   },
   "engines": {
     "node": ">=22",
-    "dsh": ">=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2 || 0.2.1-alpha.3 || 0.2.1-alpha.4"
+    "dsh": ">=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
@@ -165,6 +166,7 @@
     "@types/react": "~18.3.1",
     "react": "^18.3.1",
     "react-test-renderer": "^18.3.1",
+    "semver": "7.8.5",
     "tsdown": "^0.23.0",
     "typescript": "^7.0.2"
   },

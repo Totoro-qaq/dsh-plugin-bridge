@@ -11,6 +11,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import semver from 'semver';
 
 import { createFakeHost } from './fake-host.mjs';
 import { createApiProxyRpc, probeApiProxy, SUPPORTED_METHODS } from '../src/api-rpc.ts';
@@ -36,12 +37,12 @@ const REQUIRED_METHODS = [
   'goal.pause',
 ];
 
-test('DSH alpha.4 candidate support preserves legacy support and uses the matching SDK baseline', async () => {
+test('DSH alpha.5 admission uses the bounded patch range and preserves the verified alpha.4 SDK baseline', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
-  assert.deepEqual(pkg.engines.dsh.split('||').map(part => part.trim()), [
-    '>=0.1.0-rc.7 <0.2.0-0', '0.2.0-rc.2', '0.2.1-alpha.1', '0.2.1-alpha.2', '0.2.1-alpha.3', '0.2.1-alpha.4',
-  ]);
+  assert.equal(semver.satisfies('0.2.1-alpha.5', pkg.engines.dsh, { includePrerelease: true }), true);
+  assert.equal(semver.satisfies('0.2.1-alpha.6', pkg.engines.dsh, { includePrerelease: true }), true);
+  assert.equal(semver.satisfies('0.2.2-alpha.1', pkg.engines.dsh, { includePrerelease: true }), false);
   assert.equal(lock.packages[''].engines.dsh, pkg.engines.dsh);
   assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.4');
 });
@@ -68,12 +69,16 @@ test('both READMEs document the alpha.3/alpha.4 HMR upgrade boundary before remo
   }
 });
 
-test('both READMEs retain alpha.4 acceptance and the diagnosed host package-manager limitation', async () => {
+test('both READMEs separate current admission from acceptance and retain the diagnosed host limitation', async () => {
   for (const file of ['README.md', 'README.zh.md']) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md'));
     assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md'));
+    assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md'));
+    assert.ok(text.includes('0.4.7'));
     assert.ok(text.includes('0.4.6'));
+    assert.ok(text.includes('>=0.2.1-alpha.1 <0.2.2-0'), `${file} must explain the bounded admission range`);
+    assert.match(text, /Support policy|兼容策略/u);
     assert.ok(/mixed-format|混合格式/u.test(text), `${file} must preserve the observed Text fallback boundary`);
     assert.ok(/different-business-byte|不同业务字节/u.test(text), `${file} must preserve the hot replacement boundary`);
     assert.ok(text.includes('pnpm 11.22.0'), `${file} must identify the affected host package-manager version`);
@@ -81,7 +86,7 @@ test('both READMEs retain alpha.4 acceptance and the diagnosed host package-mana
     assert.ok(/actual pnpm|宿主实际.*pnpm/u.test(text), `${file} must distinguish the Host executable from a shell version`);
     assert.ok(/overlapping package operations|重叠包操作/u.test(text), `${file} must avoid retrying over a pending package operation`);
     assert.ok(/historical[^\n]*not a PASS|历史[^\n]*不算 PASS/u.test(text), `${file} must preserve the original failed operation`);
-    assert.ok(text.includes('github:Totoro-qaq/dsh-plugin-bridge#v0.4.6'));
+    assert.ok(text.includes('github:Totoro-qaq/dsh-plugin-bridge#v0.4.7'));
     assert.doesNotMatch(text, /publication is paused|发布暂停|0\.4\.6 is an unpublished candidate|0\.4\.6 是未发布候选版/u);
   }
 });
