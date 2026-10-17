@@ -25,7 +25,7 @@ Halfway through a task and need another tool preset? Switching the produced sess
 
 ## Quick start
 
-Bridge **0.4.6** supports DSH **0.2.1-alpha.4 Web** while retaining earlier host declarations. Bridge 0.4.5's narrower engine does not admit alpha.4. The [acceptance record](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md) separates real migration/UI checks from the diagnosed host package-manager limitation and release verification.
+Bridge **0.4.7** replaces per-alpha installation declarations with a bounded **0.2.1** host range while retaining the earlier host terms. The [alpha.5 acceptance record](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md) tracks the candidate's real Host checks separately from admission, historical alpha.4 evidence and publication. See [Support policy](#support-policy) before treating an admitted future version as tested.
 
 Check the Host's **actual pnpm executable** when installing or removing packages. pnpm 11.22.0 has a known late-worker shutdown bug that can keep a package operation alive after printing Done; natural DSH reproductions isolated the upstream fixes. Use **11.26.0 or later**, which includes the [upstream fixes](https://github.com/pnpm/pnpm/releases/tag/v11.26.0), and avoid **overlapping package operations**. If an operation is pending, wait for it to settle or stop the Host normally before using the offline CLI. Bridge does not bundle pnpm or upgrade your tools automatically.
 
@@ -48,7 +48,7 @@ Before either replacement, finish or save pending handoffs: previews and unconfi
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.6
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.7
 ```
 
 ### Discover
@@ -143,6 +143,18 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 ## Compatibility
 
+### Support policy
+
+From Bridge **0.4.7**, `engines.dsh` is an installation-admission range, not an exact list of tested releases:
+
+```text
+>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0
+```
+
+The previous host terms are unchanged. The 0.2.1 term admits later alpha/beta/rc builds and final 0.2.1, but not 0.2.2 prereleases or later versions. DSH evaluates this field with `includePrerelease: true`; the explicit `<0.2.2-0` ceiling avoids a caret unintentionally admitting later 0.2.x prereleases.
+
+Admission is not acceptance. The table, version-specific reports and Workshop's exact `dshVersions` name only exercised hosts. Published package metadata is a snapshot; later passing documentation checks do not silently rewrite an old npm artifact. Compatible 0.2.1 updates need a diff review and short acceptance pass, not a new npm release merely to append an alpha number. Actual code/dependency/packaging fixes still require a release, and a new version family requires reviewing the boundary. The verified exact alpha.4 development SDK baseline is retained; it does not have to advance for every compatible Host. `/bridge --doctor` helps identify missing capabilities but does not replace migration acceptance.
+
 Since Bridge **0.4.0**, **Approve in new session** is available on the official plan-review card, verified on DSH **0.2.0-rc.2** and **0.2.1-alpha.1** WebUI. Enter `/plan` and review the plan submitted through `exit_plan_mode`, then choose the Bridge action. It stops the original planning turn, leaves that session in plan mode, creates a fresh session with the same preset/model/workspace, transfers the approved plan verbatim in its kickoff, and starts implementation there. The host's existing **Approve** and **Request changes** controls keep their ordinary behavior. See [the approved-plan workflow](docs/approved-plan-handoff.md).
 
 Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptance](docs/compatibility/desktop-0.2.0-rc.2-2026-10-05.md): installation, edited migration, approved-plan execution, live toggles, uninstall and restart. Desktop and npm WebUI records are separate; native-window pixels and account login are not certified.
@@ -169,7 +181,7 @@ Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptan
 
 Bridge 0.4.2 adds exact `0.2.1-alpha.2` to `engines.dsh` and fixes two runtime issues: stale working-directory placement and false worker-start detection after a history window trims `turn/start`. Published 0.4.1 does not contain these fixes. rc.2 Desktop and alpha.1 backward smoke checks are recorded separately from alpha.2 Web acceptance.
 
-Bridge **0.4.6** adds only exact `0.2.1-alpha.4` to the existing host range and builds against that SDK with Cordis `4.0.5-alpha.2`. Bridge 0.4.5's narrower engine excludes alpha.4 under the Host's installer rules; no compatibility exemption was used. Business source and generated `lib/` are unchanged, and keyless backward startup/doctor/client-resource/removal checks passed on official 0.2.0-rc.2 and alpha.3 Web Hosts. The alpha.4 core workflow and fixed-package-manager removal controls passed; the earlier failed operation remains recorded. Local checks, bounded Host results and release/tag/npm publication are separate gates. Later prereleases and stable 0.2 releases are outside this declaration. Hot replacement with different-business-byte packages was not tested, so Workshop activation remains `restart-host` and hot-reload evidence remains unset. Approved-plan real execution, images, native alpha.4 Desktop, Windows and Linux were not re-certified.
+Historical declaration: Bridge **0.4.6** added only exact `0.2.1-alpha.4` to the existing host range and built against that SDK with Cordis `4.0.5-alpha.2`. Bridge 0.4.5's narrower engine excluded alpha.4 under the Host's installer rules; no compatibility exemption was used. Business source and generated `lib/` were unchanged, and keyless backward startup/doctor/client-resource/removal checks passed on official 0.2.0-rc.2 and alpha.3 Web Hosts. The alpha.4 core workflow and fixed-package-manager removal controls passed; the earlier failed operation remains recorded. Local checks, bounded Host results and release/tag/npm publication are separate gates. Later prereleases and stable 0.2 releases were outside that 0.4.6 declaration; the bounded policy above supersedes it from 0.4.7. Hot replacement with different-business-byte packages was not tested, so Workshop activation remains `restart-host` and hot-reload evidence remains unset. Approved-plan real execution, images, native alpha.4 Desktop, Windows and Linux were not re-certified.
 
 Use Bridge 0.3.4 or later for DSH 0.1.5-alpha.1: DSH published no 0.1.4, and a caret prerelease range such as `^0.1.3-alpha.2` never matches the next prerelease minor, so 0.3.4 adds `^0.1.5-alpha.1` and builds against that SDK with byte-identical `lib/` output. Session format V3 records the system prompt as a `system/message` surface node; Bridge folds only user, assistant and tool events, so prompt text never enters a handoff. Use Bridge 0.3.3 or later for DSH 0.1.3-alpha.2; Bridge 0.3.2 does not include those compatibility changes. The typed adapter reads the default 240-message history window with one fresh `inspect` call instead of four; it does not cache running state. `doctor` checks method availability, not end-to-end compatibility. The same `^0.1.5-alpha.1` range also matches 0.1.5-rc.1 and the 0.1.5 final, so rc.1 needs no new Bridge release.
 

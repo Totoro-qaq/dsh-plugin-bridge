@@ -25,7 +25,7 @@
 
 ## 快速开始
 
-Bridge **0.4.6** 支持 DSH **0.2.1-alpha.4 Web**，保留此前宿主声明。Bridge 0.4.5 较窄的 engine 不接受 alpha.4。[验收记录](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)区分了真实迁移/UI 检查、已定位的宿主包管理器限制与发布核验。
+Bridge **0.4.7** 不再逐个追加 alpha 安装名单，而是有边界地放行 **0.2.1** 系列，并保留此前宿主范围。[alpha.5 验收记录](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)将候选包的真实宿主检查、版本准入、历史 alpha.4 证据和发布核验分开记录。能安装不等于已实测，详见[兼容策略](#兼容策略)。
 
 安装或卸载包时，请核对**宿主实际调用的 pnpm 可执行文件**。pnpm 11.22.0 存在已知的 late-worker 退出缺陷，可能在输出 Done 后仍不结束；自然 DSH 对照已隔离上游修复。建议使用包含[上游修复](https://github.com/pnpm/pnpm/releases/tag/v11.26.0)的 **11.26.0 或更新版本**，不要重叠包操作。存在未结束操作时，先等待其完成，或正常停止宿主后再使用离线 CLI。Bridge 不附带 pnpm，也不会自动升级你的工具。
 
@@ -48,7 +48,7 @@ CLI 替换时，先停止使用目标 profile 的宿主，再执行 `dsh plugin 
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.6
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.7
 ```
 
 ### Discover
@@ -143,6 +143,18 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 
 ## 兼容性
 
+### 兼容策略
+
+Bridge **0.4.7** 起，`engines.dsh` 表示安装准入范围，不再充当逐个版本的实测名单：
+
+```text
+>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0
+```
+
+旧宿主范围不变。0.2.1 范围允许后续 alpha、beta、rc 和 0.2.1 正式版，但不放行 0.2.2 预发布版及更高版本。DSH 使用 `includePrerelease: true` 评估该字段，显式的 `<0.2.2-0` 上限可避免 caret 顺带放行后续 0.2.x 预发布版。
+
+准入不等于验收：下表、逐版本报告和 Workshop 的精确 `dshVersions` 只列实际测过的宿主。已发布的包元数据是快照，后来补充文档不会悄悄改写旧 npm 包。后续兼容的 0.2.1 更新仍需差异检查和短测，但不必只为追加一个 alpha 编号重新发 npm；确有代码、依赖或打包修复时才发新版，跨系列则先审查范围边界。开发 SDK 保持已经验证的 alpha.4 精确版本，不必跟每个兼容宿主同步升级。`/bridge --doctor` 可指出缺少的能力，但不能代替真实迁移验收。
+
 Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话执行”**，现已在 DSH **0.2.0-rc.2** 和 **0.2.1-alpha.1** WebUI 验证。用 `/plan` 规划，模型通过 `exit_plan_mode` 呈交完整计划后，点击该按钮：原规划轮次停止，原会话保留计划模式；新会话沿用当前工具模式、模型和工作目录，首轮提示逐字接收批准的计划并开始实施。原有“同意执行”和“要求修改”仍按宿主原来的方式工作。详见[计划批准交接说明](docs/approved-plan-handoff.md)。
 
 已发布 Bridge **0.4.1** 另通过[原生 macOS Desktop 0.2.0-rc.2 验收](docs/compatibility/desktop-0.2.0-rc.2-2026-10-05.zh-CN.md)：安装、编辑迁移、批准计划执行、实时启停、卸载和重启。桌面与 npm WebUI 记录分开；不认证原生窗口像素或账号登录。
@@ -169,7 +181,7 @@ Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话
 
 Bridge 0.4.2 在 `engines.dsh` 中追加精确的 `0.2.1-alpha.2`，并修复“迁回旧目录”和“尾部历史裁掉启动事件后误报工人未启动”两处运行问题；已发布的 0.4.1 不含这次修复。rc.2 桌面和 alpha.1 的回归短测与 alpha.2 Web 验收分开记录。
 
-Bridge **0.4.6** 只在现有宿主范围中追加精确的 `0.2.1-alpha.4`，并以对应 SDK 和 Cordis `4.0.5-alpha.2` 构建。Bridge 0.4.5 较窄的 engine 不满足 alpha.4 的安装规则；本轮未用兼容豁免。业务源码和生成的 `lib/` 未变，官方 0.2.0-rc.2 和 alpha.3 Web 宿主的无密钥启动、doctor、client 资源和卸载短测也通过。alpha.4 核心工作流及修复版包管理器卸载对照通过，早先失败的操作仍保留在记录中；本地检查、限定范围实测和 release、tag、npm 发布是不同门禁。未声明后续预发布版或 0.2 正式版。不同业务字节的热替换未测，因此 Workshop 激活方式仍为 `restart-host`，热重载证据保留为空。本轮未重新认证计划批准后的真实执行、图片传递、原生 alpha.4 桌面端、Windows 或 Linux。
+历史版本说明：Bridge **0.4.6** 当时只在现有宿主范围中追加精确的 `0.2.1-alpha.4`，并以对应 SDK 和 Cordis `4.0.5-alpha.2` 构建。Bridge 0.4.5 较窄的 engine 不满足 alpha.4 的安装规则；当次未用兼容豁免。业务源码和生成的 `lib/` 未变，官方 0.2.0-rc.2 和 alpha.3 Web 宿主的无密钥启动、doctor、client 资源和卸载短测也通过。alpha.4 核心工作流及修复版包管理器卸载对照通过，早先失败的操作仍保留在记录中；本地检查、限定范围实测和 release、tag、npm 发布是不同门禁。后续预发布版和 0.2 正式版不在当时 0.4.6 的声明中，0.4.7 起按上面的有界范围执行。不同业务字节的热替换未测，因此 Workshop 激活方式仍为 `restart-host`，热重载证据保留为空。当次未重新认证计划批准后的真实执行、图片传递、原生 alpha.4 桌面端、Windows 或 Linux。
 
 DSH 0.1.5-alpha.1 请使用 Bridge 0.3.4 或更高版本：DSH 没有发布 0.1.4，而 `^0.1.3-alpha.2` 这类 caret 预发布范围不会匹配下一个预发布 minor，所以 0.3.4 追加 `^0.1.5-alpha.1` 并基于该 SDK 构建，`lib/` 产物逐字节相同。会话格式 V3 把系统提示词记成 `system/message` surface node；Bridge 只折叠用户、助手和工具事件，提示词文本不会进入交接。DSH 0.1.3-alpha.2 请使用 Bridge 0.3.3 或更高版本；Bridge 0.3.2 不包含那些兼容改动。typed adapter 只调用一次 `inspect`，就能读取默认 240 条消息的历史窗口，原来需要四次；不会缓存运行状态。`doctor` 检查方法是否存在，不能代替完整迁移验收。 同一个 `^0.1.5-alpha.1` 范围也覆盖 0.1.5-rc.1 和之后的 0.1.5 正式版，所以 rc.1 不需要新发 Bridge。
 
