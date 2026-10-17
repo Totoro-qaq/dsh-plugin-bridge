@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import semver from 'semver';
 
 import { Context } from '@deepseek-ai/cordis';
 
@@ -171,11 +172,10 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
     assert.equal(installed.version, manifest.devDependencies[packageName],
       `${packageName} 的实际类型版本必须与开发依赖一致`);
   }
-  assert.equal(
-    manifest.engines.dsh,
-    '>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || 0.2.1-alpha.1 || 0.2.1-alpha.2 || 0.2.1-alpha.3 || 0.2.1-alpha.4',
-    'engines.dsh 保留原范围，只追加本次候选的 0.2.1-alpha.4，不提前声明其他 0.2 版本',
-  );
+  assert.equal(semver.satisfies('0.2.1-alpha.5', manifest.engines.dsh, { includePrerelease: true }), true,
+    'engines.dsh 接受同一 0.2.1 补丁线的后续版本，不需要逐个枚举 alpha');
+  assert.equal(semver.satisfies('0.2.2-alpha.1', manifest.engines.dsh, { includePrerelease: true }), false,
+    '不能自动放行未经下一轮兼容审查的 0.2.2 预发布');
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
