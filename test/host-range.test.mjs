@@ -14,6 +14,8 @@ test('host-range checks use the same semver major and exact version as DSH alpha
 });
 
 test('the host admission range preserves all previously supported release boundaries', () => {
+  assert.equal(semver.subset(previousRange, pkg.engines.dsh, { includePrerelease: true }), true,
+    'the complete previous Host range must remain a subset, not only sampled versions');
   const versions = new Set([
     '0.1.0-rc.6', '0.1.0-rc.7', '0.1.0-rc.8', '0.1.0',
     '0.2.0-alpha.1', '0.2.0-rc.1', '0.2.0-rc.2', '0.2.0-rc.3', '0.2.0',
