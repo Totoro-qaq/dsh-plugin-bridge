@@ -10,7 +10,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH 实测 0.2.1-alpha.4](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.4-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)
+[![DSH 实测 0.2.1-alpha.5](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.5-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 [English](README.md) | 中文
@@ -25,7 +25,7 @@
 
 ## 快速开始
 
-Bridge **0.4.7** 不再逐个追加 alpha 安装名单，而是有边界地放行 **0.2.1** 系列，并保留此前宿主范围。[alpha.5 验收记录](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)将候选包的真实宿主检查、版本准入、历史 alpha.4 证据和发布核验分开记录。能安装不等于已实测，详见[兼容策略](#兼容策略)。
+Bridge **0.4.7** 不再逐个追加 alpha 安装名单，而是有边界地放行 **0.2.1** 系列，并保留此前宿主范围。官方 **0.2.1-alpha.5 Web** 的真实预览、编辑迁移、重启和卸载，以及 **0.2.0-rc.2 / alpha.4** 的代表性旧宿主回归均通过。[验收记录](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)区分了这些实测、版本准入和发布核验。能安装不等于已实测，详见[兼容策略](#兼容策略)。
 
 安装或卸载包时，请核对**宿主实际调用的 pnpm 可执行文件**。pnpm 11.22.0 存在已知的 late-worker 退出缺陷，可能在输出 Done 后仍不结束；自然 DSH 对照已隔离上游修复。建议使用包含[上游修复](https://github.com/pnpm/pnpm/releases/tag/v11.26.0)的 **11.26.0 或更新版本**，不要重叠包操作。存在未结束操作时，先等待其完成，或正常停止宿主后再使用离线 CLI。Bridge 不附带 pnpm，也不会自动升级你的工具。
 
@@ -161,6 +161,7 @@ Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话
 
 | DSH 基线 | 服务端交接 | 原生卡片 | 验证边界 |
 |---|---:|---:|---|
+| 0.2.1-alpha.5 | 支持（Bridge 0.4.7） | 真实编辑、确认和自动打开通过 | 官方 npm 宿主，无兼容豁免、doctor 13/13；一次预览工人，1,856 字符界面审阅稿逐字迁入 PTC，goal 暂停，目标一轮且无工具。文本/Markdown 往返、编辑框滚动、确认时目录、启停、重启、卸载和 CLI shim 清除均通过。见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)；后续版本获准安装不等于已实测。 |
 | 0.1.0-rc.6 | 支持 | 不支持 | 窄 RPC 契约与文本兼容测试 |
 | 0.1.0-rc.7 / rc.8 | 支持 | 契约核对 | client module / command slot 契约与服务端回退 |
 | 0.1.1-rc.2 | 支持 | 支持 | 官方 WebUI 实装：doctor 13/13、编辑/确认/自动跳转、三次重复门禁 |

@@ -10,7 +10,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH tested 0.2.1-alpha.4](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.4-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)
+[![DSH tested 0.2.1-alpha.5](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.5-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -25,7 +25,7 @@ Halfway through a task and need another tool preset? Switching the produced sess
 
 ## Quick start
 
-Bridge **0.4.7** replaces per-alpha installation declarations with a bounded **0.2.1** host range while retaining the earlier host terms. The [alpha.5 acceptance record](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md) tracks the candidate's real Host checks separately from admission, historical alpha.4 evidence and publication. See [Support policy](#support-policy) before treating an admitted future version as tested.
+Bridge **0.4.7** replaces per-alpha installation declarations with a bounded **0.2.1** host range while retaining the earlier host terms. Official **0.2.1-alpha.5 Web** acceptance passed real preview/edit/migration, restart and removal; representative **0.2.0-rc.2 / alpha.4** backward checks also passed. The [acceptance record](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md) separates those checks from admission and publication. See [Support policy](#support-policy) before treating an admitted future version as tested.
 
 Check the Host's **actual pnpm executable** when installing or removing packages. pnpm 11.22.0 has a known late-worker shutdown bug that can keep a package operation alive after printing Done; natural DSH reproductions isolated the upstream fixes. Use **11.26.0 or later**, which includes the [upstream fixes](https://github.com/pnpm/pnpm/releases/tag/v11.26.0), and avoid **overlapping package operations**. If an operation is pending, wait for it to settle or stop the Host normally before using the offline CLI. Bridge does not bundle pnpm or upgrade your tools automatically.
 
@@ -161,6 +161,7 @@ Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptan
 
 | DSH baseline | Server handoff | Native card | Verification boundary |
 |---|---:|---:|---|
+| 0.2.1-alpha.5 | Yes (Bridge 0.4.7) | Real edit/confirm/auto-open passed | Official npm Host; no exemption, doctor 13/13, one preview worker, exact 1,856-character UI-reviewed payload into PTC with a paused goal, one target turn and zero target tools. Text/Markdown round-trip, bounded editor scrolling, current-directory placement, toggles, restart, removal and absence of the CLI shim passed. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md); later admitted hosts are not thereby tested. |
 | 0.1.0-rc.6 | Yes | No | Narrow RPC contract and text compatibility tests |
 | 0.1.0-rc.7 / rc.8 | Yes | Contract-checked | Client-module/command-slot contract plus server fallback |
 | 0.1.1-rc.2 | Yes | Yes | Installed official WebUI: doctor 13/13, edit/confirm/auto-open, three-run repeat gate |
