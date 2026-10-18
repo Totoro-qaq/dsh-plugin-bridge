@@ -5,6 +5,8 @@
     - id: bridge
       name: dsh-plugin-bridge
       config:
+        # 自然语言只准备预览，不允许模型确认迁移。false 保留命令/按钮入口。
+        naturalLanguage: !!js process.env.DSH_BRIDGE_NATURAL_LANGUAGE !== 'false'
         # 默认跟随源会话模型。DSH 0.1.5-rc.1 之前没有 V4.1-Flash，这类宿主建议设 pro。
         modelTier: !!js process.env.DSH_BRIDGE_TIER ?? 'current'
         sourceCharBudget: !!js Number(process.env.DSH_BRIDGE_SOURCE_BUDGET ?? 60000)

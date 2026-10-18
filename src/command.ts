@@ -8,10 +8,10 @@
  *   - `minimal` 这种没有 skill 工具的 preset 照样能发起迁移；
  *   - 结果文本只给人看，原会话的上下文一个字都不动。
  *
- * 上游 `session.prompt` 的契约保证了这一点：「A prompt whose content is exactly
- * one text block starting with '/' is a slash command: the host executes it
- * through the command registry (mode-agnostic) and it is never sent to the
- * model.」——所以在官方 WebUI 的输入框里打 `/bridge code` 就能用。
+ * 当前官方 WebUI 通过公开的 commands Remote 提交命令，输入触发器负责把
+ * `/bridge` 及参数交给该入口；Bridge 卡片同样调用 commands.execute。
+ * 早期宿主曾在 session.prompt 中识别斜杠命令，但这不是新版宿主的保证，
+ * 也不能用裸 session.prompt 代替命令派发，否则可能把命令文本发给模型。
  */
 import { randomUUID } from 'node:crypto';
 import { clearInterval, setInterval } from 'node:timers';
@@ -69,6 +69,8 @@ export interface BridgeCommandConfig {
 }
 
 export interface BridgeCommandDeps {
+  /** Only Bridge-owned summary workers, excluded from the optional model entry. */
+  workerSessionIds?: Set<string>;
   /** Optional native review observer; ordinary migration does not depend on plan mode. */
   planApprovals?: PlanApprovalBridge;
   /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */
@@ -386,6 +388,7 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
   const pending = new Map<string, Pending>();
   const completedWebUi = new Map<string, CompletedWebUiConfirmation>();
   const inFlightWebUi = new Set<string>();
+  const previewingSessions = new Set<string>();
   const now = deps.now ?? (() => Date.now());
   const metadata = commandMetadata(deps.config.lang);
   const livePending = (entry: Pending | undefined, sessionId: string, target: string): Pending | undefined =>
@@ -861,6 +864,13 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       }
 
       /* ---------------- 预览 ---------------- */
+      if (previewingSessions.has(sessionId)) return {
+        kind: 'error',
+        text: initialLang === 'en'
+          ? 'A Bridge preview is already being prepared for this session. Wait for it to finish.'
+          : '当前会话正在生成 Bridge 预览，请等待本次生成完成。',
+      };
+      previewingSessions.add(sessionId);
       const startedAt = now();
       let stage = initialLang === 'en' ? 'Preparing the handoff…' : '正在准备交接…';
       const beatEvery = deps.progressHeartbeatMs ?? DEFAULT_PROGRESS_HEARTBEAT_MS;
@@ -877,6 +887,9 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
       }
       try {
         const preview = await previewMigration(host, {
+          ...(invocation.signal ? { signal: invocation.signal } : {}),
+          cleanupHostFor: signal => resolveCommandHost(deps, signal),
+          ...(deps.workerSessionIds ? { workerSessionIds: deps.workerSessionIds } : {}),
           sessionId,
           sourceSession,
           tier: parsed.tier ?? config.modelTier,
@@ -892,6 +905,9 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
             reportProgress(message);
           },
         });
+        // A Host adapter may settle despite caller cancellation. Do not publish
+        // or retain a late preview that a later confirmation could consume.
+        invocation.signal?.throwIfAborted();
         const previewId = randomUUID();
         let file: string | undefined;
         let summaryFileError: string | undefined;
@@ -971,8 +987,13 @@ export function createBridgeCommand(deps: BridgeCommandDeps): {
         }
         return { kind: 'success', text: lines.join('\n') };
       } catch (error) {
-        return { kind: 'error', text: previewFailureText(error, initialLang, target) ?? describe(error) };
+        const text = previewFailureText(error, initialLang, target) ?? describe(error);
+        const cleanup = error instanceof RpcError ? (error.details as WorkerFailureDetails | undefined)?.cleanupFailure : undefined;
+        return { kind: 'error', text: cleanup
+          ? `${text}\n${initialLang === 'en' ? 'Worker cleanup also failed' : '工人清理也未完成'}: ${cleanup.message}`
+          : text };
       } finally {
+        previewingSessions.delete(sessionId);
         if (heartbeat) clearInterval(heartbeat);
       }
       } finally {

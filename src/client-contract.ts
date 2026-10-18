@@ -7,6 +7,18 @@ export interface BridgePlanApproval { callId: string; plan: string }
 
 export type BridgeOutcome = { kind: 'success' | 'error'; text?: string } | null
 
+/** Only a settled Tool's Host-owned meta is presentation authority; args/text are never parsed here. */
+export function readBridgeToolOutcome(meta: unknown): Exclude<BridgeOutcome, null> | undefined {
+  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) return undefined
+  const bridge = (meta as Record<string, unknown>).bridge
+  if (typeof bridge !== 'object' || bridge === null || Array.isArray(bridge)) return undefined
+  const payload = bridge as Record<string, unknown>
+  if (payload.version !== 1 || typeof payload.outcome !== 'object' || payload.outcome === null || Array.isArray(payload.outcome)) return undefined
+  const outcome = payload.outcome as Record<string, unknown>
+  if ((outcome.kind !== 'success' && outcome.kind !== 'error') || typeof outcome.text !== 'string') return undefined
+  return { kind: outcome.kind, text: outcome.text }
+}
+
 export type BridgeCard =
   | { phase: 'running' }
   | {

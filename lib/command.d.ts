@@ -42,6 +42,8 @@ export interface BridgeCommandConfig {
     previewTimeoutMs: number;
 }
 export interface BridgeCommandDeps {
+    /** Only Bridge-owned summary workers, excluded from the optional model entry. */
+    workerSessionIds?: Set<string>;
     /** Optional native review observer; ordinary migration does not depend on plan mode. */
     planApprovals?: PlanApprovalBridge;
     /** 按本次调用的取消信号取得宿主端口。新 adapter 应实现这个入口。 */

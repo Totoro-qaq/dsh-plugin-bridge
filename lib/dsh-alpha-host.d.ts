@@ -40,6 +40,7 @@ interface AlphaServices {
     workspaceController?: {
         archiveSession?: (request: {
             sessionId: string;
+            stopActivity?: boolean;
         }) => Promise<unknown>;
     };
     agentPresets?: {

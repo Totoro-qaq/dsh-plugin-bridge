@@ -10,7 +10,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH 实测 0.2.1-alpha.5](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.5-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)
+[![DSH 实测 0.2.1-rc.2](https://img.shields.io/badge/DSH_tested-0.2.1--rc.2-4c8dff)](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)
 [![收录于 Awesome DSH Plugin](https://img.shields.io/badge/%E5%B7%B2%E6%94%B6%E5%BD%95-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 [English](README.md) | 中文
@@ -25,7 +25,7 @@
 
 ## 快速开始
 
-Bridge **0.4.7** 不再逐个追加 alpha 安装名单，而是有边界地放行 **0.2.1** 系列，并保留此前宿主范围。官方 **0.2.1-alpha.5 Web** 的真实预览、编辑迁移、重启和卸载，以及 **0.2.0-rc.2 / alpha.4** 的代表性旧宿主回归均通过。[验收记录](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)区分了这些实测、版本准入和发布核验。能安装不等于已实测，详见[兼容策略](#兼容策略)。
+Bridge **0.5.0** 新增会话菜单、可配置快捷键和自然语言入口，保留预览、编辑和人工确认。候选包已通过官方 **0.2.1-rc.2 Web 与原生 macOS 桌面端**的隔离迁移验收，以及 **0.2.0-rc.2** 无密钥旧宿主回归。[验收记录](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)区分了实测、限制和待完成的发布核验。**0.4.7** 引入的 **0.2.1** 有界准入策略保持不变；能安装不等于已实测，详见[兼容策略](#兼容策略)。
 
 安装或卸载包时，请核对**宿主实际调用的 pnpm 可执行文件**。pnpm 11.22.0 存在已知的 late-worker 退出缺陷，可能在输出 Done 后仍不结束；自然 DSH 对照已隔离上游修复。建议使用包含[上游修复](https://github.com/pnpm/pnpm/releases/tag/v11.26.0)的 **11.26.0 或更新版本**，不要重叠包操作。存在未结束操作时，先等待其完成，或正常停止宿主后再使用离线 CLI。Bridge 不附带 pnpm，也不会自动升级你的工具。
 
@@ -43,12 +43,12 @@ dsh plugin --profile web add dsh-plugin-bridge
 
 CLI 替换时，先停止使用目标 profile 的宿主，再执行 `dsh plugin --profile web remove dsh-plugin-bridge`、`dsh plugin --profile web add <目标包 spec>`，最后重新启动宿主。[CLI 独立执行 profile 包操作](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/apps/cli/src/plugin.ts)，不经过上述运行中 API 的重复安装拒绝路径。
 
-两种替换方式都应先完成或保存尚未确认的交接：预览和编辑稿保存在内存中，停止或卸载 Bridge 会清除确认状态。原会话仍然保留；重新安装后生成新预览，再贴回保存的草稿。这些 Web 操作不会升级原生桌面端；桌面端验收仍单独记录在 **0.2.0-rc.2**。
+两种替换方式都应先完成或保存尚未确认的交接：预览和编辑稿保存在内存中，停止或卸载 Bridge 会清除确认状态。原会话仍然保留；重新安装后生成新预览，再贴回保存的草稿。这些 Web 操作不会升级原生桌面端；原生桌面 **0.2.1-rc.2** 的验收[单独记录](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md#native-macos-desktop-acceptance)。
 
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.7
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.0
 ```
 
 ### Discover
@@ -64,9 +64,19 @@ dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.7
 
 3. 选择 **Bridge 会话交接**，在确认框核对包名、版本及 `https://registry.npmjs.org/`，安装后点 **立即启用**。
 
-这是[作者自托管的第三方源](https://github.com/Totoro-qaq/dsh-plugin-index)，不代表官方认证或社区审核；需要在想使用的 profile 中手动添加。公开地址的添加、安装已在[隔离 alpha.4 WebUI 中验收](https://github.com/Totoro-qaq/dsh-plugin-index/blob/main/docs/acceptance-2026-10-16.md)，不扩大原生桌面验收范围。没有 Discover 的客户端继续使用上面的 npm/CLI 方式即可。
+这是[作者自托管的第三方源](https://github.com/Totoro-qaq/dsh-plugin-index)，不代表官方认证或社区审核；需要在想使用的 profile 中手动添加。公开地址的添加、安装已在[隔离 alpha.4 WebUI 中验收](https://github.com/Totoro-qaq/dsh-plugin-index/blob/main/docs/acceptance-2026-10-16.md)；原生桌面端本轮未单独重测 Discover 安装路径。没有 Discover 的客户端继续使用上面的 npm/CLI 方式即可。
 
-### 首次交接
+### 三种入口
+
+- **菜单按钮**：打开侧栏中当前会话的 `⋯` 菜单，选择「迁移会话」，不替换草稿、不提交待发送附件。输入框为空时也可使用 `+` 菜单里的 Bridge 项；已有草稿时，DSH 会在该菜单中隐藏带参数的命令。不会新增常驻标题栏按钮或第二条命令。
+- **快捷键**：在 DSH 快捷键设置里搜索「Bridge」，为「Bridge：迁移会话」绑定按键。默认未绑定，不占用系统、宿主或其他插件的组合键；命令 ID 是 `dsh-plugin-bridge.open`。
+- **自然语言**：例如「把当前任务交接到 PTC，先让我看看摘要」。支持模型工具的模式可以调用 `bridge_prepare`；目标不明确时先显示模式选择。模型只能准备交接，不能代替你确认迁移。
+
+三种入口都保留**人工确认**：选择目标 → 生成预览 → 文本/Markdown 编辑 → 点击确认。原来的 `/bridge` 命令继续可用。缺少相应界面或工具接口的宿主保留命令回退；快捷键仅在当前会话页面生效，不会在随记等独立页面或模态框中触发。
+
+自然语言入口默认开启，可在 Bridge 配置中设置 `naturalLanguage: false` 关闭；按钮、快捷键和原命令不受影响。开启时会增加少量工具描述 token，不再承诺所有普通请求均零开销。详见[入口、生命周期和确认边界](docs/entrypoints.md)。
+
+### 原有命令
 
 然后在官方 WebUI 输入：
 
@@ -98,7 +108,7 @@ DSH rc.7 及以上会在官方 WebUI 原生卡片中渲染 `/bridge`。「文本
 | **迁状态，不迁工具痕迹** | 决策、路径、当前状态和下一步进入干净 preset；旧工具组的不兼容调用不会跟过去。 |
 | **失败时关闭迁移** | kickoff 前暂停目标；无法保证时清除/取消目标，不发送模型请求。 |
 
-只安装、不调用时，普通会话增加 **0 Bridge prompt token**。它是 host slash command，不是模型工具或 skill。
+关闭自然语言入口（`naturalLanguage: false`）时，按钮、快捷键和 `/bridge` 都由宿主直接派发，不向模型增加 Bridge 工具描述。默认开启自然语言入口时会注册一个仅准备预览的工具；生成摘要仍只在你发起交接时调用压缩工人。
 
 ## 实测证据
 
@@ -133,7 +143,8 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 
 | 场景 | Bridge 行为 | 成本 / 保真影响 |
 |---|---|---|
-| 只安装，不调用 `/bridge` | 不注入提示，不注册模型工具 | **0 Bridge prompt token** |
+| `naturalLanguage: false`，未发起交接 | 不注入提示，不注册模型工具 | **0 Bridge prompt token** |
+| 自然语言入口开启，未发起交接 | 注册 `bridge_prepare` 的工具描述 | 有工具描述开销；无摘要工人请求 |
 | `/bridge code` | 起一个有界摘要 worker，只输出预览 | 不创建目标会话 |
 | 默认 `--go` | 目标先复述再等待 | 首次有效工作前多一个显式确认请求 |
 | `--go --continue` | 确认既定下一步，同一次目标请求里复述并开工 | 单独审批和安全限制仍生效，没有后台 goal 轮次 |
@@ -159,8 +170,11 @@ Bridge **0.4.0** 起在官方计划评审卡上提供 **“批准并在新会话
 
 已发布 Bridge **0.4.1** 另通过[原生 macOS Desktop 0.2.0-rc.2 验收](docs/compatibility/desktop-0.2.0-rc.2-2026-10-05.zh-CN.md)：安装、编辑迁移、批准计划执行、实时启停、卸载和重启。桌面与 npm WebUI 记录分开；不认证原生窗口像素或账号登录。
 
+**0.5.0 候选包**另通过[原生 macOS Desktop 0.2.1-rc.2 验收](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md#native-macos-desktop-acceptance)：GUI 安装、快捷键绑定与改绑、会话菜单、真实自然语言预览、编辑稿逐字交接、自动打开目标、正常退出、重启与 GUI 卸载。本轮不重新认证计划批准执行、原生中文输入法/粘贴集成、账号登录或所有第三方 UI/插件组合。
+
 | DSH 基线 | 服务端交接 | 原生卡片 | 验证边界 |
 |---|---:|---:|---|
+| 0.2.1-rc.2 | 支持（Bridge 0.5.0 候选包） | Web 与原生 macOS 桌面端通过 | 官方隔离 Web 与桌面端，doctor 13/13；会话菜单、可配置快捷键、真实自然语言预览；文本/Markdown 编辑后显式确认迁入 PTC，goal 暂停且限制一轮。Web 另测生成中卸载、邻近插件共存与卸载重启；桌面端正常退出、重启及 GUI 卸载通过。原生端 1,519 字符逐字交接与限制见[候选验收记录](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)。本地候选验收不等于 npm 已发布，也不代表重测了每个可选功能。 |
 | 0.2.1-alpha.5 | 支持（Bridge 0.4.7） | 真实编辑、确认和自动打开通过 | 官方 npm 宿主，无兼容豁免、doctor 13/13；一次预览工人，1,856 字符界面审阅稿逐字迁入 PTC，goal 暂停，目标一轮且无工具。文本/Markdown 往返、编辑框滚动、确认时目录、启停、重启、卸载和 CLI shim 清除均通过。见[限定范围验收](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)；后续版本获准安装不等于已实测。 |
 | 0.1.0-rc.6 | 支持 | 不支持 | 窄 RPC 契约与文本兼容测试 |
 | 0.1.0-rc.7 / rc.8 | 支持 | 契约核对 | client module / command slot 契约与服务端回退 |
@@ -240,6 +254,7 @@ Bridge 0.3.10 包含在 DSH 0.1.7-alpha.2 上验收的源码修复：压缩工�
 - [DSH 0.2.1-alpha.2 候选版验收](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
 - [DSH 0.2.1-alpha.3 候选版验收](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
 - [DSH 0.2.1-alpha.4 候选版记录](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)
+- [DSH 0.2.1-rc.2 Web/桌面端入口验收](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)
 - [历史压缩档位 benchmark](docs/benchmark.md)
 
 ## 开发验证

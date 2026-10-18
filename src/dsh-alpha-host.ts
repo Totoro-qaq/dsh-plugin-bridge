@@ -45,7 +45,7 @@ interface AlphaServices {
   apiProxy?: ApiProxyLike
   sessionController?: Partial<AlphaSessionController>
   workspaceRegistry?: { list?: () => unknown[] }
-  workspaceController?: { archiveSession?: (request: { sessionId: string }) => Promise<unknown> }
+  workspaceController?: { archiveSession?: (request: { sessionId: string; stopActivity?: boolean }) => Promise<unknown> }
   agentPresets?: { remoteExportList?: () => Promise<{ presets?: unknown[] }> }
   goals?: {
     remoteExportCreate?: (agent: unknown, request: UnknownRecord) => unknown
@@ -247,9 +247,10 @@ export function createDshAlphaHost(input: ContextLike, signal?: AbortSignal): Br
         const create = required('session.create', controller?.create)
         return await invoke('session.create', () => create.call(controller, request)) as { sessionId: string; agentPreset?: string }
       },
-      history: async (request) => {
+      history: async (request, options) => {
         const inspect = required('session.history', controller?.inspect)
-        const value = await invoke('session.history', () => inspect.call(controller, request.sessionId, abort))
+        const readingSignal = options?.signal && options.signal !== abort ? AbortSignal.any([abort, options.signal]) : abort
+        const value = await invoke('session.history', () => inspect.call(controller, request.sessionId, readingSignal))
         return paginateHistory(value.events, request.beforeSeq, request.maxMessages ?? 60)
       },
       historyWindow: async request => {

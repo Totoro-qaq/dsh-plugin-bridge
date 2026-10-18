@@ -83,6 +83,7 @@ export interface BridgeHost {
             beforeSeq?: number;
         }, options?: {
             timeoutMs?: number;
+            signal?: AbortSignal;
         }): Promise<{
             events?: {
                 event: SessionEvent;
@@ -138,6 +139,7 @@ export interface BridgeHost {
         }>;
         archiveSession(input: {
             sessionId: string;
+            stopActivity?: boolean;
         }): Promise<unknown>;
     };
     readonly presets: {

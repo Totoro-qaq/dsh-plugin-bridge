@@ -1,6 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis';
 import Schema from '@deepseek-ai/schemastery';
 export { createPlanApprovalBridge } from './approved-plan.ts';
+export { createBridgeNaturalLanguage } from './natural-language.ts';
 export declare const name = "dsh-plugin-bridge";
 /**
  * `commands` 是跨版本入口，唯一硬依赖。执行时优先使用 rc.2 的 `apiProxy`，
@@ -31,6 +32,8 @@ export interface Config {
     workerModel?: string;
     /** `/bridge <preset>` 等压缩工人的上限（毫秒）。 */
     previewTimeoutMs?: number;
+    /** Offer a preview-only model tool when the Host has an optional tools service. */
+    naturalLanguage?: boolean;
 }
 export declare const Config: Schema<Config>;
 /** 把 Config 解析成命令层要的形状（Schema 已经填过默认值，这里只兜底）。 */

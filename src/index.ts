@@ -2,10 +2,10 @@
  * dsh-plugin-bridge：跨 preset 会话迁移。
  *
  * 形态是一个**普通的 dsh 插件**——`dsh plugin add` 装上、重启，输入框里就有
- * `/bridge`；`dsh plugin remove` 卸掉，命令随 fiber 一起消失。不注册技能、
- * 不依赖模型主动做什么、不需要 bash 或环境变量。
+ * `/bridge`；`dsh plugin remove` 卸掉，命令随 fiber 一起消失。不注册技能，
+ * 命令不依赖模型；可选的 bridge_prepare 工具只生成预览，不授予迁移批准。
  *
- * 入口形状对齐上游 `dsh-plan-mode`（`/plan` 命令 + 工具）：命令由 UI 直接派发，
+ * 命令入口对齐上游 `dsh-plan-mode`（`/plan` 命令 + 工具）：命令由 UI 直接派发，
  * 不经过模型，结果也不进模型历史。执行引擎是进程内的 `ctx.apiProxy`
  * （web bundle 的 `api-gateway` 行提供），所以整条链路不出进程。
  */
@@ -19,7 +19,9 @@ import { SOURCE_CHAR_BUDGET, SUMMARY_CHAR_BUDGET } from './compression.ts'
 import { probeDshHost, resolveDshHost } from './dsh-alpha-host.ts'
 import { createPlanApprovalBridge, type PlanReviewRequest } from './approved-plan.ts'
 import { removeOwnedSummaryFile, writeSummaryFile } from './summary-file.ts'
+import { createBridgeNaturalLanguage } from './natural-language.ts'
 export { createPlanApprovalBridge } from './approved-plan.ts'
+export { createBridgeNaturalLanguage } from './natural-language.ts'
 
 export const name = 'dsh-plugin-bridge'
 
@@ -56,6 +58,8 @@ export interface Config {
   workerModel?: string
   /** `/bridge <preset>` 等压缩工人的上限（毫秒）。 */
   previewTimeoutMs?: number
+  /** Offer a preview-only model tool when the Host has an optional tools service. */
+  naturalLanguage?: boolean
 }
 
 export const Config: Schema<Config> = Schema.object({
@@ -68,6 +72,7 @@ export const Config: Schema<Config> = Schema.object({
   workerProvider: Schema.string(),
   workerModel: Schema.string(),
   previewTimeoutMs: Schema.number().default(DEFAULT_PREVIEW_TIMEOUT_MS),
+  naturalLanguage: Schema.boolean().default(true),
 })
 
 /** 把 Config 解析成命令层要的形状（Schema 已经填过默认值，这里只兜底）。 */
@@ -86,6 +91,7 @@ export function commandConfigOf(config: Config = {}) {
 }
 
 export function apply(ctx: Context, config: Config = {}): void {
+  const workerSessionIds = new Set<string>()
   const plans = createPlanApprovalBridge({
     hostFor: signal => resolveDshHost(ctx as unknown as Parameters<typeof resolveDshHost>[0],signal),
     config: commandConfigOf(config),
@@ -96,6 +102,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   events.on('user-questions/request',(request,next)=>plans.observe(request,next),{global:true,prepend:true})
   ctx.effect(()=>()=>plans.dispose(),'bridge: plan approval records')
   const command = createBridgeCommand({
+    workerSessionIds,
     planApprovals: plans,
     hostFor: (signal) => resolveDshHost(ctx as unknown as Parameters<typeof resolveDshHost>[0], signal),
     probe: () => probeDshHost(ctx as unknown as Parameters<typeof probeDshHost>[0]),
@@ -111,6 +118,15 @@ export function apply(ctx: Context, config: Config = {}): void {
   })
   // 注册返回的是 cordis 的 effect disposer：插件卸载时命令自动消失。
   ;(ctx as unknown as { commands: { register: (definition: unknown) => () => void } }).commands.register(command)
+  if (config.naturalLanguage !== false) {
+    const natural = createBridgeNaturalLanguage({ handler: command.handler, workerSessionIds })
+    ctx.effect(() => () => natural.dispose(), 'bridge: natural-language preparation lifetime')
+    // A missing optional tool registry must not hold the command or client half hostage.
+    ctx.inject(['tools'], toolCtx => {
+      const tools = (toolCtx as unknown as { tools: { register(definition: unknown): unknown } }).tools
+      tools.register(natural.tool)
+    })
+  }
 }
 
 export default { name, inject, Config, apply }

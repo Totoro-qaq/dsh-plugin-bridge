@@ -29,7 +29,7 @@ The source session is never rewritten. A failed or unsatisfactory target can be 
 - A resumable goal may store the handoff, but Bridge pauses it before kickoff. Goal mutation alone does not inject model context, so the kickoff also contains the reviewed handoff.
 - If goal pause fails, Bridge attempts the optional `goal.clear`, cancels the target, and sends no kickoff.
 - `goalRounds` defaults to 1 as a second bound against an upstream autonomous goal loop.
-- Installing Bridge adds no model tool, skill, or persistent prompt text. Ordinary sessions therefore receive zero Bridge prompt tokens.
+- The optional `bridge_prepare` model tool can only prepare a preview or target picker. Its tool-description overhead is explicit; disabling `naturalLanguage` removes that tool while retaining direct Host entrypoints. It accepts no confirmation, continuation, arbitrary command, file, summary, or session-identity parameter. Only human confirmation of a bound preview can use the existing migration path. See [entrypoints](entrypoints.md).
 
 ## Confirmation and cost
 
