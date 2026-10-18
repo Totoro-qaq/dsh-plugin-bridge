@@ -64,7 +64,7 @@ export interface BridgeHost {
       sessionId: string;
       maxMessages?: number;
       beforeSeq?: number;
-    }, options?: { timeoutMs?: number }): Promise<{ events?: { event: SessionEvent }[]; hasMore?: boolean }>;
+    }, options?: { timeoutMs?: number; signal?: AbortSignal }): Promise<{ events?: { event: SessionEvent }[]; hasMore?: boolean }>;
     /** Optional single-read window for hosts that already materialize a complete
      * snapshot. Each invocation reads fresh state; readers must not cache it
      * across commands or worker polls. The budget counts user/assistant message events. */
@@ -84,7 +84,7 @@ export interface BridgeHost {
   };
   readonly workspaces: {
     list(): Promise<{ items?: { workspaceId: string; sessionIds?: string[] }[] }>;
-    archiveSession(input: { sessionId: string }): Promise<unknown>;
+    archiveSession(input: { sessionId: string; stopActivity?: boolean }): Promise<unknown>;
   };
   readonly presets: {
     list(): Promise<{ presets?: PresetRow[] }>;
@@ -177,7 +177,7 @@ export function createBridgeHostFromRpc(
       },
       create: input => rpc<{ sessionId: string; agentPreset?: string }>('session.create', input),
       history: (input, options) => rpc<{ events?: { event: SessionEvent }[]; hasMore?: boolean }>(
-        'session.history', input, options?.timeoutMs,
+        'session.history', input, options?.timeoutMs, options?.signal,
       ),
       models: input => rpc<SessionModels>('session.models', input),
       selectModel: input => rpc('session.selectModel', input),
@@ -188,7 +188,9 @@ export function createBridgeHostFromRpc(
     }),
     workspaces: Object.freeze({
       list: () => rpc<{ items?: { workspaceId: string; sessionIds?: string[] }[] }>('workspace.list', {}),
-      archiveSession: input => rpc('workspace.archiveSession', input),
+      // The legacy RPC contract has no stopActivity field. Core cleanup waits
+      // for its own worker to stop before taking this ordinary archive path.
+      archiveSession: input => rpc('workspace.archiveSession', { sessionId: input.sessionId }),
     }),
     presets: Object.freeze({
       list: () => rpc<{ presets?: PresetRow[] }>('agentPreset.list', {}),

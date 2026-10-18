@@ -10,7 +10,7 @@
 [![ci](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Totoro-qaq/dsh-plugin-bridge/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![node ≥22](https://img.shields.io/badge/node-%E2%89%A522-339933)](package.json)
-[![DSH tested 0.2.1-alpha.5](https://img.shields.io/badge/DSH_tested-0.2.1--alpha.5-4c8dff)](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md)
+[![DSH tested 0.2.1-rc.2](https://img.shields.io/badge/DSH_tested-0.2.1--rc.2-4c8dff)](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)
 [![Listed in Awesome DSH Plugin](https://img.shields.io/badge/listed_in-Awesome_DSH_Plugin-2ea44f)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 
 English | [中文](README.zh.md)
@@ -25,7 +25,7 @@ Halfway through a task and need another tool preset? Switching the produced sess
 
 ## Quick start
 
-Bridge **0.4.7** replaces per-alpha installation declarations with a bounded **0.2.1** host range while retaining the earlier host terms. Official **0.2.1-alpha.5 Web** acceptance passed real preview/edit/migration, restart and removal; representative **0.2.0-rc.2 / alpha.4** backward checks also passed. The [acceptance record](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md) separates those checks from admission and publication. See [Support policy](#support-policy) before treating an admitted future version as tested.
+Bridge **0.5.0** adds a conversation-menu action, a configurable shortcut and natural-language preparation, while keeping preview, editing and human confirmation. The candidate passed isolated official **0.2.1-rc.2 Web and native macOS Desktop** handoffs and a keyless **0.2.0-rc.2** backward check. The [acceptance record](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md) separates runtime tests, their limits and pending publication checks. The bounded **0.2.1** admission policy introduced in **0.4.7** remains unchanged; see [Support policy](#support-policy) before treating an admitted future version as tested.
 
 Check the Host's **actual pnpm executable** when installing or removing packages. pnpm 11.22.0 has a known late-worker shutdown bug that can keep a package operation alive after printing Done; natural DSH reproductions isolated the upstream fixes. Use **11.26.0 or later**, which includes the [upstream fixes](https://github.com/pnpm/pnpm/releases/tag/v11.26.0), and avoid **overlapping package operations**. If an operation is pending, wait for it to settle or stop the Host normally before using the offline CLI. Bridge does not bundle pnpm or upgrade your tools automatically.
 
@@ -43,12 +43,12 @@ On **DSH 0.2.1-alpha.3 / 0.2.1-alpha.4 Web** with HMR, the running `pluginManage
 
 For CLI replacement, stop the Host using the selected profile, run `dsh plugin --profile web remove dsh-plugin-bridge`, then `dsh plugin --profile web add <desired-package-spec>`, and start the Host again. The [CLI runs separate profile package operations](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.3/apps/cli/src/plugin.ts); the running-API refusal above does not apply to that path.
 
-Before either replacement, finish or save pending handoffs: previews and unconfirmed edits live in memory and stopping or unloading Bridge discards their confirmation state. The source session remains intact; generate a new preview after reinstallation and reapply any saved draft. These Web procedures do not upgrade Desktop; native Desktop acceptance remains recorded separately for **0.2.0-rc.2**.
+Before either replacement, finish or save pending handoffs: previews and unconfirmed edits live in memory and stopping or unloading Bridge discards their confirmation state. The source session remains intact; generate a new preview after reinstallation and reapply any saved draft. These Web procedures do not upgrade Desktop; native Desktop acceptance is [recorded separately for **0.2.1-rc.2**](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md#native-macos-desktop-acceptance).
 
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.4.7
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.0
 ```
 
 ### Discover
@@ -64,9 +64,19 @@ On DSH versions with Discover (introduced in **0.2.1-alpha.4**), you can also in
 
 3. Choose **Bridge**, check the package name, version and `https://registry.npmjs.org/` in the confirmation, then install and choose **Enable now**.
 
-This is an [author-hosted third-party source](https://github.com/Totoro-qaq/dsh-plugin-index), not official certification or community approval. It must be added to each profile you want to use it in. Adding and installing from the public URL was [verified on an isolated alpha.4 WebUI](https://github.com/Totoro-qaq/dsh-plugin-index/blob/main/docs/acceptance-2026-10-16.md); clients without Discover can keep using npm/CLI above. This does not extend native Desktop acceptance.
+This is an [author-hosted third-party source](https://github.com/Totoro-qaq/dsh-plugin-index), not official certification or community approval. It must be added to each profile you want to use it in. Adding and installing from the public URL was [verified on an isolated alpha.4 WebUI](https://github.com/Totoro-qaq/dsh-plugin-index/blob/main/docs/acceptance-2026-10-16.md); clients without Discover can keep using npm/CLI above. The Discover installation path was not separately re-tested on native Desktop.
 
-### First handoff
+### Three entrypoints
+
+- **Menu action:** open the current conversation's `⋯` menu in the sidebar and choose **Hand off session**. This opens the target picker without replacing a draft or submitting attachments. The composer's existing Bridge item also works when offered; DSH hides argument-taking commands from its `+` menu when the draft is nonempty. No permanent header button or extra command is added.
+- **Keyboard:** search for **Bridge** in DSH keyboard settings and bind **Hand off current session**. The command is unbound by default and takes no system, Host, or other plugin shortcut; its ID is `dsh-plugin-bridge.open`.
+- **Natural language:** say, for example, “Hand this task off to PTC; let me review the summary first.” Modes with model-tool support can call `bridge_prepare`. An omitted target opens the picker. The model can prepare a handoff, not confirm it for you.
+
+All paths keep **human confirmation**: choose a target → preview → edit Text/Markdown → confirm. Existing `/bridge` commands remain available. Hosts without the optional UI/tool services retain the command fallback. The shortcut acts only on the current conversation, not a separate main panel such as Jot or an open modal.
+
+Natural language is on by default. Set `naturalLanguage: false` in Bridge configuration to disable it without disabling the button, keyboard command, or slash command. Enabling it adds tool-description tokens; ordinary requests are no longer universally zero-overhead. See [entrypoint and confirmation boundaries](docs/entrypoints.md).
+
+### Existing commands
 
 Then type in the official WebUI:
 
@@ -98,7 +108,7 @@ Uninstall with `dsh plugin --profile web remove dsh-plugin-bridge`, then restart
 | **Move state, not tool traces** | Decisions, paths, current state, and next steps move to a clean preset. Incompatible calls from the old tool assembly do not. |
 | **Fail closed** | The target goal is paused before kickoff. If that cannot be guaranteed, Bridge clears/cancels the target and sends no model request. |
 
-Installing Bridge adds **zero prompt tokens** to ordinary sessions. It is a host slash command, not a model tool or skill.
+With natural language disabled (`naturalLanguage: false`), the button, keyboard command, and `/bridge` are dispatched by the Host without a Bridge model-tool description. The default natural-language entry registers one preview-only tool; a summary worker runs only when a handoff is requested.
 
 ## Evidence at a glance
 
@@ -133,7 +143,8 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 | Situation | Bridge behavior | Cost / fidelity effect |
 |---|---|---|
-| Plugin installed, no `/bridge` call | No prompt injection or model tool | **0 Bridge prompt tokens** |
+| `naturalLanguage: false`, no handoff requested | No prompt injection or model tool | **0 Bridge prompt tokens** |
+| Natural language enabled, no handoff requested | `bridge_prepare` tool description registered | Tool-description overhead; no summary-worker request |
 | `/bridge code` | One bounded summary worker; preview only | No target session is created |
 | Default `--go` | Target restates and waits | One explicit confirmation request before useful work |
 | `--go --continue` | Confirm the defined next step; restate and work in one target request | Separate approvals and safety limits still apply; no background goal round |
@@ -159,8 +170,11 @@ Since Bridge **0.4.0**, **Approve in new session** is available on the official 
 
 Published Bridge **0.4.1** also passed [native macOS Desktop 0.2.0-rc.2 acceptance](docs/compatibility/desktop-0.2.0-rc.2-2026-10-05.md): installation, edited migration, approved-plan execution, live toggles, uninstall and restart. Desktop and npm WebUI records are separate; native-window pixels and account login are not certified.
 
+The **0.5.0 candidate** additionally passed [native macOS Desktop 0.2.1-rc.2 acceptance](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md#native-macos-desktop-acceptance): GUI installation, shortcut binding/remapping, the conversation menu, a real natural-language preview, exact edited handoff, automatic target opening, normal quit, restart and GUI removal. This does not re-certify approved-plan execution, native IME/paste integration, account login or every third-party UI/plugin combination.
+
 | DSH baseline | Server handoff | Native card | Verification boundary |
 |---|---:|---:|---|
+| 0.2.1-rc.2 | Yes (Bridge 0.5.0 candidate) | Web and native macOS Desktop passed | Official isolated Web and Desktop, doctor 13/13; menu, configurable shortcut and real natural-language preview; Text/Markdown editing and explicit PTC confirmation with a paused one-round goal. Web also passed inflight disposal, neighboring-plugin coexistence and removal/restart; Desktop passed normal quit, restart and GUI removal. Exact 1,519-character native handoff and remaining limits are in the [candidate record](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md). Local candidate acceptance is not npm publication or a claim that every optional feature was re-tested. |
 | 0.2.1-alpha.5 | Yes (Bridge 0.4.7) | Real edit/confirm/auto-open passed | Official npm Host; no exemption, doctor 13/13, one preview worker, exact 1,856-character UI-reviewed payload into PTC with a paused goal, one target turn and zero target tools. Text/Markdown round-trip, bounded editor scrolling, current-directory placement, toggles, restart, removal and absence of the CLI shim passed. See [bounded acceptance](docs/compatibility/dsh-0.2.1-alpha.5-2026-10-17.md); later admitted hosts are not thereby tested. |
 | 0.1.0-rc.6 | Yes | No | Narrow RPC contract and text compatibility tests |
 | 0.1.0-rc.7 / rc.8 | Yes | Contract-checked | Client-module/command-slot contract plus server fallback |
@@ -240,6 +254,7 @@ The server command stays the compatibility core. The same package now adds an op
 - [DSH 0.2.1-alpha.2 candidate acceptance](docs/compatibility/dsh-0.2.1-alpha.2-2026-10-10.md)
 - [DSH 0.2.1-alpha.3 candidate acceptance](docs/compatibility/dsh-0.2.1-alpha.3-2026-10-15.md)
 - [DSH 0.2.1-alpha.4 candidate record](docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md)
+- [DSH 0.2.1-rc.2 Web/Desktop entrypoint acceptance](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)
 - [Historical compression benchmark](docs/benchmark.md)
 
 ## Development

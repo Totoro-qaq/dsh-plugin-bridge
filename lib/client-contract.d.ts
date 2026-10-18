@@ -9,6 +9,8 @@ export type BridgeOutcome = {
     kind: 'success' | 'error';
     text?: string;
 } | null;
+/** Only a settled Tool's Host-owned meta is presentation authority; args/text are never parsed here. */
+export declare function readBridgeToolOutcome(meta: unknown): Exclude<BridgeOutcome, null> | undefined;
 export type BridgeCard = {
     phase: 'running';
 } | {

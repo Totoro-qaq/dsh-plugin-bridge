@@ -179,6 +179,8 @@ const TURN_PROGRESS_TYPES = new Set([
 ]);
 
 export interface WaitOptions {
+  /** Owner cancellation, separate from the polling deadline. */
+  signal?: AbortSignal;
   timeoutMs?: number;
   /** 等待新一轮执行事件的宽限期；超过仍未出现就按未启动处理。 */
   startGraceMs?: number;
@@ -251,8 +253,11 @@ export async function waitIdle(
   const afterSeq = options.afterSeq ?? 0;
   let started = false;
   while (Date.now() < deadline) {
-    await sleep(pollMs);
-    const events = await tailSessionEvents(host, sessionId).catch(() => [] as SessionEvent[]);
+    options.signal?.throwIfAborted();
+    await sleep(pollMs, options.signal);
+    const events = await readWithCancellation(() => tailSessionEvents(host, sessionId, options.signal), options.signal)
+      .catch(error => { rethrowCancellation(error, options.signal); return [] as SessionEvent[]; });
+    options.signal?.throwIfAborted();
     const fresh = events.filter((event) => typeof event.seq === 'number' && event.seq > afterSeq);
     if (fresh.some((event) => typeof event.type === 'string' && TURN_PROGRESS_TYPES.has(event.type))) started = true;
     const ended = fresh.filter((event) => event.type === 'turn/end').at(-1);
@@ -266,17 +271,39 @@ export async function waitIdle(
 }
 
 /** 读取单个会话的尾页；不触发全局 session.list 扫描。 */
-async function tailSessionEvents(input: BridgeHostInput, sessionId: string): Promise<SessionEvent[]> {
+async function tailSessionEvents(input: BridgeHostInput, sessionId: string, signal?: AbortSignal): Promise<SessionEvent[]> {
   const host = asBridgeHost(input);
-  const res = await host.sessions.history({ sessionId, maxMessages: 2 }, { timeoutMs: 60_000 });
+  const res = await host.sessions.history({ sessionId, maxMessages: 2 }, { timeoutMs: 60_000, ...(signal ? { signal } : {}) });
   return (res.events ?? []).map((entry) => entry.event);
 }
 
-async function latestSessionSeq(host: BridgeHostInput, sessionId: string): Promise<number> {
-  const events = await tailSessionEvents(host, sessionId);
+async function latestSessionSeq(host: BridgeHostInput, sessionId: string, signal?: AbortSignal): Promise<number> {
+  const events = await readWithCancellation(() => tailSessionEvents(host, sessionId, signal), signal);
   return events.reduce((max, event) => (
     typeof event.seq === 'number' && event.seq > max ? event.seq : max
   ), 0);
+}
+
+function rethrowCancellation(error: unknown, signal?: AbortSignal): void {
+  signal?.throwIfAborted();
+  const identity = error as { name?: unknown; code?: unknown } | undefined;
+  if (identity?.name === 'AbortError' || identity?.code === 'ABORT_ERR') throw error;
+}
+
+/** Read-only Host queries may stop awaiting on owner cancellation. Their late
+ * settlement is observed; writes and worker ownership are never detached here. */
+function readWithCancellation<T>(read: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
+  if (!signal) return read();
+  return new Promise((resolve, reject) => {
+    const abort = (): void => { signal.removeEventListener('abort', abort); reject(signal.reason); };
+    signal.addEventListener('abort', abort, { once: true });
+    Promise.resolve().then(() => { signal.throwIfAborted(); return read(); }).then(value => {
+      signal.removeEventListener('abort', abort); resolve(value);
+    }, error => {
+      signal.removeEventListener('abort', abort); reject(error);
+    });
+  });
 }
 
 /** 拉取并折叠会话历史（按需翻页）。 */
@@ -328,6 +355,8 @@ export type WorkerFailureCode = 'worker-failed' | 'worker-aborted' | 'worker-tim
 /** Host facts carried in `RpcError.details` for a worker failure, so callers can localize it. */
 export interface WorkerFailureDetails {
   turnEnd?: TurnEndSummary;
+  /** Preserve a primary provider failure while making failed cleanup visible. */
+  cleanupFailure?: { code: string; message: string };
   /** The wait bound that expired, for `worker-timeout` and `worker-not-started`. */
   waitedMs?: number;
 }
@@ -355,6 +384,13 @@ function workerFailure(settled: WaitResult, summary: string, bounds: { timeoutMs
 }
 
 export interface PreviewOptions {
+  signal?: AbortSignal;
+  /** Fresh bounded port: cleanup must not inherit the aborted invocation port. */
+  cleanupHostFor?: (signal: AbortSignal) => BridgeHost;
+  /** Cleanup read/poll budget, clamped to at most five seconds. */
+  cleanupTimeoutMs?: number;
+  /** Shared only with Bridge's preview tool to reject recursive worker calls. */
+  workerSessionIds?: Set<string>;
   sessionId: string;
   /** 同一命令读到的源会话快照；动态工作目录在创建前仍会重新读取。 */
   sourceSession?: SessionRow;
@@ -390,11 +426,12 @@ function progressLine(lang: Lang | 'zh' | 'en' | undefined, zh: string, en: stri
 /** 生成交接摘要：取材 → 起临时工人 → 收摘要 → 归档工人。 */
 export async function previewMigration(input: BridgeHostInput, options: PreviewOptions): Promise<PreviewResult> {
   const host = asBridgeHost(input);
+  options.signal?.throwIfAborted();
   const progress = options.onProgress ?? (() => {});
-  const sourceSession = options.sourceSession ?? await findSession(host, options.sessionId);
+  const sourceSession = options.sourceSession ?? await readWithCancellation(() => findSession(host, options.sessionId), options.signal);
 
   progress(progressLine(options.lang, '拉取并折叠会话历史…', 'Reading and folding session history…'));
-  const messages = await foldedHistory(host, options.sessionId);
+  const messages = await readWithCancellation(() => foldedHistory(host, options.sessionId), options.signal);
   const source = buildBridgeSource(messages, { sourceCharBudget: options.sourceCharBudget });
   if (!source.text.trim()) {
     throw new RpcError('bridge.preview', 'empty-source', '这个会话还没有可迁移的内容（取材为空）。直接开一个新会话更省事。');
@@ -402,25 +439,31 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
   const lang = options.lang && options.lang !== 'auto' ? options.lang : detectLang(source.text);
 
   const tier = options.tier ?? 'current';
-  const route = await resolveWorkerModel(host, options.sessionId, tier, options);
+  const route = await readWithCancellation(() => resolveWorkerModel(host, options.sessionId, tier, options), options.signal);
   if (options.dryRun) {
     return { summary: '', source, lang, worker: { ...route }, capped: false, sourceSession };
   }
 
-  const preset = await resolveWorkerPreset(host);
+  const preset = await readWithCancellation(() => resolveWorkerPreset(host), options.signal);
   progress(progressLine(
     options.lang,
     `起压缩工人（${preset ?? '默认 preset'} / ${route.model || '会话默认模型'}）…`,
     `Starting the summary worker (${preset ?? 'default preset'} / ${route.model || 'session default model'})…`,
   ));
-  const where = await placement(host, sourceSession, options.sessionId);
+  const where = await readWithCancellation(() => placement(host, sourceSession, options.sessionId), options.signal);
+  options.signal?.throwIfAborted();
   const worker = await host.sessions.create({
     ...where,
     ...(preset === undefined ? {} : { agentPreset: preset }),
   });
 
   let capped = false;
+  let preparationFailed = false;
+  let preparationError: unknown;
+  let turnEnded = false;
   try {
+    options.workerSessionIds?.add(worker.sessionId);
+    options.signal?.throwIfAborted();
     if (route.provider && route.model) {
       await host.sessions.selectModel({ sessionId: worker.sessionId, provider: route.provider, model: route.model })
         .catch((error: unknown) => {
@@ -434,7 +477,9 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
         });
     }
     const instruction = buildBridgeInstruction(lang, { summaryCharBudget: options.summaryCharBudget });
-    const workerBaselineSeq = await latestSessionSeq(host, worker.sessionId).catch(() => 0);
+    const workerBaselineSeq = await latestSessionSeq(host, worker.sessionId, options.signal)
+      .catch(error => { rethrowCancellation(error, options.signal); return 0; });
+    options.signal?.throwIfAborted();
     await host.sessions.prompt({
       sessionId: worker.sessionId,
       mode: 'queue',
@@ -448,17 +493,19 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
     const settled = await waitIdle(host, worker.sessionId, {
       ...bounds,
       afterSeq: workerBaselineSeq,
+      ...(options.signal ? { signal: options.signal } : {}),
       ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs }),
     });
+    turnEnded = settled.idle && settled.started;
     if (!settled.idle || !settled.started) {
       // Timed out, or never started: stop it so the archived worker cannot keep spending tokens.
       await host.sessions.cancel({ sessionId: worker.sessionId }).catch(() => undefined);
     }
     if (!settled.idle) {
       capped = true;
-      await sleep(2500);
+      await sleep(2500, options.signal);
     }
-    const workerSummary = await lastAssistantText(host, worker.sessionId);
+    const workerSummary = await readWithCancellation(() => lastAssistantText(host, worker.sessionId), options.signal);
     const failure = workerFailure(settled, workerSummary, bounds);
     if (failure) throw failure;
     const summary = appendVisualEvidence(
@@ -472,9 +519,56 @@ export async function previewMigration(input: BridgeHostInput, options: PreviewO
       capped,
       sourceSession,
     };
+  } catch (error) {
+    preparationFailed = true;
+    preparationError = error;
+    throw error;
   } finally {
-    // 工人是一次性的：无论成败都归档，不在侧栏留垃圾。
-    await host.workspaces.archiveSession({ sessionId: worker.sessionId }).catch(() => undefined);
+    try {
+      await cleanupPreviewWorker(host, worker.sessionId, options, preparationFailed, turnEnded);
+    } catch (cleanupError) {
+      if (preparationError instanceof RpcError && cleanupError instanceof RpcError) {
+        throw new RpcError(preparationError.method, preparationError.code, preparationError.message,
+          { ...recordOf(preparationError.details), cleanupFailure: { code: cleanupError.code, message: cleanupError.message } });
+      }
+      if (preparationFailed && cleanupError instanceof RpcError) {
+        const primary = preparationError instanceof Error ? preparationError.message : String(preparationError);
+        throw new RpcError(cleanupError.method, cleanupError.code, `${primary}\n${cleanupError.message}`, cleanupError.details);
+      }
+      throw cleanupError;
+    }
+  }
+}
+
+/** Cancel only our worker and wait for its turn to retire before ordinary legacy
+ * archival. Typed Hosts additionally stop worker-owned activity at archive time.
+ * A failed cleanup is visible and retains the recursion guard for that worker. */
+async function cleanupPreviewWorker(host: BridgeHost, sessionId: string, options: PreviewOptions, failed: boolean, turnEnded: boolean): Promise<void> {
+  const budget = Math.min(5000, Math.max(1, options.cleanupTimeoutMs ?? 5000));
+  const signal = AbortSignal.timeout(budget);
+  try {
+    const cleanup = options.cleanupHostFor?.(signal) ?? host;
+    let cancelled = false;
+    if (!turnEnded && (failed || options.signal?.aborted)) {
+      await cleanup.sessions.cancel({ sessionId });
+      cancelled = true;
+    }
+    while (!turnEnded) {
+      signal.throwIfAborted();
+      const row = await readWithCancellation(() => findSession(cleanup, sessionId), signal);
+      if (row?.running === false) break;
+      if (!row) throw new Error('Worker state is unavailable; cleanup could not be confirmed.');
+      if (!cancelled) { await cleanup.sessions.cancel({ sessionId }); cancelled = true; }
+      await sleep(Math.min(options.pollMs ?? 100, 100), signal);
+    }
+    // Public typed cancel/archive writes have no AbortSignal argument. Await
+    // those writes rather than silently detaching a late durability operation.
+    await cleanup.workspaces.archiveSession({ sessionId, stopActivity: true });
+    options.workerSessionIds?.delete(sessionId);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new RpcError('bridge.preview', 'worker-cleanup-failed', `Could not clean up Bridge worker ${sessionId}: ${detail}`,
+      { workerSessionId: sessionId, cleanupBudgetMs: budget });
   }
 }
 

@@ -33,7 +33,7 @@ export interface RpcOptions {
   fetchImpl?: typeof fetch;
 }
 
-export type Rpc = <T = unknown>(method: string, payload?: unknown, timeoutMs?: number) => Promise<T>;
+export type Rpc = <T = unknown>(method: string, payload?: unknown, timeoutMs?: number, signal?: AbortSignal) => Promise<T>;
 
 /**
  * 解析 API 根。优先级：显式参数 > `DSH_API` > `DSH_WEB_URL`（模型 shell 环境里
@@ -61,7 +61,8 @@ export function createRpc(options: RpcOptions): Rpc {
   const doFetch = options.fetchImpl ?? fetch;
   let seq = 0;
 
-  return async function rpc<T>(method: string, payload: unknown = {}, timeoutMs?: number): Promise<T> {
+  return async function rpc<T>(method: string, payload: unknown = {}, timeoutMs?: number, signal?: AbortSignal): Promise<T> {
+    signal?.throwIfAborted();
     seq += 1;
     const rpcId = `${prefix}-${seq}`;
     let res: Response;
@@ -70,9 +71,11 @@ export function createRpc(options: RpcOptions): Rpc {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'client-request', rpcId, method, payload }),
-        signal: AbortSignal.timeout(timeoutMs ?? defaultTimeout),
+        signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs ?? defaultTimeout)])
+          : AbortSignal.timeout(timeoutMs ?? defaultTimeout),
       });
     } catch (error) {
+      signal?.throwIfAborted();
       const reason = error instanceof Error ? error.message : String(error);
       throw new RpcError(method, 'unreachable', `连不上 dsh 网关 ${api}（${reason}）。dsh web 在跑吗？可用 --api 指定地址。`);
     }
@@ -94,4 +97,13 @@ export function createRpc(options: RpcOptions): Rpc {
   };
 }
 
-export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+/** Existing callers keep ordinary sleeps; owned waits may abort without a full polling interval. */
+export const sleep = (ms: number, signal?: AbortSignal): Promise<void> => {
+  signal?.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const finish = (): void => { signal?.removeEventListener('abort', abort); resolve(); };
+    const timer = setTimeout(finish, ms);
+    const abort = (): void => { clearTimeout(timer); signal?.removeEventListener('abort', abort); reject(signal?.reason); };
+    signal?.addEventListener('abort', abort, { once: true });
+  });
+};

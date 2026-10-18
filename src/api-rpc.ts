@@ -93,7 +93,7 @@ export function probeApiProxy(apiProxy: Partial<ApiProxyLike> | undefined): Meth
  */
 export function createApiProxyRpc(apiProxy: ApiProxyLike, signal?: AbortSignal): Rpc {
   let seq = 0;
-  return async function rpc<T>(method: string, payload: unknown = {}): Promise<T> {
+  return async function rpc<T>(method: string, payload: unknown = {}, _timeoutMs?: number, callSignal?: AbortSignal): Promise<T> {
     const route = ROUTES[method];
     if (!route) throw new RpcError(method, 'unsupported', `进程内网关适配器没有映射 ${method}`);
     const [domain, key] = route;
@@ -102,7 +102,9 @@ export function createApiProxyRpc(apiProxy: ApiProxyLike, signal?: AbortSignal):
       throw new RpcError(method, 'unavailable', `这套部署的 apiProxy 上没有 ${domain}.${key}`);
     }
     seq += 1;
-    const envelope = await fn({ rpcId: `bridge-cmd-${seq}`, payload }, signal);
+    const abort = signal && callSignal && signal !== callSignal ? AbortSignal.any([signal, callSignal]) : callSignal ?? signal;
+    abort?.throwIfAborted();
+    const envelope = await fn({ rpcId: `bridge-cmd-${seq}`, payload }, abort);
     const result = envelope?.result;
     if (!result?.ok) {
       throw new RpcError(method, result?.error?.code ?? 'unknown', result?.error?.message ?? '（网关未给出说明）', result?.error?.details);

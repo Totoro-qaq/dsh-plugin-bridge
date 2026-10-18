@@ -23,7 +23,7 @@ export interface RpcOptions {
     /** 注入 fetch，测试用。 */
     fetchImpl?: typeof fetch;
 }
-export type Rpc = <T = unknown>(method: string, payload?: unknown, timeoutMs?: number) => Promise<T>;
+export type Rpc = <T = unknown>(method: string, payload?: unknown, timeoutMs?: number, signal?: AbortSignal) => Promise<T>;
 /**
  * 解析 API 根。优先级：显式参数 > `DSH_API` > `DSH_WEB_URL`（模型 shell 环境里
  * 由 web bundle 注入的本机 GUI 地址）> 回环默认值。
@@ -31,4 +31,5 @@ export type Rpc = <T = unknown>(method: string, payload?: unknown, timeoutMs?: n
 export declare function resolveApiBase(explicit?: string, env?: NodeJS.ProcessEnv): string;
 /** 建一个 RPC 调用器。 */
 export declare function createRpc(options: RpcOptions): Rpc;
-export declare const sleep: (ms: number) => Promise<void>;
+/** Existing callers keep ordinary sleeps; owned waits may abort without a full polling interval. */
+export declare const sleep: (ms: number, signal?: AbortSignal) => Promise<void>;

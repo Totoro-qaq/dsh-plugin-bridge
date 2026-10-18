@@ -1,15 +1,21 @@
 /** Official WebUI half: one native `/bridge` command card, not a second WebUI. */
 
-import { Component, useEffect, useId, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ErrorInfo, type ReactNode } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import { JsonTree, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
+import { JsonTree, MarkdownText, MenuItemButton } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { JsonTreeLabels, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
-import type { CommandRowProps } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatNodeViewProps, CommandRowProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
+import { bridgeEntryUnavailable, createBridgeLauncher, createBridgeSessionMenuAction, hasBridgeEntryDialog, registerBridgeCommandMenu, registerBridgeShortcut, type BridgeLauncher, type BridgeSessionMenuAction } from './client-entrypoints.ts'
+import { createBridgeReviewDefinition } from './client-review-node.ts'
 
 import {
   appendBridgeTextListItem,
@@ -20,6 +26,7 @@ import {
   MAX_APPROVED_PLAN_CHARS,
   openBridgeSessionWhenVisible,
   parseBridgeCard,
+  readBridgeToolOutcome,
   parseBridgeTextProjection,
   parseJsonDocument,
   removeBridgeTextListItem,
@@ -36,6 +43,8 @@ import {
 
 const STYLE_ID = 'dsh-plugin-bridge/native-card'
 const STYLE = `
+.dsh-bridge-entry-error{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:6px 0;padding:8px 10px;border:1px solid var(--dsw-alias-border-subtle,light-dark(#dedede,#3f3f46));border-radius:8px;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-wrap:anywhere;color:var(--dsw-alias-state-error-primary,#b3261e)}
+.dsh-bridge-entry-error>span{min-width:0;flex:1 1 160px;max-height:6em;overflow:auto;overflow-wrap:anywhere}.dsh-bridge-entry-error>.dsh-bridge-button{flex:0 0 auto}
 .dsh-bridge-plan-action{display:inline-flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:0;max-width:160px}.dsh-bridge-plan-action .dsh-bridge-button{font-size:11px;line-height:1.35;padding:6px 8px;white-space:normal}.dsh-bridge-plan-action [role=alert]{font-size:11px;line-height:1.35;max-width:160px;overflow-wrap:anywhere;color:var(--dsw-alias-state-error-primary,#b3261e)}
 .dsh-bridge-card{border:1px solid var(--dsw-alias-border-subtle,light-dark(#dedede,#3f3f46));border-radius:12px;background:var(--dsw-alias-background-primary,light-dark(#fff,#18181b));color:var(--dsw-alias-label-primary,light-dark(#171717,#f4f4f5));overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .dsh-bridge-head{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-bottom:1px solid var(--dsw-alias-border-subtle,light-dark(#e6e6e6,#3f3f46));background:var(--dsw-alias-background-secondary,light-dark(#fafafa,#202024))}
@@ -58,6 +67,7 @@ const STYLE = `
 .dsh-bridge-progress{height:3px;margin-top:12px;border-radius:999px;overflow:hidden;background:var(--dsw-alias-background-tertiary,light-dark(#eceef1,#303036))}.dsh-bridge-progress::after{content:"";display:block;width:42%;height:100%;border-radius:inherit;background:var(--dsw-alias-state-business-primary,light-dark(#2869d8,#6d92ff));animation:dsh-bridge-scan 1.35s ease-in-out infinite}
 .dsh-bridge-success{display:grid;gap:10px}.dsh-bridge-session{padding:10px;border-radius:8px;background:var(--dsw-alias-state-success-secondary,light-dark(#e8f7ed,#183a26));font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}.dsh-bridge-status{min-height:18px;font-size:11px;color:var(--dsw-alias-label-tertiary,light-dark(#85898f,#a1a1aa))}
 .dsh-bridge-message{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--dsw-alias-label-primary,light-dark(#171717,#f4f4f5))}
+.dsh-bridge-help{margin-top:14px}.dsh-bridge-help>summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary,light-dark(#666,#a1a1aa))}.dsh-bridge-help>.dsh-bridge-panel{margin-top:8px}.dsh-bridge-help>summary:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#2869d8);outline-offset:3px}
 .dsh-bridge-picker{display:grid;gap:8px;margin-top:12px}.dsh-bridge-choices{display:flex;gap:8px;flex-wrap:wrap}.dsh-bridge-after{display:inline-flex;align-items:center;gap:6px}
 .dsh-bridge-choice{position:relative;cursor:pointer}.dsh-bridge-choice input{position:absolute;opacity:0;width:1px;height:1px;margin:0}.dsh-bridge-choice span{display:block;padding:7px 10px;border-radius:7px;font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--dsw-alias-label-secondary,light-dark(#666,#a1a1aa))}
 .dsh-bridge-choice input:checked+span{background:var(--dsw-alias-background-primary,light-dark(#fff,#3a3a40));color:var(--dsw-alias-label-primary,light-dark(#171717,#f4f4f5));box-shadow:0 1px 2px rgba(0,0,0,.18)}.dsh-bridge-choice input:disabled+span{cursor:not-allowed;opacity:.55}.dsh-bridge-choice input:focus-visible+span{outline:2px solid var(--dsw-alias-state-business-primary,#2869d8);outline-offset:2px}
@@ -97,7 +107,8 @@ const COPY = {
     fileFallback: '摘要文件', stalePreview: '这张旧预览没有安全确认标识。请重新运行 /bridge 生成预览，或使用摘要文件流程。',
     afterMigration: '迁移后', waitMode: '等待我确认', continueMode: '直接继续',
     waitHelp: '新会话复述交接后停下，等你确认。', continueHelp: '新会话复述交接后，在同一轮接着做下一步。',
-    pickTarget: '选一个模式生成交接预览：', pickRunning: '正在生成预览，结果会出现在下方的新卡片里。', pickDone: '预览已生成，见下方的新卡片。',
+    pickTarget: '选择目标模式', pickRunning: '正在生成预览，结果会出现在下方的新卡片里。', pickDone: '预览已生成，见下方的新卡片。',
+    pickHelp: '接下来会生成可编辑的交接摘要。确认前不会创建目标会话，原会话保持不动。', commandHelp: '命令行用法（可选）',
   },
   en: {
     title: 'Session handoff', preparing: 'Generating an editable handoff preview', safe: 'The source session stays untouched',
@@ -114,7 +125,8 @@ const COPY = {
     afterMigration: 'After migration', waitMode: 'Wait for my confirmation', continueMode: 'Continue directly',
     waitHelp: 'The new session restates the handoff, then waits for your confirmation.',
     continueHelp: 'The new session restates the handoff and continues with the next step in the same request.',
-    pickTarget: 'Pick a preset to preview a handoff:', pickRunning: 'Generating the preview; it appears in a new card below.', pickDone: 'The preview is ready in the new card below.',
+    pickTarget: 'Choose a target mode', pickRunning: 'Generating the preview; it appears in a new card below.', pickDone: 'The preview is ready in the new card below.',
+    pickHelp: 'Next, review an editable handoff summary. No target is created before you confirm; the source stays untouched.', commandHelp: 'Command-line help (optional)',
   },
 } as const
 
@@ -578,9 +590,15 @@ function MessageCard({ card, execute, sessionId }: {
   sessionId: SessionId
 }) {
   const lang = card.phase === 'message' ? card.lang : (/[㐀-鿿]/u.test(card.text) ? 'zh' : 'en')
+  const copy = COPY[lang]
+  const pickerHelp = card.phase === 'message' && card.picker !== undefined
   return <div className="dsh-bridge-card"><Header lang={lang} /><div className="dsh-bridge-body">
-    <div className="dsh-bridge-panel">{card.phase === 'error' ? <div className="dsh-bridge-error" role="alert">{card.text}</div> : <pre className="dsh-bridge-message">{card.text}</pre>}</div>
+    {pickerHelp ? <div className="dsh-bridge-copy">{copy.pickHelp}</div>
+      : <div className="dsh-bridge-panel">{card.phase === 'error' ? <div className="dsh-bridge-error" role="alert">{card.text}</div> : <pre className="dsh-bridge-message">{card.text}</pre>}</div>}
     {card.picker ? <TargetPicker execute={execute} picker={card.picker} sessionId={sessionId} /> : null}
+    {pickerHelp ? <details className="dsh-bridge-help"><summary>{copy.commandHelp}</summary>
+      <div className="dsh-bridge-panel"><pre className="dsh-bridge-message">{card.text}</pre></div>
+    </details> : null}
   </div></div>
 }
 
@@ -658,6 +676,75 @@ function BridgeCommandCardContent({ node, execute, openSession, sessionId }: Bri
   return <MessageCard card={card} execute={execute} sessionId={sessionId} />
 }
 
+/** No resident chrome: only a failed menu/shortcut launch contributes an inline retry. */
+export function BridgeEntryNotice({ launcher, sessionId, language }: {
+  launcher: BridgeLauncher
+  sessionId: SessionId
+  language?: 'zh' | 'en'
+}) {
+  const lang = language ?? uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
+  const snapshot = useSyncExternalStore(launcher.subscribe, () => launcher.snapshotFor(sessionId), () => launcher.snapshotFor(sessionId))
+  if (!snapshot.error) return null
+  return <div className="dsh-bridge-entry-error" role="alert">
+    <span>{snapshot.error}</span>
+    <button className="dsh-bridge-button" type="button" disabled={snapshot.busy} onClick={() => { void launcher.launch(sessionId) }}>
+      {lang === 'zh' ? '重试打开迁移' : 'Retry handoff picker'}
+    </button>
+  </div>
+}
+
+type BridgeToolCardProps = ToolCallViewProps & BridgeInjected
+
+interface BridgeSessionMenuInjected {
+  readonly launcher: BridgeLauncher
+  readonly menu: BridgeSessionMenuAction
+  readonly subscribe: (listener: () => void) => () => void
+}
+
+/** The public row menu stays useful when the Host's + menu filters argument-taking commands. */
+export function BridgeSessionMenuItem({ launcher, menu, subscribe, sessionId, useMenuOpenState, language }: PropsRuntime<'sidebar.workspaces.session.menu.item'> & BridgeSessionMenuInjected & { language?: 'zh' | 'en' }) {
+  const [, setMenuOpen] = useMenuOpenState()
+  const visible = useSyncExternalStore(subscribe, () => menu.available(sessionId), () => false)
+  const snapshot = useSyncExternalStore(launcher.subscribe, () => launcher.snapshotFor(sessionId), () => launcher.snapshotFor(sessionId))
+  const lang = language ?? uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
+  if (!visible || !MenuItemButton) return null
+  return <MenuItemButton disabled={snapshot.busy} onSelect={() => { menu.select(sessionId, () => { setMenuOpen(false) }) }}>
+    {lang === 'zh' ? '迁移会话' : 'Hand off session'}
+  </MenuItemButton>
+}
+
+/** Natural-language invocation only prepares; the same trusted preview still needs a human click. */
+export function BridgeToolCard(props: BridgeToolCardProps) {
+  const lang = uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
+  let outcome: BridgeOutcome
+  if (props.phase !== 'result') outcome = null
+  else {
+    const presented = props.toolName === 'bridge_prepare' ? readBridgeToolOutcome(props.block.meta) : undefined
+    outcome = presented && (!props.block.isError || presented.kind === 'error') ? presented : {
+      kind: 'error', text: lang === 'zh'
+        ? '无法读取这次交接预览。请重新运行 /bridge，核对摘要后再确认迁移。'
+        : 'This handoff preview is unavailable. Run /bridge again, review the summary, then confirm migration.',
+    }
+    // bridge_prepare never migrates. A malformed result cannot become a target-opening action.
+    if (parseBridgeCard(outcome).phase === 'migrated') outcome = { kind: 'error', text: lang === 'zh'
+      ? '交接工具没有返回待确认的预览。请运行 /bridge。'
+      : 'The handoff tool returned no preview to confirm. Run /bridge.' }
+  }
+  const key = `${props.callId}:${props.phase}:${outcome?.kind ?? 'running'}:${outcome?.text ?? ''}`
+  return <BridgeCardBoundary key={key} lang={lang}>
+    <BridgeCommandCardContent {...props} node={{ outcome } as CommandRowProps['node']} />
+  </BridgeCardBoundary>
+}
+
+/** Same pending review, projected outside collapsed Tool/process rows. */
+export function BridgeReviewNode(props: ChatNodeViewProps<'dsh-bridge-review'> & BridgeInjected) {
+  const lang = uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
+  const outcome = props.node.data.outcome
+  return <BridgeCardBoundary key={`${props.node.key}:${outcome.kind}:${outcome.text ?? ''}`} lang={lang}>
+    <BridgeCommandCardContent {...props} node={{ outcome } as CommandRowProps['node']} />
+  </BridgeCardBoundary>
+}
+
 /** Rich renderer for the durable command lifecycle keyed by name and isolated from every other plugin. */
 export function BridgeCommandCard(props: BridgeCommandCardProps) {
   const lang = uiLanguageOf(typeof document === 'undefined' ? undefined : document.documentElement.lang)
@@ -676,6 +763,72 @@ export function apply(ctx: ClientContext): void {
   const commands = (ctx as unknown as { remote: { commands: CommandRemote } }).remote.commands
   const navigation = new AbortController()
   ctx.effect(() => () => { navigation.abort() }, 'bridge: target session navigation')
+  const execute: BridgeInjected['execute'] = async (sessionId, line) => {
+    const result = await commands.execute(sessionId, line, [])
+    if (!result.ok) throw new Error(`${result.error?.code ?? 'command-failed'}: ${result.error?.message ?? 'The host rejected the command.'}`)
+    if (result.value === undefined) throw new Error('The /bridge command was not admitted by the host.')
+    return result.value.result
+  }
+  const openSession: BridgeInjected['openSession'] = async (sessionId, lang) => {
+    await openBridgeSessionWhenVisible(ctx, sessionId, { lang, signal: navigation.signal })
+  }
+  const launcher = createBridgeLauncher({ execute: async (sessionId, line) => {
+    const binding = ctx.sessions.binding?.(sessionId as SessionId)
+    const message = bridgeEntryUnavailable(binding?.session.getSnapshot(), uiLanguageOf(document.documentElement.lang))
+    if (message) {
+      // Hero hides command cards and composer.dock. The public per-Session
+      // input notice is visible there, without changing drafts or sending RPCs.
+      try { binding?.ctx.get('conversation')?.input.for(binding.ctx).notify('error', message) } catch { /* custom clients retain the local error fallback */ }
+      throw new Error(message)
+    }
+    return execute(sessionId as SessionId, line)
+  } })
+  ctx.effect(() => () => launcher.dispose(), 'bridge: entry point lifetime')
+  ctx.inject(['uiSession', 'layout'], scope => {
+    const menu = createBridgeSessionMenuAction({
+      currentSession: () => scope.uiSession.adapter.current.getSnapshot().key as SessionId | undefined,
+      conversationVisible: () => scope.layout.panelInfo.getSnapshot().activePanelId === null,
+      blocked: () => hasBridgeEntryDialog(typeof document === 'undefined' ? undefined : document),
+      launch: sessionId => { void launcher.launch(sessionId) },
+    })
+    scope.effect(() => () => menu.dispose(), 'bridge: session menu action lifetime')
+    const subscribe = (listener: () => void) => {
+      const offSession = scope.uiSession.adapter.current.subscribe?.(listener)
+      const offPanel = scope.layout.panelInfo.subscribe?.(listener)
+      return () => { offSession?.(); offPanel?.() }
+    }
+    scope.slots.inject('sidebar.workspaces.session.menu.item', () => scope.slots.register({
+      name: 'sidebar.workspaces.session.menu.item', id: 'dsh-plugin-bridge/handoff', order: 350,
+      inject: (): BridgeSessionMenuInjected => ({ launcher, menu, subscribe }),
+    }, BridgeSessionMenuItem))
+  })
+  // The composer's + button uses this Host command directory. A decoration
+  // enhances its existing row instead of adding duplicate chrome or a command.
+  ctx.inject(['commandUi', 'uiSession', 'layout'], scope => {
+    scope.effect(() => {
+      try {
+        return registerBridgeCommandMenu(scope.commandUi, {
+          currentSession: () => scope.uiSession.adapter.current.getSnapshot().key as SessionId | undefined,
+          conversationVisible: () => scope.layout.panelInfo.getSnapshot().activePanelId === null,
+          blocked: () => hasBridgeEntryDialog(typeof document === 'undefined' ? undefined : document),
+          launch: sessionId => { void launcher.launch(sessionId) },
+        })
+      } catch { return () => {} }
+    }, 'bridge: native command menu entry')
+  })
+  // Missing optional services disable only this child; the original command/card stays usable.
+  ctx.inject(['shortcuts', 'uiSession', 'layout'], scope => {
+    scope.effect(() => {
+      try {
+        return registerBridgeShortcut(scope.shortcuts, {
+          chinese: () => uiLanguageOf(document.documentElement.lang) === 'zh',
+          currentSession: () => scope.uiSession.adapter.current.getSnapshot().key as SessionId | undefined,
+          conversationVisible: () => scope.layout.panelInfo.getSnapshot().activePanelId === null,
+          launch: sessionId => { void launcher.launch(sessionId) },
+        })
+      } catch { return () => {} }
+    }, 'bridge: configurable keyboard entry')
+  })
   ctx.effect(() => {
     const prior = document.querySelector(`style[data-plugin-css="${STYLE_ID}"]`)
     if (prior !== null) return () => {}
@@ -690,17 +843,27 @@ export function apply(ctx: ClientContext): void {
     name: 'conversation.chat.commandview',
     key: 'bridge',
     inject: (): BridgeInjected => ({
-      execute: async (sessionId, line) => {
-        const result = await commands.execute(sessionId, line, [])
-        if (!result.ok) throw new Error(`${result.error?.code ?? 'command-failed'}: ${result.error?.message ?? 'The host rejected the command.'}`)
-        if (result.value === undefined) throw new Error('The /bridge command was not admitted by the host.')
-        return result.value.result
-      },
-      openSession: async (sessionId, lang) => {
-        await openBridgeSessionWhenVisible(ctx, sessionId, { lang, signal: navigation.signal })
-      },
+      execute,
+      openSession,
     }),
   }, BridgeCommandCard))
+  ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
+    name: 'conversation.composer.dock', id: 'dsh-plugin-bridge/entry-error', order: 30,
+    inject: () => ({ launcher }),
+  }, BridgeEntryNotice))
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+    name: 'tool.call.toolview', key: 'bridge_prepare', inject: () => ({ execute, openSession }),
+  }, BridgeToolCard))
+  ctx.inject(['uiConversation'], scope => {
+    // Older clients can expose the service before this public registry existed.
+    // Only this projection is optional; commands and native Tool cards stay usable.
+    if (typeof scope.uiConversation.events?.register === 'function') {
+      scope.uiConversation.events.register(createBridgeReviewDefinition())
+    }
+  })
+  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
+    name: 'conversation.chat.node', key: 'dsh-bridge-review', inject: () => ({ execute, openSession }),
+  }, BridgeReviewNode))
   // Older hosts can lack this seat. Slot injection waits for its owner and does
   // not add another required client service or replace any other plugin entry.
   const planSlots=ctx.slots as unknown as {

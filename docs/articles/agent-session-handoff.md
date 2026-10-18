@@ -112,7 +112,7 @@ It also avoids a hidden local vision model. The route is visible: either preserv
 
 ## Cost is a request-shape decision, not a universal percentage
 
-Installing Bridge adds zero prompt tokens to ordinary sessions. `/bridge` is handled by the host and only invokes a summary worker when migration is requested.
+The command-only versions measured in this article add zero prompt tokens to ordinary sessions. `/bridge` is handled by the host and only invokes a summary worker when migration is requested. The newer optional natural-language entry has tool-description overhead; see the current README rather than applying that historical zero-overhead claim to every configuration.
 
 In the fixed 12-cell release acceptance, the default confirmation path always used two target requests to reach first useful work. `--continue` always used one. That request-count difference is stable.
 

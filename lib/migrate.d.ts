@@ -1,5 +1,5 @@
 import { type BridgeSource } from './compression.ts';
-import { type BridgeHostInput, type ModelSelection, type PresetRow, type SessionRow } from './host.ts';
+import { type BridgeHost, type BridgeHostInput, type ModelSelection, type PresetRow, type SessionRow } from './host.ts';
 import type { ChatMessage } from './types.ts';
 export type { ModelSelection, PresetRow, SessionRow } from './host.ts';
 export type ModelTier = 'flash' | 'current' | 'pro';
@@ -39,6 +39,8 @@ export declare function resolveWorkerModel(input: BridgeHostInput, sessionId: st
 /** 压缩工人用哪个 preset：优先 minimal，其次 standard，再否则 host 默认。 */
 export declare function resolveWorkerPreset(input: BridgeHostInput): Promise<string | undefined>;
 export interface WaitOptions {
+    /** Owner cancellation, separate from the polling deadline. */
+    signal?: AbortSignal;
     timeoutMs?: number;
     /** 等待新一轮执行事件的宽限期；超过仍未出现就按未启动处理。 */
     startGraceMs?: number;
@@ -87,10 +89,22 @@ export type WorkerFailureCode = 'worker-failed' | 'worker-aborted' | 'worker-tim
 /** Host facts carried in `RpcError.details` for a worker failure, so callers can localize it. */
 export interface WorkerFailureDetails {
     turnEnd?: TurnEndSummary;
+    /** Preserve a primary provider failure while making failed cleanup visible. */
+    cleanupFailure?: {
+        code: string;
+        message: string;
+    };
     /** The wait bound that expired, for `worker-timeout` and `worker-not-started`. */
     waitedMs?: number;
 }
 export interface PreviewOptions {
+    signal?: AbortSignal;
+    /** Fresh bounded port: cleanup must not inherit the aborted invocation port. */
+    cleanupHostFor?: (signal: AbortSignal) => BridgeHost;
+    /** Cleanup read/poll budget, clamped to at most five seconds. */
+    cleanupTimeoutMs?: number;
+    /** Shared only with Bridge's preview tool to reject recursive worker calls. */
+    workerSessionIds?: Set<string>;
     sessionId: string;
     /** 同一命令读到的源会话快照；动态工作目录在创建前仍会重新读取。 */
     sourceSession?: SessionRow;

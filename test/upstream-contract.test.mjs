@@ -70,6 +70,7 @@ test('both READMEs document the alpha.3/alpha.4 HMR upgrade boundary before remo
 });
 
 test('both READMEs separate current admission from acceptance and retain the diagnosed host limitation', async () => {
+  const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   for (const file of ['README.md', 'README.zh.md']) {
     const text = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
     assert.ok(text.includes('docs/compatibility/dsh-0.2.1-alpha.4-2026-10-16.md'));
@@ -86,7 +87,7 @@ test('both READMEs separate current admission from acceptance and retain the dia
     assert.ok(/actual pnpm|宿主实际.*pnpm/u.test(text), `${file} must distinguish the Host executable from a shell version`);
     assert.ok(/overlapping package operations|重叠包操作/u.test(text), `${file} must avoid retrying over a pending package operation`);
     assert.ok(/historical[^\n]*not a PASS|历史[^\n]*不算 PASS/u.test(text), `${file} must preserve the original failed operation`);
-    assert.ok(text.includes('github:Totoro-qaq/dsh-plugin-bridge#v0.4.7'));
+    assert.ok(text.includes(`github:Totoro-qaq/dsh-plugin-bridge#v${pkg.version}`));
     assert.doesNotMatch(text, /publication is paused|发布暂停|0\.4\.6 is an unpublished candidate|0\.4\.6 是未发布候选版/u);
   }
 });
