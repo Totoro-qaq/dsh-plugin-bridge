@@ -106,8 +106,9 @@ cleanup and **214/214** existing migration/Host/plan/metadata targets, plus
 typecheck and whitespace checks; no new P1/P2 issue was found. Workshop's exact
 host/evidence metadata is updated to include the actually exercised rc.2;
 the existing bounded engine and alpha.4 development pins are unchanged.
-Documentation/metadata-only repack identity, committed-build verification,
-CI, merge, Release, npm and index readback are still pending release gates.
+The documentation/metadata-only repack retained all 39 tested runtime files,
+and the committed-build verification passed. CI, merge, Release, npm and
+index readback remain separate post-commit gates.
 
 The model tool shares the command's handler and pending-preview identity. It
 accepts no session ID, summary, file, arbitrary command, confirmation or
