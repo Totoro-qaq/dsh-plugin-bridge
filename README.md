@@ -25,7 +25,7 @@ Halfway through a task and need another tool preset? Switching the produced sess
 
 ## Quick start
 
-Bridge **0.5.0** adds a conversation-menu action, a configurable shortcut and natural-language preparation, while keeping preview, editing and human confirmation. The candidate passed isolated official **0.2.1-rc.2 Web and native macOS Desktop** handoffs and a keyless **0.2.0-rc.2** backward check. The [acceptance record](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md) separates runtime tests, their limits and pending publication checks. The bounded **0.2.1** admission policy introduced in **0.4.7** remains unchanged; see [Support policy](#support-policy) before treating an admitted future version as tested.
+Bridge **0.5.1** admits the DSH **0.2.2** alpha line, including published `0.2.2-alpha.2`. Bridge **0.5.0** adds a conversation-menu action, a configurable shortcut and natural-language preparation, while keeping preview, editing and human confirmation. The 0.5.0 candidate passed isolated official **0.2.1-rc.2 Web and native macOS Desktop** handoffs and a keyless **0.2.0-rc.2** backward check. The [acceptance record](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md) separates runtime tests, their limits and pending publication checks. Admission of a later alpha is not that acceptance; see [Support policy](#support-policy).
 
 Check the Host's **actual pnpm executable** when installing or removing packages. pnpm 11.22.0 has a known late-worker shutdown bug that can keep a package operation alive after printing Done; natural DSH reproductions isolated the upstream fixes. Use **11.26.0 or later**, which includes the [upstream fixes](https://github.com/pnpm/pnpm/releases/tag/v11.26.0), and avoid **overlapping package operations**. If an operation is pending, wait for it to settle or stop the Host normally before using the offline CLI. Bridge does not bundle pnpm or upgrade your tools automatically.
 
@@ -48,7 +48,7 @@ Before either replacement, finish or save pending handoffs: previews and unconfi
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.0
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.1
 ```
 
 ### Discover
@@ -156,15 +156,17 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 ### Support policy
 
-From Bridge **0.4.7**, `engines.dsh` is an installation-admission range, not an exact list of tested releases:
+From Bridge **0.4.7**, `engines.dsh` is an installation-admission range, not an exact list of tested releases. Bridge **0.5.1** keeps that policy and, after comparing `@deepseek-ai/dsh@0.2.2-alpha.2` with the already admitted `0.2.1-rc.4`, admits the 0.2.2 alpha line:
 
 ```text
->=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0
+>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0 || >=0.2.2-alpha <0.2.2-beta
 ```
 
-The previous host terms are unchanged. The 0.2.1 term admits later alpha/beta/rc builds and final 0.2.1, but not 0.2.2 prereleases or later versions. DSH evaluates this field with `includePrerelease: true`; the explicit `<0.2.2-0` ceiling avoids a caret unintentionally admitting later 0.2.x prereleases.
+The previous host terms are unchanged. The 0.2.1 term still admits later alpha/beta/rc builds and final 0.2.1, and its `<0.2.2-0` ceiling still excludes every 0.2.2 prerelease. The separate `>=0.2.2-alpha <0.2.2-beta` term admits `0.2.2-alpha` and later `0.2.2-alpha.*`, including published `0.2.2-alpha.2`, and stops before `0.2.2-beta`. Beta, rc and stable 0.2.2 stay out until another boundary review. DSH evaluates this field with `includePrerelease: true`. A caret such as `^0.2.1-alpha.1` would also admit later 0.2.x prereleases; this range does not.
 
-Admission is not acceptance. The table, version-specific reports and Workshop's exact `dshVersions` name only exercised hosts. Published package metadata is a snapshot; later passing documentation checks do not silently rewrite an old npm artifact. Compatible 0.2.1 updates need a diff review and short acceptance pass, not a new npm release merely to append an alpha number. Actual code/dependency/packaging fixes still require a release, and a new version family requires reviewing the boundary. The verified exact alpha.4 development SDK baseline is retained; it does not have to advance for every compatible Host. `/bridge --doctor` helps identify missing capabilities but does not replace migration acceptance.
+`0.2.2-alpha.2` removed `sessionController.inspect`. Bridge reads that host's history through `sessionController.events` (or the deprecated `page` alias) and still uses `sessionController.inspect` when the host provides it. Command registration, goals, plan-review actions, shortcuts and the client slots Bridge uses stayed compatible. This adapter change is not a Web or Desktop acceptance of `0.2.2-alpha.2`. That host requires Node.js `>=24.9.0`; Bridge's own Node declaration stays `>=22` for older hosts. The development SDK pins remain `0.2.1-alpha.4`.
+
+Admission is not acceptance. The table, version-specific reports and Workshop's exact `dshVersions` name only exercised hosts. Published package metadata is a snapshot; later passing documentation checks do not silently rewrite an old npm artifact. Compatible updates inside an admitted line need a diff review and short acceptance pass, not a new npm release merely to append an alpha number. Actual code/dependency/packaging fixes still require a release, and a new version family requires reviewing the boundary. The verified exact alpha.4 development SDK baseline is retained; it does not have to advance for every compatible Host. `/bridge --doctor` helps identify missing capabilities but does not replace migration acceptance.
 
 Since Bridge **0.4.0**, **Approve in new session** is available on the official plan-review card, verified on DSH **0.2.0-rc.2** and **0.2.1-alpha.1** WebUI. Enter `/plan` and review the plan submitted through `exit_plan_mode`, then choose the Bridge action. It stops the original planning turn, leaves that session in plan mode, creates a fresh session with the same preset/model/workspace, transfers the approved plan verbatim in its kickoff, and starts implementation there. The host's existing **Approve** and **Request changes** controls keep their ordinary behavior. See [the approved-plan workflow](docs/approved-plan-handoff.md).
 

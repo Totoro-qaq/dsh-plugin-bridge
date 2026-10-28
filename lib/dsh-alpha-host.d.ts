@@ -2,6 +2,22 @@ import { type ApiProxyLike } from './api-rpc.ts';
 import { type BridgeHost, type BridgeHostProbe } from './host.ts';
 import type { SessionEvent } from './types.ts';
 type UnknownRecord = Record<string, unknown>;
+/** `0.2.2-alpha.2` 的 `events` / 废弃 `page` 请求。只读普通会话，不激活 Agent。 */
+interface AlphaEventPageRequest {
+    address: {
+        kind: 'session';
+        sessionId: string;
+    };
+    beforeSeq?: number;
+    maxMessages?: number;
+}
+/** 宿主已经按消息窗口切好的一页。`records` 是 `{ event }` 信封。 */
+interface AlphaEventPage {
+    records?: readonly {
+        event?: SessionEvent;
+    }[];
+    hasMore?: boolean;
+}
 interface AlphaSessionController {
     list(request: {
         cursor?: string;
@@ -9,10 +25,15 @@ interface AlphaSessionController {
         items?: unknown[];
     }>;
     create(request: UnknownRecord): Promise<UnknownRecord>;
-    inspect(sessionId: string, signal?: AbortSignal): Promise<{
+    /** 0.2.1 及更早的 typed controller 一次返回整段快照。0.2.2-alpha.2 已删除。 */
+    inspect?(sessionId: string, signal?: AbortSignal): Promise<{
         meta: UnknownRecord;
         events: SessionEvent[];
     }>;
+    /** 0.2.2-alpha.2 的冷历史页。没有 `inspect` 时使用。 */
+    events?(request: AlphaEventPageRequest, signal: AbortSignal): Promise<AlphaEventPage>;
+    /** `events` 的废弃别名，签名相同，只在 `events` 也不存在时使用。 */
+    page?(request: AlphaEventPageRequest, signal: AbortSignal): Promise<AlphaEventPage>;
     modelCatalog(): Promise<UnknownRecord>;
     selectModel(request: UnknownRecord): Promise<unknown>;
     prompt(request: UnknownRecord, signal: AbortSignal): Promise<unknown>;

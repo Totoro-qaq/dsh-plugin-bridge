@@ -22,10 +22,28 @@ import type { SessionEvent } from './types.ts'
 
 type UnknownRecord = Record<string, unknown>
 
+/** `0.2.2-alpha.2` 的 `events` / 废弃 `page` 请求。只读普通会话，不激活 Agent。 */
+interface AlphaEventPageRequest {
+  address: { kind: 'session'; sessionId: string }
+  beforeSeq?: number
+  maxMessages?: number
+}
+
+/** 宿主已经按消息窗口切好的一页。`records` 是 `{ event }` 信封。 */
+interface AlphaEventPage {
+  records?: readonly { event?: SessionEvent }[]
+  hasMore?: boolean
+}
+
 interface AlphaSessionController {
   list(request: { cursor?: string }, signal: AbortSignal): Promise<{ items?: unknown[] }>
   create(request: UnknownRecord): Promise<UnknownRecord>
-  inspect(sessionId: string, signal?: AbortSignal): Promise<{ meta: UnknownRecord; events: SessionEvent[] }>
+  /** 0.2.1 及更早的 typed controller 一次返回整段快照。0.2.2-alpha.2 已删除。 */
+  inspect?(sessionId: string, signal?: AbortSignal): Promise<{ meta: UnknownRecord; events: SessionEvent[] }>
+  /** 0.2.2-alpha.2 的冷历史页。没有 `inspect` 时使用。 */
+  events?(request: AlphaEventPageRequest, signal: AbortSignal): Promise<AlphaEventPage>
+  /** `events` 的废弃别名，签名相同，只在 `events` 也不存在时使用。 */
+  page?(request: AlphaEventPageRequest, signal: AbortSignal): Promise<AlphaEventPage>
   modelCatalog(): Promise<UnknownRecord>
   selectModel(request: UnknownRecord): Promise<unknown>
   prompt(request: UnknownRecord, signal: AbortSignal): Promise<unknown>
@@ -56,10 +74,18 @@ interface AlphaServices {
 
 type ContextLike = AlphaServices & { get?: (name: string) => unknown }
 
+/** 有快照就继续用快照，避免改变 0.2.1 宿主的分页；否则改走宿主自己的历史页。 */
+function historyReader(controller: Partial<AlphaSessionController> | undefined) {
+  if (typeof controller?.inspect === 'function') return controller.inspect
+  if (typeof controller?.events === 'function') return controller.events
+  if (typeof controller?.page === 'function') return controller.page
+  return undefined
+}
+
 const ALPHA_METHODS: Record<string, (services: AlphaServices) => unknown> = {
   'session.list': services => services.sessionController?.list,
   'session.create': services => services.sessionController?.create,
-  'session.history': services => services.sessionController?.inspect,
+  'session.history': services => historyReader(services.sessionController),
   'session.models': services => services.sessionController?.modelCatalog,
   'session.selectModel': services => services.sessionController?.selectModel,
   'session.prompt': services => services.sessionController?.prompt,
@@ -206,6 +232,46 @@ function paginateHistory(
   }
 }
 
+/** 把 0.2.2 的 `events`/`page` 结果收成 Bridge 的 `{ events, hasMore }`。 */
+async function readEventPage(
+  controller: Partial<AlphaSessionController>,
+  sessionId: string,
+  beforeSeq: number | undefined,
+  maxMessages: number,
+  signal: AbortSignal,
+): Promise<{ events: { event: SessionEvent }[]; hasMore: boolean }> {
+  const read = typeof controller.events === 'function' ? controller.events : controller.page
+  const page = required('session.history', read)
+  const value = await invoke('session.history', () => page.call(controller, {
+    address: { kind: 'session', sessionId },
+    ...(beforeSeq === undefined ? {} : { beforeSeq }),
+    maxMessages,
+  }, signal))
+  const records = Array.isArray(value?.records) ? value.records : []
+  return {
+    events: records.flatMap(record => {
+      const event = record?.event
+      return event !== null && typeof event === 'object' ? [{ event }] : []
+    }),
+    hasMore: value?.hasMore === true,
+  }
+}
+
+async function readSessionHistory(
+  controller: Partial<AlphaSessionController> | undefined,
+  sessionId: string,
+  beforeSeq: number | undefined,
+  maxMessages: number,
+  signal: AbortSignal,
+): Promise<{ events: { event: SessionEvent }[]; hasMore: boolean }> {
+  if (typeof controller?.inspect === 'function') {
+    const inspect = controller.inspect
+    const value = await invoke('session.history', () => inspect.call(controller, sessionId, signal))
+    return paginateHistory(value.events, beforeSeq, maxMessages)
+  }
+  return readEventPage(required('session.history', controller), sessionId, beforeSeq, maxMessages, signal)
+}
+
 async function resolvedAgent(services: AlphaServices, sessionId: string): Promise<unknown> {
   const resolve = required('session.resolveAgent', services.sessionController?.resolveAgent)
   const result = await invoke('session.resolveAgent', () => resolve.call(services.sessionController, sessionId))
@@ -248,16 +314,10 @@ export function createDshAlphaHost(input: ContextLike, signal?: AbortSignal): Br
         return await invoke('session.create', () => create.call(controller, request)) as { sessionId: string; agentPreset?: string }
       },
       history: async (request, options) => {
-        const inspect = required('session.history', controller?.inspect)
         const readingSignal = options?.signal && options.signal !== abort ? AbortSignal.any([abort, options.signal]) : abort
-        const value = await invoke('session.history', () => inspect.call(controller, request.sessionId, readingSignal))
-        return paginateHistory(value.events, request.beforeSeq, request.maxMessages ?? 60)
+        return readSessionHistory(controller, request.sessionId, request.beforeSeq, request.maxMessages ?? 60, readingSignal)
       },
-      historyWindow: async request => {
-        const inspect = required('session.history', controller?.inspect)
-        const value = await invoke('session.history', () => inspect.call(controller, request.sessionId, abort))
-        return paginateHistory(value.events, undefined, request.maxMessages)
-      },
+      historyWindow: async request => readSessionHistory(controller, request.sessionId, undefined, request.maxMessages, abort),
       models: async ({ sessionId }) => {
         const list = required('session.list', controller?.list)
         const catalog = required('session.models', controller?.modelCatalog)
