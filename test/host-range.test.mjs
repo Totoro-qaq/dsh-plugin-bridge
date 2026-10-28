@@ -49,12 +49,25 @@ test('0.2.1 prereleases and stable releases no longer require per-alpha admissio
   }
 });
 
+test('the reviewed 0.2.2 alpha line is admitted without opening beta, rc, or stable 0.2.2', () => {
+  for (const includePrerelease of [true, false]) {
+    for (const version of ['0.2.2-alpha', '0.2.2-alpha.1', '0.2.2-alpha.2', '0.2.2-alpha.10']) {
+      assert.equal(semver.satisfies(version, pkg.engines.dsh, { includePrerelease }), true,
+        `${version} should be admitted with includePrerelease=${includePrerelease}`);
+    }
+    for (const version of ['0.2.2-0', '0.2.2-beta', '0.2.2-beta.1', '0.2.2-rc.1', '0.2.2', '0.2.3-alpha.1']) {
+      assert.equal(semver.satisfies(version, pkg.engines.dsh, { includePrerelease }), false,
+        `${version} must stay outside the alpha line with includePrerelease=${includePrerelease}`);
+    }
+  }
+});
+
 test('admission stays bounded below the next patch prerelease and retains unsupported gaps', () => {
   for (const includePrerelease of [true, false]) {
     for (const version of [
       '0.0.99', '0.1.0-alpha.1', '0.1.0-rc.6',
       '0.2.0-alpha.1', '0.2.0-rc.1', '0.2.0-rc.3', '0.2.0',
-      '0.2.2-0', '0.2.2-alpha.1', '0.2.2-rc.1', '0.2.2',
+      '0.2.2-0', '0.2.2-beta', '0.2.2-rc.1', '0.2.2',
       '0.2.3-alpha.1', '0.3.0-alpha.1', '1.0.0',
     ]) {
       assert.equal(semver.satisfies(version, pkg.engines.dsh, { includePrerelease }), false,

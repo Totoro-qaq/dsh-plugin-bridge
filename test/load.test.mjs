@@ -174,8 +174,10 @@ test('DSH peers 声明 * 并由 engines.dsh 约束宿主范围，不引用已移
   }
   assert.equal(semver.satisfies('0.2.1-alpha.5', manifest.engines.dsh, { includePrerelease: true }), true,
     'engines.dsh 接受同一 0.2.1 补丁线的后续版本，不需要逐个枚举 alpha');
-  assert.equal(semver.satisfies('0.2.2-alpha.1', manifest.engines.dsh, { includePrerelease: true }), false,
-    '不能自动放行未经下一轮兼容审查的 0.2.2 预发布');
+  assert.equal(semver.satisfies('0.2.2-alpha.2', manifest.engines.dsh, { includePrerelease: true }), true,
+    'engines.dsh 接受已经过契约审查的 0.2.2 alpha 线，包括已发布的 alpha.2');
+  assert.equal(semver.satisfies('0.2.2-beta.1', manifest.engines.dsh, { includePrerelease: true }), false,
+    '0.2.2 的 beta、rc 和正式版仍要单独审查，不能随 alpha 线放行');
   assert.equal(manifest.peerDependencies['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.peerDependenciesMeta['@deepseek-ai/dsh-client-runtime'], undefined);
   assert.equal(manifest.devDependencies['@deepseek-ai/dsh-client-runtime'], undefined);

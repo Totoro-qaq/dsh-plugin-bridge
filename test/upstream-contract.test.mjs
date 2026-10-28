@@ -42,7 +42,9 @@ test('DSH alpha.5 admission uses the bounded patch range and preserves the verif
   const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
   assert.equal(semver.satisfies('0.2.1-alpha.5', pkg.engines.dsh, { includePrerelease: true }), true);
   assert.equal(semver.satisfies('0.2.1-alpha.6', pkg.engines.dsh, { includePrerelease: true }), true);
-  assert.equal(semver.satisfies('0.2.2-alpha.1', pkg.engines.dsh, { includePrerelease: true }), false);
+  assert.equal(semver.satisfies('0.2.2-alpha.2', pkg.engines.dsh, { includePrerelease: true }), true);
+  assert.equal(semver.satisfies('0.2.2-beta.1', pkg.engines.dsh, { includePrerelease: true }), false);
+  assert.equal(semver.satisfies('0.2.2', pkg.engines.dsh, { includePrerelease: true }), false);
   assert.equal(lock.packages[''].engines.dsh, pkg.engines.dsh);
   assert.equal(pkg.devDependencies['@deepseek-ai/dsh-api-session-controller'], '0.2.1-alpha.4');
 });
@@ -79,6 +81,9 @@ test('both READMEs separate current admission from acceptance and retain the dia
     assert.ok(text.includes('0.4.7'));
     assert.ok(text.includes('0.4.6'));
     assert.ok(text.includes('>=0.2.1-alpha.1 <0.2.2-0'), `${file} must explain the bounded admission range`);
+    assert.ok(text.includes('>=0.2.2-alpha <0.2.2-beta'), `${file} must explain the 0.2.2 alpha admission`);
+    assert.ok(text.includes('sessionController.inspect'), `${file} must name the removed history snapshot`);
+    assert.ok(text.includes('sessionController.events'), `${file} must name the 0.2.2 history page`);
     assert.match(text, /Support policy|兼容策略/u);
     assert.ok(/mixed-format|混合格式/u.test(text), `${file} must preserve the observed Text fallback boundary`);
     assert.ok(/different-business-byte|不同业务字节/u.test(text), `${file} must preserve the hot replacement boundary`);

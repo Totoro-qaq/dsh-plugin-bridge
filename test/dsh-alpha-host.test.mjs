@@ -207,6 +207,73 @@ test('alpha probe fails closed when one required controller is missing', () => {
   assert.equal(report.find((row) => row.method === 'session.prompt').available, false);
 });
 
+test('0.2.2-alpha history uses events when inspect is gone and keeps the inspect snapshot on older hosts', async () => {
+  const events = [
+    { type: 'user/message', seq: 0, time: 1, data: { content: [{ type: 'text', text: 'older' }] } },
+    { type: 'assistant/message', seq: 1, time: 2, data: { message: { content: [{ type: 'text', text: 'kept' }] } } },
+    { type: 'turn/start', seq: 2, time: 3, data: {} },
+    { type: 'user/message', seq: 3, time: 4, data: { content: [{ type: 'text', text: 'newer' }] } },
+  ];
+  const { services } = fixture();
+  let eventCalls = 0;
+  delete services.sessionController.inspect;
+  services.sessionController.events = async (request, signal) => {
+    eventCalls += 1;
+    assert.equal(signal.aborted, false);
+    assert.deepEqual(request.address, { kind: 'session', sessionId: 's-source' });
+    assert.equal(request.maxMessages, 2);
+    assert.equal(request.beforeSeq, undefined);
+    return {
+      records: events.slice(-2).map(event => ({ type: 'event', event })),
+      hasMore: true,
+      cursor: 3,
+    };
+  };
+
+  const host = createDshAlphaHost(services);
+  assert.equal(probeDshAlphaHost(services).find(row => row.method === 'session.history').available, true);
+  const tail = await host.sessions.history({ sessionId: 's-source', maxMessages: 2 });
+  assert.equal(eventCalls, 1);
+  assert.equal(tail.hasMore, true);
+  assert.deepEqual(tail.events.map(entry => entry.event.seq), [2, 3]);
+
+  services.sessionController.events = async (request) => {
+    eventCalls += 1;
+    assert.equal(request.beforeSeq, 2);
+    assert.equal(request.maxMessages, 2);
+    return { records: [{ type: 'event', event: events[0] }], hasMore: false };
+  };
+  const older = await host.sessions.history({ sessionId: 's-source', beforeSeq: 2, maxMessages: 2 });
+  assert.deepEqual(older.events.map(entry => entry.event.seq), [0]);
+  assert.equal(older.hasMore, false);
+
+  const inspected = fixture();
+  let inspections = 0;
+  let unexpectedEvents = 0;
+  inspected.services.sessionController.inspect = async () => {
+    inspections += 1;
+    return { meta: {}, events };
+  };
+  inspected.services.sessionController.events = async () => { unexpectedEvents += 1; return { records: [], hasMore: false }; };
+  const legacy = createDshAlphaHost(inspected.services);
+  const window = await legacy.sessions.historyWindow({ sessionId: 's-source', maxMessages: 1 });
+  assert.equal(inspections, 1);
+  assert.equal(unexpectedEvents, 0);
+  assert.deepEqual(window.events.map(entry => entry.event.type), ['user/message']);
+
+  delete services.sessionController.events;
+  services.sessionController.page = async (request) => {
+    assert.equal(request.maxMessages, 4);
+    return { records: events.map(event => ({ type: 'event', event })), hasMore: false };
+  };
+  assert.equal(probeDshAlphaHost(services).every(row => row.available), true);
+  const alias = await createDshAlphaHost(services).sessions.historyWindow({ sessionId: 's-source', maxMessages: 4 });
+  assert.equal(alias.events.length, 4);
+
+  delete services.sessionController.page;
+  assert.equal(probeDshAlphaHost(services).find(row => row.method === 'session.history').available, false);
+});
+
 test('optional service discovery never touches Cordis properties without inject', () => {
   const { services } = fixture();
   const cordis = new Proxy({

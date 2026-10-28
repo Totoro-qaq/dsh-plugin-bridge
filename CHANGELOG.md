@@ -2,6 +2,12 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.5.1 — 2026-10-28
+
+- Admit the DSH 0.2.2 alpha line in `engines.dsh` with `>=0.2.2-alpha <0.2.2-beta`, retaining every earlier host term. Published `0.2.2-alpha.2` matches. `0.2.2-beta`, release candidates, stable 0.2.2 and later minors stay outside admission. This is installation admission, not Web or Desktop acceptance, and Workshop's named `dshVersions` list is unchanged.
+- Read typed-controller history through `sessionController.events`, or the deprecated `page` alias, when `sessionController.inspect` is absent. Hosts that still provide `inspect` keep the snapshot path. The published 0.2.2-alpha.2 package removed `inspect`; command registration, goals, plan-review actions and the client slots Bridge uses stayed compatible with 0.2.1-rc.4.
+- Keep the verified `0.2.1-alpha.4` development SDK pins. The 0.2.2-alpha.2 host requires Node.js `>=24.9.0`; Bridge's own `engines.node` stays `>=22` for older hosts.
+
 ## 0.4.6 — 2026-10-16
 
 - Add exact DSH `0.2.1-alpha.4` to `engines.dsh` and the bounded Workshop `dshVersions` list, retaining all older declarations. Alpha.4's installer refuses 0.4.5's narrower engine; no compatibility exemption is added.
