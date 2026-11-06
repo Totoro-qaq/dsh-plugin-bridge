@@ -25,7 +25,7 @@ Halfway through a task and need another tool preset? Switching the produced sess
 
 ## Quick start
 
-Bridge **0.5.1** admits the DSH **0.2.2** alpha line, including published `0.2.2-alpha.2`. Bridge **0.5.0** adds a conversation-menu action, a configurable shortcut and natural-language preparation, while keeping preview, editing and human confirmation. The 0.5.0 candidate passed isolated official **0.2.1-rc.2 Web and native macOS Desktop** handoffs and a keyless **0.2.0-rc.2** backward check. The [acceptance record](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md) separates runtime tests, their limits and pending publication checks. Admission of a later alpha is not that acceptance; see [Support policy](#support-policy).
+Bridge **0.5.2** admits the published DSH **0.2.2** line through stable 0.2.2, including `0.2.2-rc.1`. Bridge **0.5.1** admitted the 0.2.2 alpha line, including published `0.2.2-alpha.2`. Bridge **0.5.0** adds a conversation-menu action, a configurable shortcut and natural-language preparation, while keeping preview, editing and human confirmation. The 0.5.0 candidate passed isolated official **0.2.1-rc.2 Web and native macOS Desktop** handoffs and a keyless **0.2.0-rc.2** backward check. The [acceptance record](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md) separates runtime tests, their limits and pending publication checks. Admission of a later alpha is not that acceptance; see [Support policy](#support-policy).
 
 Check the Host's **actual pnpm executable** when installing or removing packages. pnpm 11.22.0 has a known late-worker shutdown bug that can keep a package operation alive after printing Done; natural DSH reproductions isolated the upstream fixes. Use **11.26.0 or later**, which includes the [upstream fixes](https://github.com/pnpm/pnpm/releases/tag/v11.26.0), and avoid **overlapping package operations**. If an operation is pending, wait for it to settle or stop the Host normally before using the offline CLI. Bridge does not bundle pnpm or upgrade your tools automatically.
 
@@ -48,7 +48,7 @@ Before either replacement, finish or save pending handoffs: previews and unconfi
 Pinned GitHub fallback:
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.1
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.2
 ```
 
 ### Discover
@@ -156,13 +156,13 @@ The five sections are Goal, Current state, Key decisions and conventions, Key fi
 
 ### Support policy
 
-From Bridge **0.4.7**, `engines.dsh` is an installation-admission range, not an exact list of tested releases. Bridge **0.5.1** keeps that policy and, after comparing `@deepseek-ai/dsh@0.2.2-alpha.2` with the already admitted `0.2.1-rc.4`, admits the 0.2.2 alpha line:
+From Bridge **0.4.7**, `engines.dsh` is an installation-admission range, not an exact list of tested releases. Bridge **0.5.2** keeps that policy and widens the 0.2.2 clause so published `0.2.2-rc.1` matches. Bridge **0.5.1** admitted the alpha line after comparing `@deepseek-ai/dsh@0.2.2-alpha.2` with the already admitted `0.2.1-rc.4`:
 
 ```text
->=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0 || >=0.2.2-alpha <0.2.2-beta
+>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0 || >=0.2.2-alpha <0.2.3-0
 ```
 
-The previous host terms are unchanged. The 0.2.1 term still admits later alpha/beta/rc builds and final 0.2.1, and its `<0.2.2-0` ceiling still excludes every 0.2.2 prerelease. The separate `>=0.2.2-alpha <0.2.2-beta` term admits `0.2.2-alpha` and later `0.2.2-alpha.*`, including published `0.2.2-alpha.2`, and stops before `0.2.2-beta`. Beta, rc and stable 0.2.2 stay out until another boundary review. DSH evaluates this field with `includePrerelease: true`. A caret such as `^0.2.1-alpha.1` would also admit later 0.2.x prereleases; this range does not.
+The previous host terms are unchanged. The 0.2.1 term still admits later alpha/beta/rc builds and final 0.2.1, and its `<0.2.2-0` ceiling still excludes every 0.2.2 prerelease. The separate `>=0.2.2-alpha <0.2.3-0` term admits `0.2.2-alpha` and later `0.2.2-alpha.*`, including published `0.2.2-alpha.2` and `0.2.2-alpha.3`, then beta, rc (including published `0.2.2-rc.1`) and stable 0.2.2. The ceiling is `0.2.3-0`, so every 0.2.3 prerelease stays outside. The previous ceiling `<0.2.2-beta` rejected `0.2.2-rc.1` because `rc` sorts after `beta`. `0.2.2-0` stays below the `0.2.2-alpha` lower bound. DSH evaluates this field with `includePrerelease: true`. A caret such as `^0.2.1-alpha.1` (`>=0.2.1-alpha.1 <0.3.0-0`) would also admit later 0.2.x prereleases, including 0.2.3; this range stops at the next patch prerelease.
 
 `0.2.2-alpha.2` removed `sessionController.inspect`. Bridge reads that host's history through `sessionController.events` (or the deprecated `page` alias) and still uses `sessionController.inspect` when the host provides it. Command registration, goals, plan-review actions, shortcuts and the client slots Bridge uses stayed compatible. This adapter change is not a Web or Desktop acceptance of `0.2.2-alpha.2`. That host requires Node.js `>=24.9.0`; Bridge's own Node declaration stays `>=22` for older hosts. The development SDK pins remain `0.2.1-alpha.4`.
 

@@ -2,6 +2,10 @@
 
 本文件记录对使用者可见的变化。版本遵循语义化版本。
 
+## 0.5.2 — 2026-11-06
+
+- Widen the DSH 0.2.2 clause in `engines.dsh` from `>=0.2.2-alpha <0.2.2-beta` to `>=0.2.2-alpha <0.2.3-0`, retaining every earlier host term. Published `0.2.2-rc.1` sorts after `0.2.2-beta`, so the old ceiling rejected it under `includePrerelease: true`; npm `latest` and `next` are both `0.2.2-rc.1`. The new ceiling matches the 0.2.1 pattern (`>=0.2.1-alpha.1 <0.2.2-0`): it admits `0.2.2-alpha` and later 0.2.2 prereleases, including `0.2.2-alpha.3`, betas, release candidates and stable 0.2.2, and stops before `0.2.3-0`. `0.2.2-0` stays outside the alpha lower bound. `0.2.1-rc.5` remains inside the existing 0.2.1 term. This is installation admission, not Web or Desktop acceptance, and Workshop's named `dshVersions` list is unchanged. Runtime source, generated `lib/`, dependencies and the `0.2.1-alpha.4` SDK pins are unchanged.
+
 ## 0.5.1 — 2026-10-28
 
 - Admit the DSH 0.2.2 alpha line in `engines.dsh` with `>=0.2.2-alpha <0.2.2-beta`, retaining every earlier host term. Published `0.2.2-alpha.2` matches. `0.2.2-beta`, release candidates, stable 0.2.2 and later minors stay outside admission. This is installation admission, not Web or Desktop acceptance, and Workshop's named `dshVersions` list is unchanged.

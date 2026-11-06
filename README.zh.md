@@ -25,7 +25,7 @@
 
 ## 快速开始
 
-Bridge **0.5.1** 放行 DSH **0.2.2** alpha 线，包括已发布的 `0.2.2-alpha.2`。Bridge **0.5.0** 新增会话菜单、可配置快捷键和自然语言入口，保留预览、编辑和人工确认。0.5.0 候选包已通过官方 **0.2.1-rc.2 Web 与原生 macOS 桌面端**的隔离迁移验收，以及 **0.2.0-rc.2** 无密钥旧宿主回归。[验收记录](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)区分了实测、限制和待完成的发布核验。后续 alpha 获准安装不等于这次验收，详见[兼容策略](#兼容策略)。
+Bridge **0.5.2** 放行已发布的 DSH **0.2.2** 线，直到 0.2.2 正式版，包括 `0.2.2-rc.1`。Bridge **0.5.1** 放行了 0.2.2 alpha 线，包括已发布的 `0.2.2-alpha.2`。Bridge **0.5.0** 新增会话菜单、可配置快捷键和自然语言入口，保留预览、编辑和人工确认。0.5.0 候选包已通过官方 **0.2.1-rc.2 Web 与原生 macOS 桌面端**的隔离迁移验收，以及 **0.2.0-rc.2** 无密钥旧宿主回归。[验收记录](docs/compatibility/dsh-0.2.1-rc.2-entrypoints-2026-10-18.md)区分了实测、限制和待完成的发布核验。后续 alpha 获准安装不等于这次验收，详见[兼容策略](#兼容策略)。
 
 安装或卸载包时，请核对**宿主实际调用的 pnpm 可执行文件**。pnpm 11.22.0 存在已知的 late-worker 退出缺陷，可能在输出 Done 后仍不结束；自然 DSH 对照已隔离上游修复。建议使用包含[上游修复](https://github.com/pnpm/pnpm/releases/tag/v11.26.0)的 **11.26.0 或更新版本**，不要重叠包操作。存在未结束操作时，先等待其完成，或正常停止宿主后再使用离线 CLI。Bridge 不附带 pnpm，也不会自动升级你的工具。
 
@@ -48,7 +48,7 @@ CLI 替换时，先停止使用目标 profile 的宿主，再执行 `dsh plugin 
 GitHub 固定版本备用路径：
 
 ```bash
-dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.1
+dsh plugin --profile web add github:Totoro-qaq/dsh-plugin-bridge#v0.5.2
 ```
 
 ### Discover
@@ -156,13 +156,13 @@ token 百分比会随 preset、回复长度和缓存状态大幅波动；worker 
 
 ### 兼容策略
 
-Bridge **0.4.7** 起，`engines.dsh` 表示安装准入范围，不再充当逐个版本的实测名单。Bridge **0.5.1** 沿用该策略，并在把 `@deepseek-ai/dsh@0.2.2-alpha.2` 与已准入的 `0.2.1-rc.4` 对照之后，放行 0.2.2 alpha 线：
+Bridge **0.4.7** 起，`engines.dsh` 表示安装准入范围，不再充当逐个版本的实测名单。Bridge **0.5.2** 沿用该策略，并把 0.2.2 条款放宽到已发布的 `0.2.2-rc.1`。Bridge **0.5.1** 在把 `@deepseek-ai/dsh@0.2.2-alpha.2` 与已准入的 `0.2.1-rc.4` 对照之后，放行了 0.2.2 alpha 线：
 
 ```text
->=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0 || >=0.2.2-alpha <0.2.2-beta
+>=0.1.0-rc.7 <0.2.0-0 || 0.2.0-rc.2 || >=0.2.1-alpha.1 <0.2.2-0 || >=0.2.2-alpha <0.2.3-0
 ```
 
-旧宿主范围不变。0.2.1 范围仍允许后续 alpha、beta、rc 和 0.2.1 正式版，它的 `<0.2.2-0` 上限仍排除全部 0.2.2 预发布版。另一段 `>=0.2.2-alpha <0.2.2-beta` 允许 `0.2.2-alpha` 及后续 `0.2.2-alpha.*`，包括已发布的 `0.2.2-alpha.2`，并在 `0.2.2-beta` 之前停下。0.2.2 的 beta、rc 和正式版要等下一次边界审查。DSH 使用 `includePrerelease: true` 评估该字段。`^0.2.1-alpha.1` 这类 caret 还会放行后续 0.2.x 预发布版；这个范围不会。
+旧宿主范围不变。0.2.1 范围仍允许后续 alpha、beta、rc 和 0.2.1 正式版，它的 `<0.2.2-0` 上限仍排除全部 0.2.2 预发布版。另一段 `>=0.2.2-alpha <0.2.3-0` 允许 `0.2.2-alpha` 及后续 `0.2.2-alpha.*`，包括已发布的 `0.2.2-alpha.2` 与 `0.2.2-alpha.3`，以及 beta、rc（包括已发布的 `0.2.2-rc.1`）和 0.2.2 正式版。上界是 `0.2.3-0`，因此 0.2.3 的全部预发布版仍在范围外。原先的 `<0.2.2-beta` 会拒绝 `0.2.2-rc.1`，因为 `rc` 排在 `beta` 之后。`0.2.2-0` 仍低于 `0.2.2-alpha` 下界。DSH 使用 `includePrerelease: true` 评估该字段。`^0.2.1-alpha.1`（即 `>=0.2.1-alpha.1 <0.3.0-0`）还会放行后续 0.2.x 预发布版，包括 0.2.3；这个范围停在下一个补丁的预发布版之前。
 
 `0.2.2-alpha.2` 删除了 `sessionController.inspect`。该宿主的历史改由 `sessionController.events`（或已废弃的 `page` 别名）读取；宿主仍提供 `sessionController.inspect` 时继续走原来的快照。命令注册、goal、计划评审动作、快捷键和 Bridge 使用的客户端插槽保持兼容。这次适配不是 `0.2.2-alpha.2` 的 Web 或桌面端验收。该宿主要求 Node.js `>=24.9.0`；Bridge 自己的 Node 声明仍是 `>=22`，以便旧宿主继续运行。开发 SDK 仍钉在 `0.2.1-alpha.4`。
 
